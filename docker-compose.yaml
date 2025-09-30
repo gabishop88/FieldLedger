@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:18
+    restart: always
+    container_name: fieldledger_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - fieldledger-db-data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+      - POSTGRES_DB=fieldledger_db
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+    # ports:
+    #   - "5432:5432"
+
+  backend:
+    image: ./backend
+    container_name: fieldledger_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/fieldledger_db
+
+  frontend:
+    build: ./frontend
+    container_name: fieldledger_ui
+
+volumes:
+  fieldledger-db-data:

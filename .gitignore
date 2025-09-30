@@ -1,5 +1,8 @@
-.env
-__pycache__/
-venv/
+__pycache__
+app.egg-info
 *.pyc
-db_data/
+.mypy_cache
+.coverage
+htmlcov
+.cache
+.venv
