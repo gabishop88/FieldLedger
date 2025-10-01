@@ -182,4 +182,24 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
 9. Create `./backend/Dockerfile` and fill it out based on reference project
 10. Edit `./backend/alembic.ini` to basically match reference project (comment the path stuff out)
 11. Delete `./backend/main.py` that was created somewhere along the way (probably `uv init`)
-
+12. Set up basic backend project structure by creating:
+    1. folders `./backend/app/api`, `./backend/app/core`, `./backend/app/db`
+    2. `./backend/app/__init__.py`
+    3. `./backend/app/api/__init__.py`
+    4. `./backend/app/core/__init__.py`
+    5. `./backend/app/db/__init__.py`
+    6. Create `./backend/app/api/routes` and add `./backend/app/api/routes/__init__.py`
+    7. Create `./backend/app/db/crud` and add `./backend/app/db/crud/__init__.py`
+13. In order to edit `./backend/app/alembic/env.py` (which is the next step) I need to implement some other project files so that I can match the `env.py` from the reference project:
+    1. Create `./backend/app/core/config.py`
+    2. Create `./backend/app/db/models.py`
+    3. `uv add pydantic pydantic_settings; uv sync`
+    4. Fill out config.py with the Settings class from the reference project
+    5. Fill out FieldLedger/.env with the env variables from the reference project.
+    6. I removed the DOCKER_IMAGE_FRONTEND/_BACKEND for now, and hardcoded them in `./docker-compose.yaml`
+    7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
+    8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
+    9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
+ 14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
+     1. For now, I commented out any models in app.db.models to keep things as simple as possible.
+     2. `uv run alembic revision --autogenerate -m "init"
