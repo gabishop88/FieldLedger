@@ -175,7 +175,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
 2. `cd backend`
 3. `mkdir app`
 4. `uv init --python 3.12 --name app`
-5. `uv add fastapi uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
+5. `uv add fastapi[standard] uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
 6. `uv add --dev pytest mypy ruff pre-commit coverage`
 7. `uv sync`
 8. `uv run alembic init app/alembic`
@@ -200,6 +200,11 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
     7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
     8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
     9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
- 14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
+14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
      1. For now, I commented out any models in app.db.models to keep things as simple as possible.
-     2. `uv run alembic revision --autogenerate -m "init"
+     2. `docker compose up -d --build`
+     3. ran into an issue: `unable to get image './backend': Cannot connect to the Docker daemon at unix:///home/gbishop3/.docker/desktop/docker.sock. Is the docker daemon running?`
+     4. `sudo systemctl status docker` (says active?!)
+     5. `export DOCKER_HOST=unix:///var/run/docker.sock` (thanks ChatGPT). This worked for now, but I will either need to find another way or add this to a .bashrc or something?
+     6. After fixing a few errors in `docker-compose.yaml` and `./backend/Dockerfile`, the containers started.
+     7. 

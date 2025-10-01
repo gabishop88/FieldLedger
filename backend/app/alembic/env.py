@@ -5,25 +5,16 @@ from alembic import context
 from app.db.models import SQLModel
 from app.core.config import settings
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# Access to the config options in the .ini file
+# `opt = config.get_main_option("opt")` to get options from .ini to use in env.py.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Set up loggers, interpret config file for python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = SQLModel.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
 
 def get_url() -> str:
@@ -46,7 +37,6 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True
     )
-
     with context.begin_transaction():
         context.run_migrations()
 

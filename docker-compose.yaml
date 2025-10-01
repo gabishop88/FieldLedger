@@ -1,40 +1,41 @@
 services:
   db:
-    image: postgres:18
-    restart: always
+    image: postgis/postgis:18-3.6
     container_name: fieldledger_db
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 1m30s
-      timeout: 30s
+      interval: 30s
+      timeout: 10s
       retries: 5
       start_period: 30s
     volumes:
-      - fieldledger-db-data:/var/lib/postgresql/data
+      - fieldledger-data:/var/lib/postgresql/data
     env_file:
       - .env
-    environment:
-      - PGDATA=/var/lib/postgresql/data
-      - POSTGRES_DB=fieldledger_db
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
 
   backend:
-    image: ./backend
+    build:
+      context: ./backend
+    image: backend:dev
     container_name: fieldledger_api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
     environment:
-      - DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/fieldledger_db
+      - DATABASE_URL=postgres+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
 
-  frontend:
-    build: ./frontend
-    container_name: fieldledger_ui
+  # frontend:
+  #   build: ./frontend
+  #   container_name: fieldledger_ui
 
 volumes:
-  fieldledger-db-data:
+  fieldledger-data:

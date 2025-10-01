@@ -1,47 +1,37 @@
+# syntax=docker/dockerfile:1
 # Reminder: This is almost directly taken from https://github.com/fastapi/full-stack-fastapi-template
 # with minor changes and updates
 
 FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1
+# See: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
+# See: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
+# See: https://docs.astral.sh/uv/guides/integration/docker/#caching
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PATH="/app/.venv/bin:$PATH" \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 WORKDIR /app/
 
-# Install uv
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
+# Install uv https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
 COPY --from=ghcr.io/astral-sh/uv:0.8.22 /uv /uvx /bin/
 
-# Place the uv executables at the front of the $PATH env variable (to use uv python venv)
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Compile bytecode
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
-ENV UV_COMPILE_BYTECODE=1
-
-# uv Cache
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#caching
-ENV UV_LINK_MODE=copy
-
-# Install Python Dependencies using uv
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
+# Install Python dependencies (only deps here)
+# See: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
+COPY pyproject.toml uv.lock /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 
-ENV PYTHONPATH=/app
-
-# Copy all needed files to the docker image
-# TODO: Copy ./scripts -> /app/scripts?
-
-COPY ./pyproject.toml ./uv.lock ./alembic.ini /app/
-
+# Copy over app code
+COPY ./alembic.ini /app/
 COPY ./app /app/app
-COPY ./tests/ /app/tests
+# COPY ./tests/ /app/tests
 
-# Sync the project
+# Sync with project installed
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync 
 
+# Default command for production
 CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
