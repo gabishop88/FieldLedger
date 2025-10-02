@@ -207,4 +207,13 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      4. `sudo systemctl status docker` (says active?!)
      5. `export DOCKER_HOST=unix:///var/run/docker.sock` (thanks ChatGPT). This worked for now, but I will either need to find another way or add this to a .bashrc or something?
      6. After fixing a few errors in `docker-compose.yaml` and `./backend/Dockerfile`, the containers started.
-     7. 
+     7. (after `docker compose up -d --build` for the last time) I ran `docker compose exec backend uv run alembic revision --autogenerate -m "init"`
+     8. Of course there were errors, which I fixed through the `docker-compose.yaml` environment setup to generate my first alembic revision. I realized it was trying to remove a bunch of stuff provided by PostGIS, so I am going to have to do something about that before I commit any changes.
+     9. I also changed `docker-compose.yaml` to bind the backend container to my project directory. It is a little risky and should probably be changed later, but allows the changes, particularly the alembic revisions to be saved in my actual project directory, meaning they will be properly saved and applied even if I destroy the docker containers and rebuild them or the volumes.
+     10. `docker compose down -v` and removed all volumes as well. I am clearing everything to prepare for my next attempt.
+     11. 
+
+Workflow for updating the database:
+
+1. Make the changes to `./backend/app/db/models.py`
+2. Make sure the db container is running: `docker compose up -d --build` or just `docker compsoe up -d db`
