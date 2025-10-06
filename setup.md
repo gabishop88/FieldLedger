@@ -65,15 +65,15 @@ docker compose down -v
 
 > While running, services will be available at:
 >
-> `backend` (API Base): http://localhost:8000
+> `backend` (API Base): <http://localhost:8000>
 >
-> `backend` (API Docs): http://localhost:8000/docs or http://localhost:8000/redoc
+> `backend` (API Docs): <http://localhost:8000/docs> or <http://localhost:8000/redoc>
 >
-> `frontend` (User Interface): http://localhost:5173
+> `frontend` (User Interface): <http://localhost:5173>
 >
-> `adminer` (Database Manager): http://localhost:8080
+> `adminer` (Database Manager): <http://localhost:8080>
 >
-> `traefik` (Network Dashboard): http://localhost:8090
+> `traefik` (Network Dashboard): <http://localhost:8090>
 
 ## 4. Backend Development
 
@@ -109,7 +109,7 @@ The setup is configured so that you can run backend tests through the VS Code Py
 
 ### 4.4 Alembic Migrations
 
-If you update the `models.py` or need to make changes to the database, you can do so through an Alembic migration. Once you make the changes in the Sqlalchemy models, or have the SQL script prepared for the change, you can perform an Alembic migration to apply those changes to the database, in a persistent and versioned way. 
+If you update the `models.py` or need to make changes to the database, you can do so through an Alembic migration. Once you make the changes in the Sqlalchemy models, or have the SQL script prepared for the change, you can perform an Alembic migration to apply those changes to the database, in a persistent and versioned way.
 
 If you are inside the `backend` Docker container:
 
@@ -119,17 +119,8 @@ docker compose exec backend bash
 
 To get a terminal for the following commands. If you are running the backend outside of a container, you can do so with your editor's terminal. #TODO: fact check this
 
-1. Create a new migration
-
-```bash
-alembic revision --autogenerate -m "Describe what you changed"
-```
-
-2. Apply Migration
-
-```bash
-alembic upgrade head
-```
+1. Create a new migration: `alembic revision --autogenerate -m "Describe what you changed"`
+2. Apply Migration: `alembic upgrade head`
 
 ### 4.5 Backend Tests
 
@@ -151,7 +142,9 @@ You can forward additional arguments to PyTest just by adding them at the end.
 
 Once the tests are run, `htmlcov/index.html` is generated. you can open this in your browser to see test coverage.
 
-### 4.? Future Proofing
+### 4.6 Future Proofing
+
+#### 4.6.1 Updating tools
 
 Here are a few things that may need updated, and how to do so.
 
@@ -165,7 +158,29 @@ Here are a few things that may need updated, and how to do so.
    4. update any references to the old version to use the newer version in `./backend/pyproject.toml`.
    5. #TODO: Figure out what else needs changed to update python version.
 
-### 4.?? My Setup
+## 5. Workflows
+
+These are short guides on how to properly edit different things.
+
+:warning: All of these things should be done in a development environment. Please don't stop containers in a production or staging environment to make experimental changes. To apply properly tested changes, see the section on deployment (#TODO: insert link to this section?)
+
+### 5.1 Editing the database structure
+
+If you want to update the database structure, i.e. make changes to tables, functions, schemas, extensions, or really anything that is not just updating the data stored by the database, then you can follow these steps to make database changes in a way that they will be safe and properly versioned.
+
+> #TODO: test this to make sure the `alembic current` part works and only returns one result, etc. Do I need something more like: `$(uv run alembic current --head-only | tr -d '[:space:]')
+
+1. Always back up your data before making changes. Here is the command I recommend: `pg_dump -h localhost -p 5432 -U postgres -d fieldledger_db -Fc -f app/alembic/backups/$(date +%m%d%Y)_rev_$(uv run alembic current)`. Since the database in the db docker container is also accessible from localhost, this will get the data from that container. You may want to replace `localhost`, `5432`, `postgres` or `fieldldger_db` with their own values if those values were changed in `.env`. Alternately, you can modify that command to use env variables directly.
+2. With your data backed up, you can make your edits:
+3. Now, you should make the database changes.
+   1. To edit tables, simply edit their sqlmodel representations in `./backend/app/db/models.py`.
+   2. Now, begin an alembic revision with `docker compose exec uv run alembic revision --autogenerate -m "summary of your edits"`
+   3. If you are making changes to schemas, functions, or other database components that are not tables (which should always be edited using `models.py`), you can open the alembic migration script for this migration (the filename is given when it was generated in the previous line) and execute SQL commands with `op.execute("SQL COMMAND")`. Even if you are just editing tables check this file to make sure the edits that were generated by alembic make sense for what you intended to change.
+   4. Once you have everything in the migration checked over and ready to go, you can apply the alembic changes with `docker compose exec uv run alembic upgrade head`. This will apply the changes and update the database with your changes.
+   5. Now, make sure that your data is still in tact, if there is an issue, some options include downgrading, restoring the data, and trying again, or in a worst-case scenario, stopping docker, deleting the volume, using alembic to recreate the database back into any revision necessary, and restoring the data from that revision using the associated file in `data_snapshots/`.
+   6. Once your database modification is working, make sure to update any project code that may need to be updated to reflect the change, update or create tests to make sure the modifications are covered, and test everything to make sure something unexpected has not broken.
+
+## ?. My Setup Process
 
 I just wanted to put here a list of the commands I ran for my initial setup, in case they are helpful later.
 
@@ -211,9 +226,11 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      8. Of course there were errors, which I fixed through the `docker-compose.yaml` environment setup to generate my first alembic revision. I realized it was trying to remove a bunch of stuff provided by PostGIS, so I am going to have to do something about that before I commit any changes.
      9. I also changed `docker-compose.yaml` to bind the backend container to my project directory. It is a little risky and should probably be changed later, but allows the changes, particularly the alembic revisions to be saved in my actual project directory, meaning they will be properly saved and applied even if I destroy the docker containers and rebuild them or the volumes.
      10. `docker compose down -v` and removed all volumes as well. I am clearing everything to prepare for my next attempt.
-     11. 
+     11. I saw that I could remove a file (`alembic.ini`) so I added the configs that are supported into `pyproject.toml` and removed the logging setup in `alembic/env.py` and it seems to work the same, but now with `alembic.ini` gone. If I need those logging config options later, I can always undo this step.
 
 Workflow for updating the database:
 
 1. Make the changes to `./backend/app/db/models.py`
-2. Make sure the db container is running: `docker compose up -d --build` or just `docker compsoe up -d db`
+2. Make sure the db container is running: `docker compose up -d --build` or just `docker compose up -d db`.
+
+### 4.

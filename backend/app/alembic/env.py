@@ -1,4 +1,3 @@
-from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
@@ -9,9 +8,12 @@ from app.core.config import settings
 # `opt = config.get_main_option("opt")` to get options from .ini to use in env.py.
 config = context.config
 
+# NOTE: I commented this section so I could delete alembic.ini.
+# If I need to work with logging, I can either add back alembic.ini or do it manually.
 # Set up loggers, interpret config file for python logging
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# from logging.config import fileConfig
+# if config.config_file_name is not None:
+#     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 target_metadata = SQLModel.metadata

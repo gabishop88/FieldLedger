@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1
-# Reminder: This is almost directly taken from https://github.com/fastapi/full-stack-fastapi-template
-# with minor changes and updates
-
 FROM python:3.12-slim
+# This is heavily inspired by https://github.com/fastapi/full-stack-fastapi-template
 
 # See: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 # See: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
@@ -25,7 +23,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project
 
 # Copy over app code
-COPY ./alembic.ini /app/
 COPY ./app /app/app
 # COPY ./tests/ /app/tests
 

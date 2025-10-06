@@ -5,5 +5,11 @@
   "python.terminal.activateEnvironment": true,
   "python.analysis.extraPaths": [
     "backend"
-  ]
+  ],
+  "material-icon-theme.folders.associations": {
+    "crud": "resource",
+    "versions": "update",
+    ".uv": "packages",
+    "db-init": "database"
+  }
 }
