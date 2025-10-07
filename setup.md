@@ -230,5 +230,13 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      12. Now, everything seems to (finally) be in order for my first alembic revision. I created one with `docker compose exec backend uv run alembic revision -m "extension setup"`.
      13. I realized that creating this inside the docker container made it so that I can only edit the revision file in my local editor if I use sudo to save it. To fix this, I deleted it and tried again with `uv run alembic revision -m "extension setup"` since it shouldn't matter whether I create it from inside the container or not since they share my local project directory. This had to be done inside of `cd backend`. I edited my revision (see `app/alembic/versions/467c05fa4c34_extension_setup.py`)
      14. I used `docker compose exec backend uv run alembic upgrade head` to apply the changes to the database. Afterwards, I used pgAdmin4 (doesn't matter what tool) to look at the database and make sure the updates were applied.
-
-### 4.
+15. I accidentally lost a bunch of progress working towards getting roles properly setup (including my steps here), so here are the steps I took to get back to (hopefully) where I left off:
+    1. First, I had noticed that I accidentally included my .env in my commits. I purged them from my commit history (but accidentally lost my uncommited changes in the process). So, the first thing I am doing is adding .env to .gitignore.
+    2. Next, I am changing my .env to change my default admin user `POSTGRES_USER` and `POSTGRES_PASSWORD` to an admin user, and in the process adding new env variables for two new users, `POSTGRES_API_USER` and `POSTGRES_READONLY_USER` (plus their passwords). These are to separate permissions into an admin role which can modify database structure and will be used by alembic, an api role that can only read/modify data, and a readonly role that I don't have a specific use for but makes sense to have.
+    3. Now, I am adding a .env.example file to the git repo so that I can show what is required to have in the .env file, but not show all my secrets.
+    4. With this, I am modifying my `backend/app/core/config.py` to replace `SQLALCHEMY_DATABASE_URI` with my three connections, `ADMIN_DATABASE_URI`, `API_DATABASE_URI`, and `READONLY_DATABASE_URI`.
+    5. Who knows what broke in the docker container, so I am removing everything, `docker compose down -v`
+    6. `alembic revision -m "role setup"` -> fill in ..._role_setup.py with role stuff.
+    7. Now, test that everything is working correctly. `docker compose up -d --build`, log in on pgAdmin4 with new admin role (works)
+    8. `docker compose exec backend alembic upgrade head`, check roles and schemas on pgAdmin4 (looks good!)
+    9. Commit on github and push everything!

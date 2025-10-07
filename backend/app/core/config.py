@@ -54,13 +54,43 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
 
+    POSTGRES_API_USER: str
+    POSTGRES_API_PASSWORD: str = ""
+
+    POSTGRES_READONLY_USER: str
+    POSTGRES_READONLY_PASSWORD: str = ""
+
     @computed_field
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+    def ADMIN_DATABASE_URI(self) -> PostgresDsn:
         return PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_SERVER,
+            port=self.POSTGRES_PORT,
+            path=self.POSTGRES_DB,
+        )
+
+    @computed_field
+    @property
+    def API_DATABASE_URI(self) -> PostgresDsn:
+        return PostgresDsn.build(
+            scheme="postgresql+psycopg",
+            username=self.POSTGRES_API_USER,
+            password=self.POSTGRES_API_PASSWORD,
+            host=self.POSTGRES_SERVER,
+            port=self.POSTGRES_PORT,
+            path=self.POSTGRES_DB,
+        )
+
+    @computed_field
+    @property
+    def READONLY_DATABASE_URI(self) -> PostgresDsn:
+        return PostgresDsn.build(
+            scheme="postgresql+psycopg",
+            username=self.POSTGRES_READONLY_USER,
+            password=self.POSTGRES_READONLY_PASSWORD,
             host=self.POSTGRES_SERVER,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
@@ -110,4 +140,4 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings() # type: ignore
+settings = Settings()  # type: ignore
