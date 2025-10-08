@@ -247,7 +247,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      3. Since it is straightforward, I also created the `client` fixture that can test the API.
      4. I created the database `engine` and a connection check in `app/db/__init__.py`. I think that maybe this should be moved to its own .py file, but this at least ensures the database engine's validity automatically any time you import from the `app.db`. My reasoning for this was to avoid setting up scripts to do prechecks and initializations every time you run the app through scripts, since they will be run one whenever the project is built anyway. Since docker makes the backend container wait on the health of the db container anyway, this should always be fine.
      5. I committed these basic changes without adding any actual tests or scripts, since I still don't have much of the basic setup that I need to run the tests. I also want to figure out which of the scripts for testing, or performing alembic migrations I will need and how to integrate them.
-  18. 
+  18. Now, since it doesn't rely on anything else, but later stuff does rely on it, I wanted to add `app/core/security.py`
 
 > Functions I will probably have to add to fieldledger_db:
 >
