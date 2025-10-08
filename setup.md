@@ -186,36 +186,36 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
 
 (after installing general dependencies from Section 1)
 
-1. `mkdir frontend backend`
-2. `cd backend`
-3. `mkdir app`
-4. `uv init --python 3.12 --name app`
-5. `uv add fastapi[standard] uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
-6. `uv add --dev pytest mypy ruff pre-commit coverage`
-7. `uv sync`
-8. `uv run alembic init app/alembic`
-9. Create `./backend/Dockerfile` and fill it out based on reference project
-10. Edit `./backend/alembic.ini` to basically match reference project (comment the path stuff out)
-11. Delete `./backend/main.py` that was created somewhere along the way (probably `uv init`)
-12. Set up basic backend project structure by creating:
-    1. folders `./backend/app/api`, `./backend/app/core`, `./backend/app/db`
-    2. `./backend/app/__init__.py`
-    3. `./backend/app/api/__init__.py`
-    4. `./backend/app/core/__init__.py`
-    5. `./backend/app/db/__init__.py`
-    6. Create `./backend/app/api/routes` and add `./backend/app/api/routes/__init__.py`
-    7. Create `./backend/app/db/crud` and add `./backend/app/db/crud/__init__.py`
-13. In order to edit `./backend/app/alembic/env.py` (which is the next step) I need to implement some other project files so that I can match the `env.py` from the reference project:
-    1. Create `./backend/app/core/config.py`
-    2. Create `./backend/app/db/models.py`
-    3. `uv add pydantic pydantic_settings; uv sync`
-    4. Fill out config.py with the Settings class from the reference project
-    5. Fill out FieldLedger/.env with the env variables from the reference project.
-    6. I removed the DOCKER_IMAGE_FRONTEND/_BACKEND for now, and hardcoded them in `./docker-compose.yaml`
-    7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
-    8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
-    9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
-14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
+ 1. `mkdir frontend backend`
+ 2. `cd backend`
+ 3. `mkdir app`
+ 4. `uv init --python 3.12 --name app`
+ 5. `uv add fastapi[standard] uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
+ 6. `uv add --dev pytest mypy ruff pre-commit coverage`
+ 7. `uv sync`
+ 8. `uv run alembic init app/alembic`
+ 9. Create `./backend/Dockerfile` and fill it out based on reference project
+ 10. Edit `./backend/alembic.ini` to basically match reference project (comment the path stuff out)
+ 11. Delete `./backend/main.py` that was created somewhere along the way (probably `uv init`)
+ 12. Set up basic backend project structure by creating:
+     1. folders `./backend/app/api`, `./backend/app/core`, `./backend/app/db`
+     2. `./backend/app/__init__.py`
+     3. `./backend/app/api/__init__.py`
+     4. `./backend/app/core/__init__.py`
+     5. `./backend/app/db/__init__.py`
+     6. Create `./backend/app/api/routes` and add `./backend/app/api/routes/__init__.py`
+     7. Create `./backend/app/db/crud` and add `./backend/app/db/crud/__init__.py`
+ 13. In order to edit `./backend/app/alembic/env.py` (which is the next step) I need to implement some other project files so that I can match the `env.py` from the reference project:
+     1. Create `./backend/app/core/config.py`
+     2. Create `./backend/app/db/models.py`
+     3. `uv add pydantic pydantic_settings; uv sync`
+     4. Fill out config.py with the Settings class from the reference project
+     5. Fill out FieldLedger/.env with the env variables from the reference project.
+     6. I removed the DOCKER_IMAGE_FRONTEND/_BACKEND for now, and hardcoded them in `./docker-compose.yaml`
+     7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
+     8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
+     9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
+ 14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
      1. For now, I commented out any models in app.db.models to keep things as simple as possible.
      2. `docker compose up -d --build`
      3. ran into an issue: `unable to get image './backend': Cannot connect to the Docker daemon at unix:///home/gbishop3/.docker/desktop/docker.sock. Is the docker daemon running?`
@@ -230,7 +230,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      12. Now, everything seems to (finally) be in order for my first alembic revision. I created one with `docker compose exec backend uv run alembic revision -m "extension setup"`.
      13. I realized that creating this inside the docker container made it so that I can only edit the revision file in my local editor if I use sudo to save it. To fix this, I deleted it and tried again with `uv run alembic revision -m "extension setup"` since it shouldn't matter whether I create it from inside the container or not since they share my local project directory. This had to be done inside of `cd backend`. I edited my revision (see `app/alembic/versions/467c05fa4c34_extension_setup.py`)
      14. I used `docker compose exec backend uv run alembic upgrade head` to apply the changes to the database. Afterwards, I used pgAdmin4 (doesn't matter what tool) to look at the database and make sure the updates were applied.
-15. I accidentally lost a bunch of progress working towards getting roles properly setup (including my steps here), so here are the steps I took to get back to (hopefully) where I left off:
+ 15. I accidentally lost a bunch of progress working towards getting roles properly setup (including my steps here), so here are the steps I took to get back to (hopefully) where I left off:
     1. First, I had noticed that I accidentally included my .env in my commits. I purged them from my commit history (but accidentally lost my uncommited changes in the process). So, the first thing I am doing is adding .env to .gitignore.
     2. Next, I am changing my .env to change my default admin user `POSTGRES_USER` and `POSTGRES_PASSWORD` to an admin user, and in the process adding new env variables for two new users, `POSTGRES_API_USER` and `POSTGRES_READONLY_USER` (plus their passwords). These are to separate permissions into an admin role which can modify database structure and will be used by alembic, an api role that can only read/modify data, and a readonly role that I don't have a specific use for but makes sense to have.
     3. Now, I am adding a .env.example file to the git repo so that I can show what is required to have in the .env file, but not show all my secrets.
@@ -239,4 +239,12 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
     6. `alembic revision -m "role setup"` -> fill in ..._role_setup.py with role stuff.
     7. Now, test that everything is working correctly. `docker compose up -d --build`, log in on pgAdmin4 with new admin role (works)
     8. `docker compose exec backend alembic upgrade head`, check roles and schemas on pgAdmin4 (looks good!)
-    9. Commit on github and push everything!
+    9. Commit on github properly this time.
+ 16. I was experimenting with the copilot to help me create my first table models. I still had to do most of the work, so I am not really sure it is worth using. However, I created my first three tables: `identity.app_user`, `asset.farm`, and `ref.field_type`. This is just a sample of three different types of tables that don't rely on any other tables to get me started. Now, I used `alembic revision --autogenerate -m "first tables"`. I realized that the autogenerated revision wanted to drop the `public.spatial_ref_sys` table, so I had to add that to an `include_object` function in `backend/app/alembic/env.py` so that it would get ignored. Then, to be safe I deleted and regenerated the alembic revision. Satisfied, I ran `docker compose exec backend alembic upgrade head`. Then, commit changes!
+ 17. 
+
+> Functions I will probably have to add to fieldledger_db:
+>
+> * identity.get_current_user()
+> * audit.change_trigger() (+ add as trigger on all tables)
+> * asset.match_fields(farm, queries, olap)

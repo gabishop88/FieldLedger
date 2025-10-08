@@ -19,6 +19,19 @@ config = context.config
 target_metadata = SQLModel.metadata
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """Return True if Alembic should include this object in autogenerate.
+
+    We skip the PostGIS `spatial_ref_sys` table because it is a system table
+    managed by the PostGIS extension and should not be dropped or recreated
+    by migrations.
+    """
+    # object may be None for some autogenerate hooks; just include in that case
+    if type_ == "table" and name == "spatial_ref_sys":
+        return False
+    return True
+
+
 def get_url() -> str:
     return str(settings.ADMIN_DATABASE_URI)
 
@@ -37,7 +50,11 @@ def run_migrations_offline() -> None:
     """
     url = get_url()
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -55,7 +72,12 @@ def run_migrations_online() -> None:
     connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool)
 
     with connectable.connect() as conn:
-        context.configure(connection=conn, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=conn,
+            target_metadata=target_metadata,
+            compare_type=True,
+            include_object=include_object,
+        )
 
         with context.begin_transaction():
             context.run_migrations()
