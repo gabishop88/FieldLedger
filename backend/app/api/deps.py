@@ -21,7 +21,12 @@ def read_session() -> Generator[Session, None, None]:
 def write_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
         try:
+            # TODO: Set the session variable? How can I test it?
+            # TODO: Make an endpoint that just returns the current setting of the session var?
+            # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
+            # TODO: Should I do RLS policy or check for permissions manually in python?
             yield session
+            # TODO: Should I commit once here, or commit when I make a change?
         except Exception as e:
             session.rollback()
             raise e

@@ -249,6 +249,16 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      5. I committed these basic changes without adding any actual tests or scripts, since I still don't have much of the basic setup that I need to run the tests. I also want to figure out which of the scripts for testing, or performing alembic migrations I will need and how to integrate them.
  18. Now, since it doesn't rely on anything else, but later stuff does rely on it, I filled out `app/core/security.py`
  19. I wanted to get some basic stuff working, so I added the most fundamental routing stuff for the docs pages, openapi.json, etc. and a health check. This sets up the routing structure, but doesn't add any actually useful routes yet.
+ 20. Okay, now I have a little bit of stuff in place, and I have to decide on a workflow to get everything else in place in a controlled manner. Here is what I will start with, and make any needed adjustments as I go:
+     1. Add a few tables to `/backend/app/db/models.py`
+     2. `alembic revision --autogenerate -m "What I added"`, manually go over the revision file in `backend/app/alembic/versions`
+     3. `docker compose exec backend alembic upgrade head`, manually check that my changes were properly applied to the database
+     4. Make sure all of the necessary functions are in place in order to CRUD records for the new tables.
+     5. Add tests to make sure I can properly modify the new tables in the database and get those records out.
+     6. Add the basic endpoints to edit records through the API
+     7. Add tests to fairly rigourously test those basic endpoints.
+     8. [Optional] Find and add actual data to the tables
+     9. [Optional] Save a data backup with the name of the revision before repeating.
 
 > Functions I will probably have to add to fieldledger_db:
 >
