@@ -37,8 +37,10 @@ def create_access_token(subject: str | Any, expires_delta: timedelta) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_token(token: str) -> dict[str, Any] | None:
+def decode_token(token: str) -> str | None:
     """Decode & verify a JWT access token. Returns payload if valid, otherwise None."""
+    if not token:
+        return None
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         return payload["sub"]

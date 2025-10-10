@@ -13,6 +13,7 @@ max_tries = 60 * 5
 wait_seconds = 1
 
 engine = create_engine(str(settings.API_DATABASE_URI))
+ro_engine = create_engine(str(settings.READONLY_DATABASE_URI))
 
 
 # TODO: Add any inital data steps
