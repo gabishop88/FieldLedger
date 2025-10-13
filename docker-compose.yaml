@@ -16,6 +16,17 @@ services:
     ports:
       - "5432:5432"
 
+  backend-prestart:
+    build:
+      context: ./backend
+    image: backend:dev
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uv run python -m app.db
+    env_file:
+      - .env
+
   backend:
     build:
       context: ./backend
@@ -25,6 +36,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      backend-prestart:
+        condition: service_completed_successfully
     env_file:
       - .env
     environment:

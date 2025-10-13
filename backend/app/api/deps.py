@@ -3,44 +3,31 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session
+from sqlmodel import Session, text
 
 from app.core import security
 from app.core.config import settings
-from app.db import engine, ro_engine
+from app.db import get_engine
 from app.db.models import AppUser
 
-# --------------------------------- Database Sessions ----------------------------------
-
-
-def read_session() -> Generator[Session, None, None]:
-    with Session(ro_engine) as session:
-        yield session
-
-
-def write_session() -> Generator[Session, None, None]:
-    with Session(engine) as session:
-        try:
-            # TODO: Set the session variable? How can I test it?
-            # TODO: Make an endpoint that just returns the current setting of the session var?
-            # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
-            # TODO: Should I do RLS policy or check for permissions manually in python?
-            yield session
-            # TODO: Should I commit once here, or commit when I make a change?
-        except Exception as e:
-            session.rollback()
-            raise e
-
-
-ReadSession = Annotated[Session, Depends(read_session)]
-WriteSession = Annotated[Session, Depends(write_session)]
-
-# ----------------------------------- Users and Auth -----------------------------------
+# --------------------------- Auth Token from Request Header ---------------------------
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/account/login/access-token"
 )
 AccessToken = Annotated[str, Depends(reusable_oauth2)]
+
+# -------------------------------- Read-only DB Session --------------------------------
+
+
+def read_session() -> Generator[Session, None, None]:
+    with Session(get_engine(settings.READONLY_DATABASE_URI)) as session:
+        yield session
+
+
+ReadSession = Annotated[Session, Depends(read_session)]
+
+# --------------------------- AppUser Record From Auth Token ---------------------------
 
 
 def get_user_by_token(db: ReadSession, token: AccessToken) -> AppUser | None:
@@ -67,3 +54,30 @@ def get_current_superuser(current_user: CurrentUser) -> AppUser:
 
 
 CurrentSuperuser = Annotated[AppUser, Depends(get_current_superuser)]
+
+
+# ------------------------------- Read/Write DB Session --------------------------------
+
+
+def write_session(user: CurrentUser) -> Generator[Session, None, None]:
+    with Session(get_engine()) as session:
+        try:
+            # TODO: Set the session variable? How can I test it?
+            # TODO: Make an endpoint that just returns the current setting of the session var?
+            # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
+            # TODO: Should I do RLS policy or check for permissions manually in python?
+            # TODO: Should I set up the FIRST_SUPERUSER in db init or something, or should I insert it myself and save it as a data backup? (probably the former option)
+            if user:
+                # TODO: If sqlmodel updates session.exec to work with text expressions, use that instead.
+                session.execute(
+                    text('SET SESSION "app.current_user" = :user_id;'),
+                    {"user_id": user.id},
+                )
+            yield session
+            # TODO: Should I commit once here, or commit when I make a change?
+        except Exception as e:
+            session.rollback()
+            raise e
+
+
+WriteSession = Annotated[Session, Depends(write_session)]

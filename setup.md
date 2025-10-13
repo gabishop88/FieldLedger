@@ -260,6 +260,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      8. [Optional] Find and add actual data to the tables
      9. [Optional] Save a data backup with the name of the revision before repeating.
  21. Before I could continue with the workflow, I had to change my models.py to have all of the models needed for the API recieve and return updates to the user table model. Then, I added a CRUD class to handle table operations (except for reading) and special functions to handle users.
+ 22. In the process, I changed how the database initialization and connection checks work, and added a precheck to the docker-compose to make sure everything is working properly. Afterwards, I recreated my docker containers and volumes to test that this worked as intended.
 
 > Functions I will probably have to add to fieldledger_db:
 >
