@@ -55,6 +55,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         compare_type=True,
         include_object=include_object,
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -67,16 +68,17 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    cfg = config.get_section(config.config_ini_section, {})
-    cfg["sqlalchemy.url"] = get_url()
-    connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool)
 
+    config.set_main_option("sqlalchemy.url", get_url())
+    cfg = config.get_section(config.config_ini_section, {})
+    connectable = engine_from_config(cfg, prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as conn:
         context.configure(
             connection=conn,
             target_metadata=target_metadata,
             compare_type=True,
             include_object=include_object,
+            include_schemas=True,
         )
 
         with context.begin_transaction():
