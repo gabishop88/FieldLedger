@@ -1,0 +1,60 @@
+from pydantic import EmailStr
+from sqlmodel import Session, select
+
+from app.core.security import decode_token, get_password_hash, verify_password
+from app.db.crud.crud_base import CRUDBase
+from app.db.models import (
+    AppUser,
+    PasswordReset,
+    UserCreate,
+    UserRegister,
+    UserUpdate,
+    UserUpdateSelf,
+)
+
+
+class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
+    def authenticate(
+        self, db: Session, email: EmailStr, password: str
+    ) -> AppUser | None:
+        """Get an `AppUser` record if the email and password match the database."""
+        user = db.exec(select(AppUser).where(AppUser.email == email)).first()
+        if user and verify_password(password, user.hashed_password):
+            return user
+        return None
+
+    def create(self, db: Session, new_user: UserCreate | UserRegister) -> AppUser:
+        record = AppUser.model_validate(
+            new_user,
+            update={"hashed_password": get_password_hash(new_user.password)},
+        )
+        db.add(record)
+        db.flush()
+        db.refresh(record)
+        return record
+
+    def update(
+        self, db: Session, user: AppUser, changes: UserUpdate | UserUpdateSelf
+    ) -> AppUser:
+        update_dict = changes.model_dump(exclude_unset=True)
+        if "password" in update_dict:
+            update_dict["hashed_password"] = get_password_hash(update_dict["password"])
+        user.sqlmodel_update(update_dict)
+        db.add(user)
+        db.flush()
+        db.refresh(user)
+        return user
+
+    def reset_password(self, db: Session, reset: PasswordReset) -> AppUser | None:
+        """Updates the password of the user whose id is contained in the `reset.token`.
+        Returns `None` if the user could not be found.
+        """
+        user = db.get(AppUser, decode_token(reset.token))
+        if user:
+            user.hashed_password = get_password_hash(reset.new_password)
+            db.add(user)
+            db.flush()
+            db.refresh(user)
+        return user
+
+user = CRUDUser(AppUser)

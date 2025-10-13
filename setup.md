@@ -259,6 +259,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
      7. Add tests to fairly rigourously test those basic endpoints.
      8. [Optional] Find and add actual data to the tables
      9. [Optional] Save a data backup with the name of the revision before repeating.
+ 21. Before I could continue with the workflow, I had to change my models.py to have all of the models needed for the API recieve and return updates to the user table model. Then, I added a CRUD class to handle table operations (except for reading) and special functions to handle users.
 
 > Functions I will probably have to add to fieldledger_db:
 >
