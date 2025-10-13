@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.db import get_engine
+from app.db.connection import get_engine
 from app.main import app
 
 

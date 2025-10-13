@@ -7,7 +7,7 @@ from sqlmodel import Session, text
 
 from app.core import security
 from app.core.config import settings
-from app.db import get_engine
+from app.db.connection import get_engine
 from app.db.models import AppUser
 
 # --------------------------- Auth Token from Request Header ---------------------------
@@ -74,6 +74,7 @@ def write_session(user: CurrentUser) -> Generator[Session, None, None]:
                     {"user_id": user.id},
                 )
             yield session
+            session.commit()
             # TODO: Should I commit once here, or commit when I make a change?
         except Exception as e:
             session.rollback()

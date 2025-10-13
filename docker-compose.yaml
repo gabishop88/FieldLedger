@@ -23,9 +23,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: uv run python -m app.db
+    command: uv run python app/db/prestart.py
     env_file:
       - .env
+    environment:
+      - POSTGRES_SERVER=fieldledger_db
 
   backend:
     build:
