@@ -68,11 +68,7 @@ def write_session(user: CurrentUser) -> Generator[Session, None, None]:
             # TODO: Should I do RLS policy or check for permissions manually in python?
             # TODO: Should I set up the FIRST_SUPERUSER in db init or something, or should I insert it myself and save it as a data backup? (probably the former option)
             if user:
-                # TODO: If sqlmodel updates session.exec to work with text expressions, use that instead.
-                session.execute(
-                    text('SET SESSION "app.current_user" = :user_id;'),
-                    {"user_id": user.id},
-                )
+                session.exec(text(f"SET SESSION \"app.current_user\" = '{user.id}'"))  # type: ignore
             yield session
             session.commit()
             # TODO: Should I commit once here, or commit when I make a change?

@@ -40,6 +40,7 @@ if __name__ == "__main__":
 
     # Run alembic migration
     alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
+    # TODO: Check app/alembic/backups for backups that match the latest revision
     logger.info("✅ Alembic migration complete.")
 
     # Make sure the first superuser exists

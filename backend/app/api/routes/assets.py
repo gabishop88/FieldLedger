@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status
 from fastapi.responses import PlainTextResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/farm-data")
 
 @router.get("")
 def farm_data_test():

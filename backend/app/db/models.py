@@ -6,6 +6,14 @@ from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 from uuid6 import uuid7
 
+# ----------------------------------- Miscellaneous ------------------------------------
+
+
+class Token(SQLModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
 # ---------------------------------- Schema: identity ----------------------------------
 
 
