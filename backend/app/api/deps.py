@@ -63,10 +63,9 @@ def write_session(user: CurrentUser) -> Generator[Session, None, None]:
     with Session(get_engine()) as session:
         try:
             # TODO: Set the session variable? How can I test it?
-            # TODO: Make an endpoint that just returns the current setting of the session var?
             # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
             # TODO: Should I do RLS policy or check for permissions manually in python?
-            # TODO: Should I set up the FIRST_SUPERUSER in db init or something, or should I insert it myself and save it as a data backup? (probably the former option)
+            # TODO: Should this function only yield a session if you are logged in?
             if user:
                 session.exec(text(f"SET SESSION \"app.current_user\" = '{user.id}'"))  # type: ignore
             yield session

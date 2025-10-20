@@ -7,7 +7,7 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
-from app.api.routes import assets, identity
+from app.api.routes import assets, iam
 from app.core.config import settings
 
 
@@ -20,7 +20,7 @@ class DocTags(StrEnum):
 
 api_router = APIRouter()
 api_router.include_router(assets.router, tags=[DocTags.ASSET])
-api_router.include_router(identity.router, tags=[DocTags.USER])
+api_router.include_router(iam.router, tags=[DocTags.USER])
 
 
 # ----------------------------------- Base Endpoints -----------------------------------

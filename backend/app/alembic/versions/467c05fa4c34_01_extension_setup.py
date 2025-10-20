@@ -1,4 +1,4 @@
-"""extension setup
+"""01 extension setup
 
 Revision ID: 467c05fa4c34
 Revises: 

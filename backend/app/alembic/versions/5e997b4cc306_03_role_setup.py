@@ -1,4 +1,4 @@
-"""role setup
+"""03 role setup
 
 Revision ID: 5e997b4cc306
 Revises: aa9a3b46fcd8
@@ -34,7 +34,7 @@ def get_env_vars() -> dict[str, str]:
         load_dotenv("../../../../../.env")  # TODO: is this platform safe, or necessary?
     
     vals = [os.getenv(var) for var in env_vars]
-    assert all(vals), "Make sure these are defined in .env:" + str(env_vars)
+    assert all(vals), "Make sure these are defined in .env: " + str(env_vars)
     return dict(zip(env_vars, vals)) # type: ignore
 
 
@@ -64,25 +64,25 @@ def upgrade() -> None:
     op.execute(f"""
         GRANT CONNECT ON DATABASE {db} TO {api_user}, {ro_user};
         GRANT USAGE ON SCHEMA asset TO {api_user}, {ro_user};
-        GRANT USAGE ON SCHEMA identity TO {api_user}, {ro_user};
+        GRANT USAGE ON SCHEMA iam TO {api_user}, {ro_user};
         GRANT USAGE ON SCHEMA operation TO {api_user}, {ro_user};
         GRANT USAGE ON SCHEMA ref TO {api_user}, {ro_user};
         
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA asset TO {api_user};
-        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO {api_user};
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA iam TO {api_user};
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA operation TO {api_user};
         GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ref TO {api_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA asset GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
-        ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA iam GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA operation GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA ref GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
         
         GRANT SELECT ON ALL TABLES IN SCHEMA asset TO {ro_user};
-        GRANT SELECT ON ALL TABLES IN SCHEMA identity TO {ro_user};
+        GRANT SELECT ON ALL TABLES IN SCHEMA iam TO {ro_user};
         GRANT SELECT ON ALL TABLES IN SCHEMA operation TO {ro_user};
         GRANT SELECT ON ALL TABLES IN SCHEMA ref TO {ro_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA asset GRANT SELECT ON TABLES TO {ro_user};
-        ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT SELECT ON TABLES TO {ro_user};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA iam GRANT SELECT ON TABLES TO {ro_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA operation GRANT SELECT ON TABLES TO {ro_user};
         ALTER DEFAULT PRIVILEGES IN SCHEMA ref GRANT SELECT ON TABLES TO {ro_user};
         

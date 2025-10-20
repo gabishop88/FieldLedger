@@ -6,6 +6,9 @@ from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 from uuid6 import uuid7
 
+# TODO: Should I separate the table models from the API models?
+# TODO: Should I divide this into multiple files, possibly by schema?
+
 # ----------------------------------- Miscellaneous ------------------------------------
 
 
@@ -14,7 +17,7 @@ class Token(SQLModel):
     token_type: str = "bearer"
 
 
-# ---------------------------------- Schema: identity ----------------------------------
+# ------------------------------------ Schema: iam -------------------------------------
 
 
 class UserBase(SQLModel):
@@ -54,7 +57,7 @@ class PasswordReset(SQLModel):
 
 
 class AppUser(UserBase, table=True):
-    """identity.app_user table
+    """iam.app_user table
 
     Columns:
             - id: UUID PK
@@ -65,7 +68,7 @@ class AppUser(UserBase, table=True):
     """
 
     __tablename__: ClassVar[str] = "app_user"
-    __table_args__: ClassVar[dict] = {"schema": "identity"}
+    __table_args__: ClassVar[dict] = {"schema": "iam"}
 
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     hashed_password: str = Field(max_length=255)
@@ -74,7 +77,26 @@ class AppUser(UserBase, table=True):
 # ----------------------------------- Schema: asset ------------------------------------
 
 
-class Farm(SQLModel, table=True):
+class FarmBase(SQLModel):
+    name: str = Field(max_length=255)
+    private: bool = Field(default=False)
+    description: str | None = Field(default=None, sa_column=Column(Text))
+
+
+class FarmPublic(FarmBase):
+    id: UUID
+
+
+class FarmCreate(FarmBase):
+    pass
+
+
+class FarmUpdate(FarmBase):
+    name: str | None = Field(default=None, max_length=255)
+    private: bool | None = Field(default=None)
+
+
+class Farm(FarmBase, table=True):
     """asset.farm table
 
     Columns:
@@ -88,12 +110,11 @@ class Farm(SQLModel, table=True):
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = Field(default_factory=uuid7, primary_key=True)
-    name: str = Field(max_length=255)
-    private: bool = Field(default=False)
-    description: str | None = Field(default=None, sa_column=Column(Text))
 
 
-# Reference schema: field_type
+# ------------------------------------ Schema: ref -------------------------------------
+
+
 class FieldType(SQLModel, table=True):
     """ref.field_type
 

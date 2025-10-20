@@ -1,4 +1,4 @@
-"""set up schemas
+"""02 set up schemas
 
 Revision ID: aa9a3b46fcd8
 Revises: 467c05fa4c34
@@ -28,7 +28,7 @@ def upgrade() -> None:
     # create schemas needed to hold database tables
     op.execute("CREATE SCHEMA IF NOT EXISTS asset")
     op.execute("CREATE SCHEMA IF NOT EXISTS audit")
-    op.execute("CREATE SCHEMA IF NOT EXISTS identity")
+    op.execute("CREATE SCHEMA IF NOT EXISTS iam")
     op.execute("CREATE SCHEMA IF NOT EXISTS operation")
     op.execute("CREATE SCHEMA IF NOT EXISTS ref")
 
@@ -43,6 +43,6 @@ def downgrade() -> None:
     # drop all schemas
     op.execute("DROP SCHEMA IF EXISTS asset")
     op.execute("DROP SCHEMA IF EXISTS audit")
-    op.execute("DROP SCHEMA IF EXISTS identity")
+    op.execute("DROP SCHEMA IF EXISTS iam")
     op.execute("DROP SCHEMA IF EXISTS operation")
     op.execute("DROP SCHEMA IF EXISTS ref")

@@ -24,7 +24,7 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
         if db.exec(select(AppUser).where(AppUser.email == login_data.username)).first():
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect Password.")
         else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Incorrect Email.")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Email(username) not found.")
 
     expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(access_token=create_access_token(user.id, expires_after))

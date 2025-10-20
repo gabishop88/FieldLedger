@@ -1,4 +1,4 @@
-# NOTE: To perform CRUD operations, it is recommended to: `from app.db import crud` -> `crud.tablename.operation()`
+# To perform CRUD operations, it is recommended to: `from app.db import crud` -> `crud.tablename.operation()`
 
 from sqlmodel import Session, SQLModel
 

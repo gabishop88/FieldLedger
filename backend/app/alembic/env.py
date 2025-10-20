@@ -1,5 +1,6 @@
 from sqlalchemy import engine_from_config, pool
 from alembic import context
+import sqlalchemy
 
 from app.db.models import SQLModel
 from app.core.config import settings
@@ -8,7 +9,6 @@ from app.core.config import settings
 # `opt = config.get_main_option("opt")` to get options from .ini to use in env.py.
 config = context.config
 
-# NOTE: I commented this section so I could delete alembic.ini.
 # If I need to work with logging, I can either add back alembic.ini or do it manually.
 # Set up loggers, interpret config file for python logging
 # from logging.config import fileConfig
@@ -27,7 +27,7 @@ def include_object(object, name, type_, reflected, compare_to):
     by migrations.
     """
     # object may be None for some autogenerate hooks; just include in that case
-    if type_ == "table" and name == "spatial_ref_sys":
+    if type_ == "table" and name in ("spatial_ref_sys", "alembic_version"):
         return False
     return True
 
