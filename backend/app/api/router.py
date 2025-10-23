@@ -31,7 +31,7 @@ api_router.include_router(iam.router, tags=[DocTags.USER])
 @api_router.get("/help", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(
-        f"{settings.API_V1_STR}/docs", status.HTTP_301_MOVED_PERMANENTLY
+        f"{settings.API_PREFIX}/docs", status.HTTP_301_MOVED_PERMANENTLY
     )
 
 

@@ -13,7 +13,7 @@ from app.db.models import AppUser
 # --------------------------- Auth Token from Request Header ---------------------------
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/account/login/access-token"
+    tokenUrl=f"{settings.API_PREFIX}/account/login/access-token"
 )
 AccessToken = Annotated[str, Depends(reusable_oauth2)]
 
