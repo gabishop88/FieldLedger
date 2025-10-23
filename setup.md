@@ -186,84 +186,89 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
 
 (after installing general dependencies from Section 1)
 
- 1. `mkdir frontend backend`
- 2. `cd backend`
- 3. `mkdir app`
- 4. `uv init --python 3.12 --name app`
- 5. `uv add fastapi[standard] uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
- 6. `uv add --dev pytest mypy ruff pre-commit coverage`
- 7. `uv sync`
- 8. `uv run alembic init app/alembic`
- 9. Create `./backend/Dockerfile` and fill it out based on reference project
- 10. Edit `./backend/alembic.ini` to basically match reference project (comment the path stuff out)
- 11. Delete `./backend/main.py` that was created somewhere along the way (probably `uv init`)
- 12. Set up basic backend project structure by creating:
-     1. folders `./backend/app/api`, `./backend/app/core`, `./backend/app/db`
-     2. `./backend/app/__init__.py`
-     3. `./backend/app/api/__init__.py`
-     4. `./backend/app/core/__init__.py`
-     5. `./backend/app/db/__init__.py`
-     6. Create `./backend/app/api/routes` and add `./backend/app/api/routes/__init__.py`
-     7. Create `./backend/app/db/crud` and add `./backend/app/db/crud/__init__.py`
- 13. In order to edit `./backend/app/alembic/env.py` (which is the next step) I need to implement some other project files so that I can match the `env.py` from the reference project:
-     1. Create `./backend/app/core/config.py`
-     2. Create `./backend/app/db/models.py`
-     3. `uv add pydantic pydantic_settings; uv sync`
-     4. Fill out config.py with the Settings class from the reference project
-     5. Fill out FieldLedger/.env with the env variables from the reference project.
-     6. I removed the DOCKER_IMAGE_FRONTEND/_BACKEND for now, and hardcoded them in `./docker-compose.yaml`
-     7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
-     8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
-     9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
- 14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
-     1. For now, I commented out any models in app.db.models to keep things as simple as possible.
-     2. `docker compose up -d --build`
-     3. ran into an issue: `unable to get image './backend': Cannot connect to the Docker daemon at unix:///home/gbishop3/.docker/desktop/docker.sock. Is the docker daemon running?`
-     4. `sudo systemctl status docker` (says active?!)
-     5. `export DOCKER_HOST=unix:///var/run/docker.sock` (thanks ChatGPT). This worked for now, but I will either need to find another way or add this to a .bashrc or something?
-     6. After fixing a few errors in `docker-compose.yaml` and `./backend/Dockerfile`, the containers started.
-     7. (after `docker compose up -d --build` for the last time) I ran `docker compose exec backend uv run alembic revision --autogenerate -m "init"`
-     8. Of course there were errors, which I fixed through the `docker-compose.yaml` environment setup to generate my first alembic revision. I realized it was trying to remove a bunch of stuff provided by PostGIS, so I am going to have to do something about that before I commit any changes.
-     9. I also changed `docker-compose.yaml` to bind the backend container to my project directory. It is a little risky and should probably be changed later, but allows the changes, particularly the alembic revisions to be saved in my actual project directory, meaning they will be properly saved and applied even if I destroy the docker containers and rebuild them or the volumes.
-     10. `docker compose down -v` and removed all volumes as well. I am clearing everything to prepare for my next attempt.
-     11. I saw that I could remove a file (`alembic.ini`) so I added the configs that are supported into `pyproject.toml` and removed the logging setup in `alembic/env.py` and it seems to work the same, but now with `alembic.ini` gone. If I need those logging config options later, I can always undo this step.
-     12. Now, everything seems to (finally) be in order for my first alembic revision. I created one with `docker compose exec backend uv run alembic revision -m "extension setup"`.
-     13. I realized that creating this inside the docker container made it so that I can only edit the revision file in my local editor if I use sudo to save it. To fix this, I deleted it and tried again with `uv run alembic revision -m "extension setup"` since it shouldn't matter whether I create it from inside the container or not since they share my local project directory. This had to be done inside of `cd backend`. I edited my revision (see `app/alembic/versions/467c05fa4c34_extension_setup.py`)
-     14. I used `docker compose exec backend uv run alembic upgrade head` to apply the changes to the database. Afterwards, I used pgAdmin4 (doesn't matter what tool) to look at the database and make sure the updates were applied.
- 15. I accidentally lost a bunch of progress working towards getting roles properly setup (including my steps here), so here are the steps I took to get back to (hopefully) where I left off:
-    1. First, I had noticed that I accidentally included my .env in my commits. I purged them from my commit history (but accidentally lost my uncommited changes in the process). So, the first thing I am doing is adding .env to .gitignore.
-    2. Next, I am changing my .env to change my default admin user `POSTGRES_USER` and `POSTGRES_PASSWORD` to an admin user, and in the process adding new env variables for two new users, `POSTGRES_API_USER` and `POSTGRES_READONLY_USER` (plus their passwords). These are to separate permissions into an admin role which can modify database structure and will be used by alembic, an api role that can only read/modify data, and a readonly role that I don't have a specific use for but makes sense to have.
-    3. Now, I am adding a .env.example file to the git repo so that I can show what is required to have in the .env file, but not show all my secrets.
-    4. With this, I am modifying my `backend/app/core/config.py` to replace `SQLALCHEMY_DATABASE_URI` with my three connections, `ADMIN_DATABASE_URI`, `API_DATABASE_URI`, and `READONLY_DATABASE_URI`.
-    5. Who knows what broke in the docker container, so I am removing everything, `docker compose down -v`
-    6. `alembic revision -m "role setup"` -> fill in ..._role_setup.py with role stuff.
-    7. Now, test that everything is working correctly. `docker compose up -d --build`, log in on pgAdmin4 with new admin role (works)
-    8. `docker compose exec backend alembic upgrade head`, check roles and schemas on pgAdmin4 (looks good!)
-    9. Commit on github properly this time.
- 16. I was experimenting with the copilot to help me create my first table models. I still had to do most of the work, so I am not really sure it is worth using. However, I created my first three tables: `identity.app_user`, `asset.farm`, and `ref.field_type`. This is just a sample of three different types of tables that don't rely on any other tables to get me started. Now, I used `alembic revision --autogenerate -m "first tables"`. I realized that the autogenerated revision wanted to drop the `public.spatial_ref_sys` table, so I had to add that to an `include_object` function in `backend/app/alembic/env.py` so that it would get ignored. Then, to be safe I deleted and regenerated the alembic revision. Satisfied, I ran `docker compose exec backend alembic upgrade head`. Then, commit changes!
- 17. Now that I have the basic stuff in place and feel like I understand it well enough to continue building, I think it is a good time to step back and work on tests. This way, I can proceed with a test-first design strategy. This is something I am still working on learning how to do.
-     1. First I created the `backend/tests` folder. I then created `backend/tests/conftest.py`. This is where my test fixtures will go. I need a decent amount of my FastAPI structure in place to get this working.
-     2. The first thing I had to figure out is whether to use the same engine as FastAPI to get the session, which will mean my test results use the actual database container, and should mean that the tests are as applicable as possible. On the other hand, I could make a temporary test database that I quickly spin up using the same alembic revisions and a copy of the backup data from the actual database, which means I keep things separate and my tests can't mess up the actual database, but if there is something messed up with the database that isn't represented by the alembic revisions + recent backup, then it won't get caught by tests. Hypothetically, there is nothing wrong with using the same database to make the session, and then just delete/roll back the changes at the end.
-     3. Since it is straightforward, I also created the `client` fixture that can test the API.
-     4. I created the database `engine` and a connection check in `app/db/__init__.py`. I think that maybe this should be moved to its own .py file, but this at least ensures the database engine's validity automatically any time you import from the `app.db`. My reasoning for this was to avoid setting up scripts to do prechecks and initializations every time you run the app through scripts, since they will be run one whenever the project is built anyway. Since docker makes the backend container wait on the health of the db container anyway, this should always be fine.
-     5. I committed these basic changes without adding any actual tests or scripts, since I still don't have much of the basic setup that I need to run the tests. I also want to figure out which of the scripts for testing, or performing alembic migrations I will need and how to integrate them.
- 18. Now, since it doesn't rely on anything else, but later stuff does rely on it, I filled out `app/core/security.py`
- 19. I wanted to get some basic stuff working, so I added the most fundamental routing stuff for the docs pages, openapi.json, etc. and a health check. This sets up the routing structure, but doesn't add any actually useful routes yet.
- 20. Okay, now I have a little bit of stuff in place, and I have to decide on a workflow to get everything else in place in a controlled manner. Here is what I will start with, and make any needed adjustments as I go:
-     1. Add a few tables to `/backend/app/db/models.py`
-     2. `alembic revision --autogenerate -m "What I added"`, manually go over the revision file in `backend/app/alembic/versions`
-     3. `docker compose exec backend alembic upgrade head`, manually check that my changes were properly applied to the database
-     4. Make sure all of the necessary functions are in place in order to CRUD records for the new tables.
-     5. Add tests to make sure I can properly modify the new tables in the database and get those records out.
-     6. Add the basic endpoints to edit records through the API
-     7. Add tests to fairly rigourously test those basic endpoints.
-     8. [Optional] Find and add actual data to the tables
-     9. [Optional] Save a data backup with the name of the revision before repeating.
- 21. Before I could continue with the workflow, I had to change my models.py to have all of the models needed for the API recieve and return updates to the user table model. Then, I added a CRUD class to handle table operations (except for reading) and special functions to handle users.
- 22. In the process, I changed how the database initialization and connection checks work, and added a precheck to the docker-compose to make sure everything is working properly. Afterwards, I recreated my docker containers and volumes to test that this worked as intended.
- 23. For some reason, alembic completely broke. I have spent days trying to fix it, but it is just showing behaviors like dropping some tables, etc. that I can't find anywhere when looking up help.
-     1. The first thing I am changing is the `identity` schema -> `iam` (Identity and Access Management). This is more descriptive (if a little jargon-y), and doesn't use the word identity, which may be a reserved word (not sure but playing it safe).
-     2. I also changed the search_path for the fieldledger_admin role. I think that adding the `include_schemas=True` in the alembic `env.py` script interacted strangely with my search_path from the 4th revision including all of the relevant schemas, and caused it to keep trying to remove tables, or move them to different schemas. In the end, I just have `public` in the search_path for fieldledger_admin. I left the other schemas in the path for the other roles for now, I will see how the api interacts with the database and see if I need to change them later. For now, if you are using the admin role, you will need to fully qualify tables (schema.tablename) every time you do anything, but should be okay, since the admin role should be used by someone to make important changes, and that is probably for the best anyway to avoid confusion.
+  1. `mkdir frontend backend`
+  2. `cd backend`
+  3. `mkdir app`
+  4. `uv init --python 3.12 --name app`
+  5. `uv add fastapi[standard] uvicorn[standard] sqlmodel alembic psycopg[binary] geoalchemy2`
+  6. `uv add --dev pytest mypy ruff pre-commit coverage`
+  7. `uv sync`
+  8. `uv run alembic init app/alembic`
+  9. Create `./backend/Dockerfile` and fill it out based on reference project
+  10. Edit `./backend/alembic.ini` to basically match reference project (comment the path stuff out)
+  11. Delete `./backend/main.py` that was created somewhere along the way (probably `uv init`)
+  12. Set up basic backend project structure by creating:
+      1. folders `./backend/app/api`, `./backend/app/core`, `./backend/app/db`
+      2. `./backend/app/__init__.py`
+      3. `./backend/app/api/__init__.py`
+      4. `./backend/app/core/__init__.py`
+      5. `./backend/app/db/__init__.py`
+      6. Create `./backend/app/api/routes` and add `./backend/app/api/routes/__init__.py`
+      7. Create `./backend/app/db/crud` and add `./backend/app/db/crud/__init__.py`
+  13. In order to edit `./backend/app/alembic/env.py` (which is the next step) I need to implement some other project files so that I can match the `env.py` from the reference project:
+      1. Create `./backend/app/core/config.py`
+      2. Create `./backend/app/db/models.py`
+      3. `uv add pydantic pydantic_settings; uv sync`
+      4. Fill out config.py with the Settings class from the reference project
+      5. Fill out FieldLedger/.env with the env variables from the reference project.
+      6. I removed the DOCKER_IMAGE_FRONTEND/_BACKEND for now, and hardcoded them in `./docker-compose.yaml`
+      7. I added `./.vscode/settings.json` to set the default interpreter path to the .venv created by uv. I also had to put the path to it into the `Select Interpreter` box, but it helped me get vscode to recognize and use the correct interpreter.
+      8. Next, I need to start filling in `./backend/app/db/models.py`. For now, I just added a basic User mode, which will probably change soon. I will come back to this file later.
+      9. Finally, edit `./backend/app/alembic/env.py`. Pretty much just used the reference project again, with minor modifications.
+  14. The next main stage will be setting up the database through alembic. For this, I will need to test to make sure I can create the database and connect to it, then start adding basic setup through alembic migrations, then tables, etc.
+      1. For now, I commented out any models in app.db.models to keep things as simple as possible.
+      2. `docker compose up -d --build`
+      3. ran into an issue: `unable to get image './backend': Cannot connect to the Docker daemon at unix:///home/gbishop3/.docker/desktop/docker.sock. Is the docker daemon running?`
+      4. `sudo systemctl status docker` (says active?!)
+      5. `export DOCKER_HOST=unix:///var/run/docker.sock` (thanks ChatGPT). This worked for now, but I will either need to find another way or add this to a .bashrc or something?
+      6. After fixing a few errors in `docker-compose.yaml` and `./backend/Dockerfile`, the containers started.
+      7. (after `docker compose up -d --build` for the last time) I ran `docker compose exec backend uv run alembic revision --autogenerate -m "init"`
+      8. Of course there were errors, which I fixed through the `docker-compose.yaml` environment setup to generate my first alembic revision. I realized it was trying to remove a bunch of stuff provided by PostGIS, so I am going to have to do something about that before I commit any changes.
+      9. I also changed `docker-compose.yaml` to bind the backend container to my project directory. It is a little risky and should probably be changed later, but allows the changes, particularly the alembic revisions to be saved in my actual project directory, meaning they will be properly saved and applied even if I destroy the docker containers and rebuild them or the volumes.
+      10. `docker compose down -v` and removed all volumes as well. I am clearing everything to prepare for my next attempt.
+      11. I saw that I could remove a file (`alembic.ini`) so I added the configs that are supported into `pyproject.toml` and removed the logging setup in `alembic/env.py` and it seems to work the same, but now with `alembic.ini` gone. If I need those logging config options later, I can always undo this step.
+      12. Now, everything seems to (finally) be in order for my first alembic revision. I created one with `docker compose exec backend uv run alembic revision -m "extension setup"`.
+      13. I realized that creating this inside the docker container made it so that I can only edit the revision file in my local editor if I use sudo to save it. To fix this, I deleted it and tried again with `uv run alembic revision -m "extension setup"` since it shouldn't matter whether I create it from inside the container or not since they share my local project directory. This had to be done inside of `cd backend`. I edited my revision (see `app/alembic/versions/467c05fa4c34_extension_setup.py`)
+      14. I used `docker compose exec backend uv run alembic upgrade head` to apply the changes to the database. Afterwards, I used pgAdmin4 (doesn't matter what tool) to look at the database and make sure the updates were applied.
+  15. I accidentally lost a bunch of progress working towards getting roles properly setup (including my steps here), so here are the steps I took to get back to (hopefully) where I left off:
+      1. First, I had noticed that I accidentally included my .env in my commits. I purged them from my commit history (but accidentally lost my uncommited changes in the process). So, the first thing I am doing is adding .env to .gitignore.
+      2. Next, I am changing my .env to change my default admin user `POSTGRES_USER` and `POSTGRES_PASSWORD` to an admin user, and in the process adding new env variables for two new users, `POSTGRES_API_USER` and `POSTGRES_READONLY_USER` (plus their passwords). These are to separate permissions into an admin role which can modify database structure and will be used by alembic, an api role that can only read/modify data, and a readonly role that I don't have a specific use for but makes sense to have.
+      3. Now, I am adding a .env.example file to the git repo so that I can show what is required to have in the .env file, but not show all my secrets.
+      4. With this, I am modifying my `backend/app/core/config.py` to replace `SQLALCHEMY_DATABASE_URI` with my three connections, `ADMIN_DATABASE_URI`, `API_DATABASE_URI`, and `READONLY_DATABASE_URI`.
+      5. Who knows what broke in the docker container, so I am removing everything, `docker compose down -v`
+      6. `alembic revision -m "role setup"` -> fill in ..._role_setup.py with role stuff.
+      7. Now, test that everything is working correctly. `docker compose up -d --build`, log in on pgAdmin4 with new admin role (works)
+      8. `docker compose exec backend alembic upgrade head`, check roles and schemas on pgAdmin4 (looks good!)
+      9. Commit on github properly this time.
+  16. I was experimenting with the copilot to help me create my first table models. I still had to do most of the work, so I am not really sure it is worth using. However, I created my first three tables: `identity.app_user`, `asset.farm`, and `ref.field_type`. This is just a sample of three different types of tables that don't rely on any other tables to get me started. Now, I used `alembic revision --autogenerate -m "first tables"`. I realized that the autogenerated revision wanted to drop the `public.spatial_ref_sys` table, so I had to add that to an `include_object` function in `backend/app/alembic/env.py` so that it would get ignored. Then, to be safe I deleted and regenerated the alembic revision. Satisfied, I ran `docker compose exec backend alembic upgrade head`. Then, commit changes!
+  17. Now that I have the basic stuff in place and feel like I understand it well enough to continue building, I think it is a good time to step back and work on tests. This way, I can proceed with a test-first design strategy. This is something I am still working on learning how to do.
+      1. First I created the `backend/tests` folder. I then created `backend/tests/conftest.py`. This is where my test fixtures will go. I need a decent amount of my FastAPI structure in place to get this working.
+      2. The first thing I had to figure out is whether to use the same engine as FastAPI to get the session, which will mean my test results use the actual database container, and should mean that the tests are as applicable as possible. On the other hand, I could make a temporary test database that I quickly spin up using the same alembic revisions and a copy of the backup data from the actual database, which means I keep things separate and my tests can't mess up the actual database, but if there is something messed up with the database that isn't represented by the alembic revisions + recent backup, then it won't get caught by tests. Hypothetically, there is nothing wrong with using the same database to make the session, and then just delete/roll back the changes at the end.
+      3. Since it is straightforward, I also created the `client` fixture that can test the API.
+      4. I created the database `engine` and a connection check in `app/db/__init__.py`. I think that maybe this should be moved to its own .py file, but this at least ensures the database engine's validity automatically any time you import from the `app.db`. My reasoning for this was to avoid setting up scripts to do prechecks and initializations every time you run the app through scripts, since they will be run one whenever the project is built anyway. Since docker makes the backend container wait on the health of the db container anyway, this should always be fine.
+      5. I committed these basic changes without adding any actual tests or scripts, since I still don't have much of the basic setup that I need to run the tests. I also want to figure out which of the scripts for testing, or performing alembic migrations I will need and how to integrate them.
+  18. Now, since it doesn't rely on anything else, but later stuff does rely on it, I filled out `app/core/security.py`
+  19. I wanted to get some basic stuff working, so I added the most fundamental routing stuff for the docs pages, openapi.json, etc. and a health check. This sets up the routing structure, but doesn't add any actually useful routes yet.
+  20. Okay, now I have a little bit of stuff in place, and I have to decide on a workflow to get everything else in place in a controlled manner. Here is what I will start with, and make any needed adjustments as I go:
+      1. Add a few tables to `/backend/app/db/models.py`
+      2. `alembic revision --autogenerate -m "What I added"`, manually go over the revision file in `backend/app/alembic/versions`
+      3. `docker compose exec backend alembic upgrade head`, manually check that my changes were properly applied to the database
+      4. Make sure all of the necessary functions are in place in order to CRUD records for the new tables.
+      5. Add tests to make sure I can properly modify the new tables in the database and get those records out.
+      6. Add the basic endpoints to edit records through the API
+      7. Add tests to fairly rigourously test those basic endpoints.
+      8. [Optional] Find and add actual data to the tables
+      9. [Optional] Save a data backup with the name of the revision before repeating.
+  21. Before I could continue with the workflow, I had to change my models.py to have all of the models needed for the API recieve and return updates to the user table model. Then, I added a CRUD class to handle table operations (except for reading) and special functions to handle users.
+  22. In the process, I changed how the database initialization and connection checks work, and added a precheck to the docker-compose to make sure everything is working properly. Afterwards, I recreated my docker containers and volumes to test that this worked as intended.
+  23. For some reason, alembic completely broke. I have spent days trying to fix it, but it is just showing behaviors like dropping some tables, etc. that I can't find anywhere when looking up help.
+      1. The first thing I am changing is the `identity` schema -> `iam` (Identity and Access Management). This is more descriptive (if a little jargon-y), and doesn't use the word identity, which may be a reserved word (not sure but playing it safe).
+      2. I also changed the search_path for the fieldledger_admin role. I think that adding the `include_schemas=True` in the alembic `env.py` script interacted strangely with my search_path from the 4th revision including all of the relevant schemas, and caused it to keep trying to remove tables, or move them to different schemas. In the end, I just have `public` in the search_path for fieldledger_admin. I left the other schemas in the path for the other roles for now, I will see how the api interacts with the database and see if I need to change them later. For now, if you are using the admin role, you will need to fully qualify tables (schema.tablename) every time you do anything, but should be okay, since the admin role should be used by someone to make important changes, and that is probably for the best anyway to avoid confusion.
+  24. I added tests for the basic endpoints. (step 5 of the workflow in section 20)
+  25. I added a UserSession which is a write session, but with app.current_user session var set to the authenticated `user.id`.
+  26. I added a 'RESET "app.current_user"' in each of the non-user session dependencies so that trying to SHOW it will return "" instead of error.
+  27. Added the an extensions for fuzzymatching strings to the extensions migration (recreated db) and used it in the user search endpoint.
+  28. Now, I was able to fill out the endpoints that I think are important for users, and write all of the tests I can think of right now for them. This also involved getting pytest set up properly, so hopefully it will take a lot less time to write tests in the future.
 
 > Functions I will probably have to add to fieldledger_db:
 >

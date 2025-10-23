@@ -1,5 +1,7 @@
 {
-  "python.venvFolders": ["backend/.venv"],
+  "python.venvFolders": [
+    "backend/.venv"
+  ],
   "python.venvPath": "${workspaceFolder}/backend",
   "python.defaultInterpreterPath": "backend/.venv/bin/python",
   "python.terminal.activateEnvironment": true,
@@ -11,5 +13,10 @@
     "versions": "update",
     ".uv": "packages",
     "db-init": "database"
-  }
+  },
+  "python.testing.pytestArgs": [
+    "backend"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
 }
