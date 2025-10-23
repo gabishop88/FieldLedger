@@ -24,6 +24,7 @@ api_router.include_router(iam.router, tags=[DocTags.USER])
 
 
 # ----------------------------------- Base Endpoints -----------------------------------
+# Remember, all of these endpoints start with the settings.API_PREFIX (set in app/main.py)
 
 
 # Redirect people to the /docs page if it looks like they need help
@@ -39,7 +40,7 @@ async def redirect_to_docs():
 @api_router.get("/docs", include_in_schema=False)
 def docs_page():
     return get_swagger_ui_html(
-        openapi_url=f"{settings.API_V1_STR}/openapi.json",
+        openapi_url=f"{settings.API_PREFIX}/openapi.json",
         title=f"{settings.PROJECT_NAME} API",
         swagger_favicon_url="https://illinois.edu/favicon.ico",
         swagger_ui_parameters={
@@ -48,11 +49,6 @@ def docs_page():
             "persistAuthorization": True,
         },
     )
-
-
-@api_router.get(f"{settings.API_V1_STR}/docs/oauth2-redirect", include_in_schema=False)
-async def swagger_ui_redirect():
-    return get_swagger_ui_oauth2_redirect_html()
 
 
 @api_router.get("/health-check")

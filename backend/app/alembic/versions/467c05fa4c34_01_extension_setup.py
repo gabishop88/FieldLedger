@@ -20,11 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.execute("DROP EXTENSION IF EXISTS postgis_topology CASCADE")
-    op.execute("DROP EXTENSION IF EXISTS postgis_tiger_geocoder CASCADE")
+    op.execute("DROP EXTENSION IF EXISTS postgis_topology CASCADE;")
+    op.execute("DROP EXTENSION IF EXISTS postgis_tiger_geocoder CASCADE;")
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;") # Add an extension for fuzzy string matching
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.execute("CREATE EXTENSION IF NOT EXISTS postgis_topology")
-    op.execute("CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder")
+    op.execute("CREATE EXTENSION IF NOT EXISTS postgis_topology;")
+    op.execute("CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;")
+    op.execute("DROP EXTENSION IF EXISTS pg_trgm CASCADE;")

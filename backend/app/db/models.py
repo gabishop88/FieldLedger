@@ -29,6 +29,9 @@ class UserBase(SQLModel):
 class UserPublic(UserBase):
     id: UUID
 
+class UsersPublic(SQLModel):
+    count: int
+    data: list[UserPublic]
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=255)

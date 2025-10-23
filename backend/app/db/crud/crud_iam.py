@@ -14,6 +14,12 @@ from app.db.models import (
 
 
 class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
+    def get_by_email(self, db: Session, email: EmailStr) -> AppUser | None:
+        """### Returns the user (or None) associated withe email.
+        Convienience method since it is done often.
+        """
+        return db.exec(select(AppUser).where(AppUser.email == email)).first()
+
     def authenticate(
         self, db: Session, email: EmailStr, password: str
     ) -> AppUser | None:
