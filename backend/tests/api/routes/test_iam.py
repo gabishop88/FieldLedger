@@ -1,5 +1,3 @@
-import random
-import string
 import uuid
 
 from fastapi.testclient import TestClient
@@ -8,46 +6,18 @@ from sqlmodel import Session
 from app.core import security
 from app.core.config import settings
 from app.db import crud
-from app.db.models import AppUser, UserCreate
+from app.db.models import AppUser, UserCreate, UserUpdate
+from tests.utils.auth import get_auth_headers
+from tests.utils.rng import generate_email, generate_str
 
 # TODO: test an expired token? How?
-
-# ---------------------------------- Helper Functions ----------------------------------
-
-
-def generate_str(seed: int | None = None, k: int = 16) -> str:
-    rng = random.Random(seed)
-    return "".join(rng.choices(string.ascii_lowercase, k=k))
-
-
-def generate_email(seed: int | None = None) -> str:
-    return f"{generate_str(seed)}@{generate_str(seed)}.edu"
-
-
-def get_auth_headers(client: TestClient, email: str, pwd: str) -> dict[str, str]:
-    data = {"username": email, "password": pwd}
-    res = client.post(f"{settings.API_PREFIX}/account/login/access-token", data=data)
-    assert res.status_code == 200, "Test did not provide valid email/pwd."
-    assert "access_token" in res.json()
-    token = res.json()
-    return {"Authorization": f"{token['token_type']} {token['access_token']}"}
 
 
 # --------------------------------- User / Login Tests ---------------------------------
 # Many of these must be run in order (rely on objects changed by previous tests)
 
-# Use these to get random but deterministic test values by giving them the seed:
-# e.g. `email_1(seed)` gives a random email, but it is the same random email everywhere it is called.
-# Originally, I just called generate_x(seed + offset) to get them, but got confused. I am sure there is a better way to do this.
-email_1 = lambda seed: generate_email(seed + 0)  # noqa: E731
-pass_1 = lambda seed: generate_str(seed + 1)  # noqa: E731
-email_2 = lambda seed: generate_email(seed + 2)  # noqa: E731
-pass_2 = lambda seed: generate_str(seed + 3)  # noqa: E731
-name_1 = lambda seed: generate_str(seed + 4)  # noqa: E731
-email_3 = lambda seed: generate_email(seed + 5)  # noqa: E731
-pass_3 = lambda seed: generate_str(seed + 6)  # noqa: E731
-email_4 = lambda seed: generate_email(seed + 7)  # noqa: E731
-pass_4 = lambda seed: generate_str(seed + 8)  # noqa: E731
+# Many use `seed + x` to update values, so following tests must use the seed+offset of the last update.
+# I tried to keep them consistent so they aren't too hard to follow.
 
 
 def test_superuser_login(client: TestClient, db: Session) -> None:
@@ -79,8 +49,9 @@ def test_fail_superuser_login(client: TestClient) -> None:
 
 
 def test_register_user(client: TestClient, db: Session, seed) -> None:
-    data = {"email": email_1(seed), "password": pass_1(seed), "full_name": None}
-    # TODO: Figure out why I can't use `data=data` (it formats it like params=)?
+    data = UserCreate(
+        email=generate_email(seed), password=generate_str(seed)
+    ).model_dump()
     res = client.put(f"{settings.API_PREFIX}/account", json=data)
     assert res.status_code == 200
 
@@ -98,7 +69,9 @@ def test_register_user(client: TestClient, db: Session, seed) -> None:
 
 
 def test_fail_register_duplicate_user(client: TestClient, db: Session, seed) -> None:
-    data = {"email": email_1(seed), "password": pass_1(seed)}
+    data = UserCreate(
+        email=generate_email(seed), password=generate_str(seed)
+    ).model_dump()
     assert crud.user.get_by_email(db, data["email"]) is not None, "User should exist."
 
     res = client.put(f"{settings.API_PREFIX}/account", json=data)
@@ -107,7 +80,7 @@ def test_fail_register_duplicate_user(client: TestClient, db: Session, seed) -> 
 
 
 def test_user_login(client: TestClient, db: Session, seed) -> None:
-    data = {"username": email_1(seed), "password": pass_1(seed)}
+    data = {"username": generate_email(seed), "password": generate_str(seed)}
     user = crud.user.get_by_email(db, data["username"])
     assert user is not None, "Test user should exist."
 
@@ -117,18 +90,19 @@ def test_user_login(client: TestClient, db: Session, seed) -> None:
     assert security.decode_token(res.json()["access_token"]) == str(user.id)
 
 
-def test_user_update(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_1(seed))
+def test_user_update(client: TestClient, db: Session, seed, user_headers) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed))
     assert user is not None, "Test user should exist."
-    assert security.verify_password(pass_1(seed), user.hashed_password)
-    edits = {
-        "full_name": name_1(seed),
-        "email": email_2(seed),
-        "password": pass_2(seed),
-    }
+    assert security.verify_password(generate_str(seed), user.hashed_password)
+    edits = UserUpdate(
+        email=generate_email(seed + 1),
+        password=generate_str(seed + 1),
+        full_name=generate_str(seed + 1),
+    ).model_dump()
 
-    head = get_auth_headers(client, user.email, pass_1(seed))
-    res = client.patch(f"{settings.API_PREFIX}/account", json=edits, headers=head)
+    res = client.patch(
+        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
+    )
     assert res.status_code == 200
     new_info = res.json()
     assert new_info["email"] == edits["email"]
@@ -139,16 +113,19 @@ def test_user_update(client: TestClient, db: Session, seed) -> None:
     assert security.verify_password(edits["password"], user.hashed_password)
 
 
-def test_fail_user_elevate_self(client: TestClient, db: Session, seed) -> None:
+def test_fail_user_elevate_self(
+    client: TestClient, db: Session, seed, user_headers
+) -> None:
     """##Make sure a user can't bypass the type checker and elevate themself.
     Normally, I wouldn't even check, but this seems like the one place it is good to be certain
     """
-    user = crud.user.get_by_email(db, email_2(seed))
+    user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
-    edits = {"is_superuser": "True"}
+    edits = UserUpdate(is_superuser=True).model_dump(exclude_unset=True)
 
-    head = get_auth_headers(client, user.email, pass_2(seed))
-    res = client.patch(f"{settings.API_PREFIX}/account", json=edits, headers=head)
+    res = client.patch(
+        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
+    )
     assert res.status_code == 200  # TODO: Should this have a validation error?
     assert res.json()["is_superuser"] is False
 
@@ -156,26 +133,28 @@ def test_fail_user_elevate_self(client: TestClient, db: Session, seed) -> None:
     assert user.is_superuser is False
 
 
-def test_fail_update_email_exists(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_2(seed))
+def test_fail_update_email_exists(
+    client: TestClient, db: Session, seed, user_headers
+) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
-    edits = {"email": settings.FIRST_SUPERUSER}
+    edits = UserUpdate(email=settings.FIRST_SUPERUSER).model_dump(exclude_unset=True)
 
-    head = get_auth_headers(client, user.email, pass_2(seed))
-    res = client.patch(f"{settings.API_PREFIX}/account", json=edits, headers=head)
+    res = client.patch(
+        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
+    )
     assert res.status_code == 409
     assert res.json()["detail"] == "That email is already in use."
 
     db.refresh(user)
-    assert user.email == email_2(seed)
+    assert user.email == generate_email(seed + 1)
 
 
-def test_get_user(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_2(seed))
+def test_get_user(client: TestClient, db: Session, seed, user_headers) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
 
-    head = get_auth_headers(client, user.email, pass_2(seed))
-    res = client.get(f"{settings.API_PREFIX}/account", headers=head)
+    res = client.get(f"{settings.API_PREFIX}/account", headers=user_headers)
     user_info = res.json()
     assert user_info["email"] == user.email
     assert user_info["full_name"] == user.full_name
@@ -183,16 +162,22 @@ def test_get_user(client: TestClient, db: Session, seed) -> None:
     assert user_info["is_superuser"] == user.is_superuser
 
 
-def test_superuser_update_other(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_2(seed))
+def test_superuser_update_other(
+    client: TestClient, db: Session, seed, superuser_headers
+) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
 
-    edits = {"email": email_3(seed), "password": pass_3(seed), "is_superuser": "True"}
-    head = get_auth_headers(
-        client, settings.FIRST_SUPERUSER, settings.FIRST_SUPERUSER_PASSWORD
-    )
+    edits = UserUpdate(
+        email=generate_email(seed + 2),
+        password=generate_str(seed + 2),
+        full_name=generate_str(seed + 2),
+        is_superuser=True,
+    ).model_dump()
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}", json=edits, headers=head
+        f"{settings.API_PREFIX}/account/{user.id}",
+        json=edits,
+        headers=superuser_headers,
     )
     assert res.status_code == 200
     user_info = res.json()
@@ -206,9 +191,11 @@ def test_superuser_update_other(client: TestClient, db: Session, seed) -> None:
     assert security.verify_password(edits["password"], user.hashed_password)
 
     # Reset is_superuser to revoke priveleges for the future.
-    edits = {"is_superuser": "False"}
+    edits = UserUpdate(is_superuser=False).model_dump(exclude_unset=True)
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}", json=edits, headers=head
+        f"{settings.API_PREFIX}/account/{user.id}",
+        json=edits,
+        headers=superuser_headers,
     )
     assert res.status_code == 200
     assert res.json()["is_superuser"] is False
@@ -216,106 +203,124 @@ def test_superuser_update_other(client: TestClient, db: Session, seed) -> None:
     assert user.is_superuser is False
 
 
-def test_fail_update_nonexistant(client: TestClient) -> None:
-    edits = {"full_name": "NOTANAME"}
-    head = get_auth_headers(
-        client, settings.FIRST_SUPERUSER, settings.FIRST_SUPERUSER_PASSWORD
-    )
+def test_fail_update_nonexistant(client: TestClient, superuser_headers) -> None:
+    edits = UserUpdate(full_name="NOTANAME").model_dump(exclude_unset=True)
+    id = uuid.uuid4()
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{uuid.uuid4()}", json=edits, headers=head
+        f"{settings.API_PREFIX}/account/{id}", json=edits, headers=superuser_headers
     )
     assert res.status_code == 404
-    assert res.json()["detail"] == "Could not find target user."
+    assert res.json()["detail"] == f"<User {id}> not found."
 
 
-def test_fail_user_update_other(client: TestClient, db: Session, seed) -> None:
+def test_fail_user_update_other(
+    client: TestClient, db: Session, seed, user_headers
+) -> None:
     user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
     assert user is not None
-    assert crud.user.get_by_email(db, email_3(seed)) is not None, "User should exist."
+    assert crud.user.get_by_email(db, generate_email(seed + 2)), "User should exist."
 
-    edits = {"full_name": name_1(seed)}
-    head = get_auth_headers(client, email_3(seed), pass_3(seed))
+    edits = UserUpdate(full_name=generate_str(seed)).model_dump(exclude_unset=True)
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}", json=edits, headers=head
+        f"{settings.API_PREFIX}/account/{user.id}", json=edits, headers=user_headers
     )
     assert res.status_code == 403
     assert res.json()["detail"] == "User does not have priveleges."
 
 
-def test_search_users(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_3(seed))
+def test_search_users(client: TestClient, db: Session, seed, user_headers) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 2))
     assert user is not None, "Test user should exist."
-    head = get_auth_headers(client, email_3(seed), pass_3(seed))
 
     query: dict[str, str] = {}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 400
     assert res.json()["detail"] == "Provide a search option."
 
     # Search for id
     query = {"id": str(user.id)}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
     assert res.json()["data"][0]["id"] == str(user.id)
 
     # Search for email
-    query = {"email": email_3(seed)}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    query = {"email": generate_email(seed + 2)}
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
     assert res.json()["data"][0]["id"] == str(user.id)
 
     # Search for name
-    query = {"name": name_1(seed)}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    query = {"name": generate_str(seed + 2)}
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
     assert res.json()["data"][0]["id"] == str(user.id)
 
     # Search for name, but have an almost match (remove last three characters)
-    query = {"name": name_1(seed)[:-3]}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    query = {"name": generate_str(seed + 2)[:-3]}
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
     assert res.json()["data"][0]["id"] == str(user.id)
 
     # Search for an email that doesn't exist
-    assert not crud.user.get_by_email(db, email_2(seed)), "This user shouldn't exist."
-    query = {"email": email_2(seed)}
-    res = client.get(f"{settings.API_PREFIX}/account/search", params=query, headers=head)
+    assert not crud.user.get_by_email(db, generate_email(seed + 1)), (
+        "This user shouldn't exist."
+    )
+    query = {"email": generate_email(seed + 1)}
+    res = client.get(
+        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
+    )
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 0
     assert res.json()["data"] == []
 
 
-def test_fail_user_delete_superuser(client: TestClient, db: Session, seed) -> None:
+def test_fail_user_delete_superuser(
+    client: TestClient, db: Session, seed, user_headers
+) -> None:
     user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
     assert user is not None, "Superuser should exist."
-    assert crud.user.get_by_email(db, email_3(seed)) is not None, "User should exist."
+    assert crud.user.get_by_email(db, generate_email(seed + 2)) is not None, (
+        "User should exist."
+    )
 
-    head = get_auth_headers(client, email_3(seed), pass_3(seed))
-    res = client.delete(f"{settings.API_PREFIX}/account/{user.id}", headers=head)
+    res = client.delete(
+        f"{settings.API_PREFIX}/account/{user.id}", headers=user_headers
+    )
     assert res.status_code == 403
     assert res.json()["detail"] == "User does not have priveleges."
 
 
-def test_user_delete_self(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_3(seed))
+def test_user_delete_self(client: TestClient, db: Session, seed, user_headers) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 2))
     assert user is not None, "Test user should exist."
 
-    head = get_auth_headers(client, user.email, pass_3(seed))
-    res = client.delete(f"{settings.API_PREFIX}/account", headers=head)
+    res = client.delete(f"{settings.API_PREFIX}/account", headers=user_headers)
     assert res.status_code == 200
     user_info = res.json()
     assert user_info["id"] == str(user.id)
 
-    assert crud.user.get_by_email(db, email_3(seed)) is None, "User was not deleted."
+    assert crud.user.get_by_email(db, generate_email(seed + 2)) is None, (
+        "User was not deleted."
+    )
 
 
 def test_fail_first_superuser_delete_self(client: TestClient, db: Session) -> None:
@@ -326,34 +331,37 @@ def test_fail_first_superuser_delete_self(client: TestClient, db: Session) -> No
 
     res = client.delete(f"{settings.API_PREFIX}/account/{user.id}", headers=head)
     assert res.status_code == 403
-    assert res.json()["detail"] == "Can't remove First Superuser."
+    assert res.json()["detail"] == "Cannot remove First Superuser."
 
     res = client.delete(f"{settings.API_PREFIX}/account", headers=head)
     assert res.status_code == 403
     assert res.json()["detail"] == "YOU ARE NEEDED, ADMINISTRATOR."
 
-    # Related, but not tested: Suser deletes another, Other Suser (fails) to del FIRST
+    # TODO: Test other superuser deletes another, fails to delete FIRST, deletes self.
 
 
-def test_superuser_delete_user(client: TestClient, db: Session, seed) -> None:
-    user = crud.user.get_by_email(db, email_4(seed))
+def test_superuser_delete_user(
+    client: TestClient, db: Session, seed, superuser_headers
+) -> None:
+    user = crud.user.get_by_email(db, generate_email(seed + 3))
     assert user is None
-    user = crud.user.create(db, UserCreate(email=email_4(seed), password=pass_4(seed)))
-
-    head = get_auth_headers(
-        client, settings.FIRST_SUPERUSER, settings.FIRST_SUPERUSER_PASSWORD
+    user = crud.user.create(
+        db, UserCreate(email=generate_email(seed + 3), password=generate_str(seed + 3))
     )
-    res = client.delete(f"{settings.API_PREFIX}/account/{user.id}", headers=head)
+
+    res = client.delete(
+        f"{settings.API_PREFIX}/account/{user.id}", headers=superuser_headers
+    )
     assert res.status_code == 200
     assert res.json()["id"] == str(user.id)
 
-    assert crud.user.get_by_email(db, email_4(seed)) is None
+    assert crud.user.get_by_email(db, generate_email(seed + 3)) is None
 
 
-def test_fail_superuser_delete_nonexist(client: TestClient) -> None:
-    head = get_auth_headers(
-        client, settings.FIRST_SUPERUSER, settings.FIRST_SUPERUSER_PASSWORD
+def test_fail_superuser_delete_nonexist(client: TestClient, superuser_headers) -> None:
+    id = uuid.uuid4()
+    res = client.delete(
+        f"{settings.API_PREFIX}/account/{id}", headers=superuser_headers
     )
-    res = client.delete(f"{settings.API_PREFIX}/account/{uuid.uuid4()}", headers=head)
     assert res.status_code == 404
-    assert res.json()["detail"] == "Could not find target user."
+    assert res.json()["detail"] == f"<User {id}> not found."

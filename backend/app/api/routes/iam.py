@@ -27,14 +27,11 @@ from app.db.models import (
     UserUpdateSelf,
 )
 
-# Similarity threshold for matching name when searching.
-NAME_THRESHOLD = 0.4
+NAME_THRESHOLD = 0.4  # Similarity threshold for matching name when searching.
+LoginForm = Annotated[OAuth2PasswordRequestForm, Depends()]  # Login Form type
 
 router = APIRouter(prefix="/account")
 
-# TODO: Put the Annotated[] parameters here for brevity?
-LoginForm = Annotated[OAuth2PasswordRequestForm, Depends()]
-UserIdPath = Annotated[UUID, Path()]
 
 # ------------------------------------- Auth Token -------------------------------------
 
@@ -102,11 +99,11 @@ def delete_your_user_info(db: UserSession, user: CurrentUser):
 @router.get("/search", response_model=UsersPublic)
 def search_for_users(
     db: ReadSession,
-    email: Annotated[EmailStr | None, Query()] = None,
-    id: Annotated[UUID | None, Query()] = None,
-    name: Annotated[str | None, Query()] = None,
+    email: EmailStr | None = None,
+    id: UUID | None = None,
+    name: str | None = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10,
 ):
     """## Search for users.
     You can search with email/id (exact match only) or name (partial matches accepted).
@@ -137,14 +134,14 @@ def search_for_users(
 
 @router.patch("/{user_id}", response_model=UserPublic)
 def edit_other_user(
-    db: UserSession, _: CurrentSuperuser, user_id: UserIdPath, edits: UserUpdate
+    db: UserSession, _: CurrentSuperuser, user_id: UUID, edits: UserUpdate
 ):
     """## Edit the data of another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Could not find target user.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"<User {user_id}> not found.")
     if edits.email and crud.user.get_by_email(db, edits.email):
         raise HTTPException(status.HTTP_409_CONFLICT, "That email is already in use.")
 
@@ -152,13 +149,13 @@ def edit_other_user(
 
 
 @router.delete("/{user_id}", response_model=UserPublic)
-def delete_other_user(db: UserSession, _: CurrentSuperuser, user_id: UserIdPath):
+def delete_other_user(db: UserSession, _: CurrentSuperuser, user_id: UUID):
     """## Delete another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Could not find target user.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"<User {user_id}> not found.")
     if other_user.email == settings.FIRST_SUPERUSER:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Can't remove First Superuser.")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Cannot remove First Superuser.")
     return crud.user.delete(db, other_user)

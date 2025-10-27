@@ -86,18 +86,16 @@ CurrentSuperuser = Annotated[AppUser, Depends(get_current_superuser)]
 
 def write_session() -> Generator[Session, None, None]:
     with Session(get_engine()) as session:
-        try:
-            # TODO: Set the session variable? How can I test it?
-            # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
-            # TODO: Should I do RLS policy or check for permissions manually in python?
-            # TODO: Should this function only yield a session if you are logged in?
-            # if user:
-            session.exec(text('RESET "app.current_user"'))  # type: ignore
-            yield session
-            session.commit()
-            # TODO: Should I commit once here, or commit when I make a change?
-        except Exception as e:
-            raise e
+        session.exec(text('RESET "app.current_user"'))  # type: ignore
+        yield session
+        session.commit()
+
+        # TODO: Set the session variable? How can I test it?
+        # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
+        # TODO: Should I do RLS policy or check for permissions manually in python?
+        # TODO: Should this function only yield a session if you are logged in?
+        # if user:
+        # TODO: Should I commit once here, or commit when I make a change?
 
 
 WriteSession = Annotated[Session, Depends(write_session)]

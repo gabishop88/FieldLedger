@@ -17,6 +17,7 @@ from app.core import security
 from app.db.connection import get_engine
 from app.db.models import AppUser
 from app.main import app
+from tests.utils.auth import random_user_headers
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -24,6 +25,7 @@ def db() -> Generator[Session, None, None]:
     """Get a database session. DO NOT call `db.commit()`."""
     with Session(get_engine()) as session:
         try:
+            # TODO: Should I set the "app.current_user" session variable for tests? What would I even set it to?
             yield session
         finally:
             session.rollback()
@@ -61,3 +63,13 @@ def client(db: Session) -> Generator[TestClient, None, None]:
 def seed() -> int:
     """Gives the same random number across all tests in the model."""
     return random.randint(0, 2**16 - 1)  # 2**16: random enough, has room in int range
+
+
+@pytest.fixture(scope="module")
+def user_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
+    return random_user_headers(client, db, seed)
+
+
+@pytest.fixture(scope="module")
+def superuser_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
+    return random_user_headers(client, db, seed, is_superuser=True)

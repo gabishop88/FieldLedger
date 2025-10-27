@@ -24,7 +24,7 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
         self, db: Session, email: EmailStr, password: str
     ) -> AppUser | None:
         """Get an `AppUser` record if the email and password match the database."""
-        user = db.exec(select(AppUser).where(AppUser.email == email)).first()
+        user = self.get_by_email(db, email)
         if user and verify_password(password, user.hashed_password):
             return user
         return None
@@ -34,9 +34,7 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
             new_user,
             update={"hashed_password": get_password_hash(new_user.password)},
         )
-        db.add(record)
-        db.flush()
-        db.refresh(record)
+        self._safe_add(db, record)
         return record
 
     def update(
@@ -46,9 +44,7 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
         if "password" in update_dict:
             update_dict["hashed_password"] = get_password_hash(update_dict["password"])
         user.sqlmodel_update(update_dict)
-        db.add(user)
-        db.flush()
-        db.refresh(user)
+        self._safe_add(db, user)
         return user
 
     def reset_password(self, db: Session, reset: PasswordReset) -> AppUser | None:
@@ -58,9 +54,7 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
         user = db.get(AppUser, decode_token(reset.token))
         if user:
             user.hashed_password = get_password_hash(reset.new_password)
-            db.add(user)
-            db.flush()
-            db.refresh(user)
+            self._safe_add(db, user)
         return user
 
 user = CRUDUser(AppUser)
