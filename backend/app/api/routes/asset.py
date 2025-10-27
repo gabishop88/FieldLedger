@@ -26,22 +26,27 @@ def farm_search(
     description: str | None = None,
     skip=0,
     limit=10,
-):
+) -> FarmsPublic:
     """## Search for one or more farms.
     You may search by name, which will have to be somewhat close to the full name,
     or by description which will match any farm whose description approximately contains the search term.
     """
-    filters = [
-        func.similarity(Farm.name, name) > FARM_NAME_THRESHOLD,
-        func.word_similarity(Farm.description, description) > FARM_DESC_THRESHOLD,
-    ]
+    filters = []
+    if name:
+        filters.append(func.similarity(Farm.name, name) > FARM_NAME_THRESHOLD)
+    if description:
+        filters.append(
+            func.word_similarity(Farm.description, description) > FARM_DESC_THRESHOLD
+        )
     count = db.exec(select(func.count()).where(*filters)).one()
     data = db.exec(select(Farm).where(*filters).offset(skip).limit(limit)).all()
     return FarmsPublic(count=count, data=data)  # type: ignore
 
 
 @router.get("/", response_model=FarmPublic)
-def get_one_farm(db: ReadSession, id: UUID | None = None, name: str | None = None):
+def get_one_farm(
+    db: ReadSession, id: UUID | None = None, name: str | None = None
+) -> Farm:
     """## Find a single farm based on either its id or name.
     If both are provided, the id will be prioritized.
     """
@@ -49,17 +54,22 @@ def get_one_farm(db: ReadSession, id: UUID | None = None, name: str | None = Non
         raise HTTPException(BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
 
     if id is None and name:
-        return crud.farm.get_by_name(db, name)
-    return db.get(Farm, id)
+        farm = crud.farm.get_by_name(db, name)
+    else:
+        farm = db.get(Farm, id)
+
+    if farm is None:
+        raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(id or name))
+    return farm
 
 
 @router.put("/", response_model=FarmPublic)
-def create_farm(db: WriteSession, farm_in: FarmCreate):
+def create_farm(db: WriteSession, farm_in: FarmCreate) -> Farm:
     return crud.farm.create(db, farm_in)
 
 
 @router.patch("/{farm_id}", response_model=FarmPublic)
-def update_farm(db: WriteSession, edits: FarmUpdate, farm_id: UUID):
+def update_farm(db: WriteSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
     farm = db.get(Farm, farm_id)
     if not farm:
         raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))
@@ -67,7 +77,7 @@ def update_farm(db: WriteSession, edits: FarmUpdate, farm_id: UUID):
 
 
 @router.delete("/{farm_id}", response_model=FarmPublic)
-def delete_farm(db: WriteSession, farm_id: UUID):
+def delete_farm(db: WriteSession, farm_id: UUID) -> Farm:
     farm = db.get(Farm, farm_id)
     if not farm:
         raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))

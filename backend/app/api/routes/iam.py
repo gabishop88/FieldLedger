@@ -62,7 +62,7 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
 
 
 @router.get("/", response_model=UserPublic)
-def get_your_user_info(user: CurrentUser):
+def get_your_user_info(user: CurrentUser) -> AppUser:
     """## See the account information for the user that is currently authenticated.
     To be considered 'authenticated', you must make sure that you send the auth token in the request headers.
 
@@ -74,7 +74,7 @@ def get_your_user_info(user: CurrentUser):
 
 
 @router.put("/", response_model=UserPublic)
-def register_user(db: WriteSession, user_in: UserRegister):
+def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
     """## Register a new user account."""
     if crud.user.get_by_email(db, user_in.email):
         raise HTTPException(CONFLICT, ExeMsg.CONFLICT_EMAIL.format(user_in.email))
@@ -84,7 +84,9 @@ def register_user(db: WriteSession, user_in: UserRegister):
 
 # TODO: Should I separate an update_password endpoint to just update that?
 @router.patch("/", response_model=UserPublic)
-def edit_your_user_info(db: UserSession, user: CurrentUser, edits: UserUpdateSelf):
+def edit_your_user_info(
+    db: UserSession, user: CurrentUser, edits: UserUpdateSelf
+) -> AppUser:
     """## Edit the currently authorized user."""
     if edits.email and crud.user.get_by_email(db, edits.email):
         raise HTTPException(CONFLICT, ExeMsg.CONFLICT_EMAIL.format(edits.email))
@@ -92,7 +94,7 @@ def edit_your_user_info(db: UserSession, user: CurrentUser, edits: UserUpdateSel
 
 
 @router.delete("/", response_model=UserPublic)
-def delete_your_user_info(db: UserSession, user: CurrentUser):
+def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
     """## Delete the currently authorized user.
     Returns user info as it was before deletion, will not exist after call.
     """
@@ -112,7 +114,7 @@ def search_for_users(
     name: str | None = None,
     skip: int = 0,
     limit: int = 10,
-):
+) -> UsersPublic:
     """## Search for users.
     You can search with email/id (exact match only) or name (partial matches accepted).
 
@@ -143,7 +145,7 @@ def search_for_users(
 @router.patch("/{user_id}", response_model=UserPublic)
 def edit_other_user(
     db: UserSession, _: CurrentSuperuser, user_id: UUID, edits: UserUpdate
-):
+) -> AppUser:
     """## Edit the data of another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
@@ -157,7 +159,7 @@ def edit_other_user(
 
 
 @router.delete("/{user_id}", response_model=UserPublic)
-def delete_other_user(db: UserSession, _: CurrentSuperuser, user_id: UUID):
+def delete_other_user(db: UserSession, _: CurrentSuperuser, user_id: UUID) -> AppUser:
     """## Delete another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
