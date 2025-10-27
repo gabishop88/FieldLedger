@@ -40,7 +40,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     # ---------------- UPDATE ----------------
 
     def update(self, db: Session, record: ModelType, changes: UpdateType) -> ModelType:
-        """Modify the selected `record` with the provided `changes`."""
+        """## Modify the selected `record` with the provided `changes`."""
         update_dict = changes.model_dump(exclude_unset=True)
         record.sqlmodel_update(update_dict)
         self._safe_add(db, record)
@@ -48,8 +48,8 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
 
     # ---------------- DELETE ----------------
 
-    def delete(self, db: Session, record: ModelType) -> ModelType | None:
-        """Deletes the given `record`. Returns it if deleted, returns `None` if nothing was deleted."""
+    def delete(self, db: Session, record: ModelType) -> ModelType:
+        """## Deletes the given `record` and returns it (as it was before deletion)."""
         db.delete(record)
         db.flush()
         return record

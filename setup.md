@@ -279,6 +279,9 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
   30. I noticed that the `asset.farm` table didn't have a Unique constraint on `asset.farm.name`. I feel like this is important, so I went to go back and edit the first_tables revision, since it is not too late to make changes like that. In the process, I noticed that none of the constraints come with names by default in alembic. It is recommended to set these names manually in the alembic revision scripts. However, the way I have built this project, this is something that can be done later if it becomes important and the db can be rebuilt without affecting anything. For now, I am going to leave a note that this should be done, and that I should come back and do this if I ever do something where I need to refer to any constraint by name. I did add the unique constraint to farm here, but left the default naming.
   31. I have already noticed that it is a pain to edit Exception messages. Should I collect them in one place so they are easy to edit? Maybe a StrEnum?
   32. I added endpoints to CRUD the farm table, and tests as well.
+  33. I was really tired of looking for exception detail messages while writing tests, and making sure they were formatted the same between using similar detail messages, so I added app/api/messages.py with a StrEnum called `ExeMsg` that will store consistent exception messages to reuse across the app and in tests.
+
+> Functions from old database that may need recreated:
 >
 > * identity.get_current_user()
 > * audit.change_trigger() (+ add as trigger on all tables)
@@ -288,4 +291,4 @@ Things I am putting off for now that may need to be revisited:
 
 * Implementing RLS. This should be done if the db is expanded to hold data outside of the organization where access control is needed.
 * Naming convention for table constraints. This should be implemented if I need to do anything that refers to a constraint by name, otherwise it is fine to put off.
-* Centralize(ish) exception messages by hardcoding the strings, maybe in a StrEnum?
+* I should tweak the String similarity thresholds for searching, but that will have to happen once I have data in there to do a bunch of testing with. If there are a couple of really good values, then I can maybe centralize them in settings or something.

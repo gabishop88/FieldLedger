@@ -1,3 +1,28 @@
+"""## Available FastAPI Dependencies
+See: https://fastapi.tiangolo.com/tutorial/dependencies/ for additional information.
+
+To use one of the dependencies defined here:
+```py
+from app.api.deps import SomeSession, SomeUser
+def endpoint_function(db: SomeSession, user: SomeUser): # For example
+    ...
+```
+Where `SomeSession` can be:
+* `ReadSession`: Basic read-only session that can safely be used by anyone and cannot alter the database.
+* `WriteSession`: Read/write session (no auditability). Recommended not to use unless for some reason you can't have a user logged in when calling endpoint.
+* `UserSession`: Just a `WriteSession`, except it makes sure there is a user logged in.
+
+and `SomeUser` can be:
+* `CurrentUser`: returns the user that is logged in. Can be any user, but if this is a parameter in an endpoint function, that endpoint will always return an exception if the user is not authenticated.
+* `CurrentSuperuser`: same as `CurrentUser` but raises exception if `CurrentUser` is not a superuser.
+
+if you want to make sure an endpoint can only be called by a superuser, but you don't actually need that user for anything, you can:
+```py
+def secure_endpoint(db: UserSession, _: CurrentSuperuser):
+    ...
+```
+"""
+
 import logging
 from collections.abc import Generator
 from typing import Annotated
@@ -6,6 +31,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, text
 
+from app.api.messages import ExeMsg
 from app.core import security
 from app.core.config import settings
 from app.db.connection import get_engine
@@ -14,23 +40,7 @@ from app.db.models import AppUser
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Usage Notes:
-# if an endpoint function needs a database session, authenticated user, etc:
-# `def endpoint_function_name(db: SomeSession, user: UserType):`
-
-# Where `SomeSession` can be:
-#   - ReadSession: gives a readonly session, does not require a user, and is safe (guarenteed not to edit data)
-#   - WriteSession: this is an unauthenticated session that can read/write data.
-#       this should only be used to write data when you explicitly do not need an authorized user to edit the data (very rare).
-#   - UserSession: This is the most common type of session, you can read/write data, but it requires a valid auth header.
-
-# And `UserType` can be:
-#   - CurrentUser: Gives the iam.app_user record that is associated with the id found in the AccessToken, which is in the auth header.
-#   - CurrentSuperuser: Gives the CurrentUser if they are a superuser (error if not).
-
-# Helpful logging:
-# logger.info(f'Location {int(session.exec(text("SELECT pg_backend_pid();")).first()[0])}') # type: ignore Currrent Session pid
-# logger.info(json.dumps(list(map(tuple, session.exec(text("SELECT pid, usename, state, query FROM pg_stat_activity WHERE usename ILIKE 'fieldledger_%';")).all())), indent=2)) # type: ignore All Sessions
+# NOTE: read_session and write_session call 'RESET "app.current_user"' so that the session var exists (but is not set) which will prevent an error if the database tries to access it.
 
 
 # --------------------------- Auth Token from Request Header ---------------------------
@@ -58,13 +68,13 @@ def get_current_user(db: ReadSession, token: AccessToken) -> AppUser:
     """Returns current user if the header contains a valid auth token."""
     key = security.decode_token(token)
     if key is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Could not validate credentials")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, ExeMsg.FBDN_CRED)
 
     user = db.get(AppUser, key)
     if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_USER.format(key))
 
-    db.close()  # Close the readonly session that was just needed to get the current user.
+    db.close()  # Close the readonly session that was only needed to get current user.
     return user
 
 
@@ -74,7 +84,7 @@ CurrentUser = Annotated[AppUser, Depends(get_current_user)]
 def get_current_superuser(current_user: CurrentUser) -> AppUser:
     """Returns current user if they have superuser perms. Otherwise raises Exception."""
     if current_user is None or not current_user.is_superuser:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "User does not have priveleges.")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, ExeMsg.FBDN_PRIV)
     return current_user
 
 
@@ -90,12 +100,8 @@ def write_session() -> Generator[Session, None, None]:
         yield session
         session.commit()
 
-        # TODO: Set the session variable? How can I test it?
-        # TODO: How can I check that an RLS policy or trigger func, etc. will see the session var correctly?
-        # TODO: Should I do RLS policy or check for permissions manually in python?
-        # TODO: Should this function only yield a session if you are logged in?
-        # if user:
         # TODO: Should I commit once here, or commit when I make a change?
+        # TODO: Should I catch exceptions and session.rollback() manually?
 
 
 WriteSession = Annotated[Session, Depends(write_session)]
