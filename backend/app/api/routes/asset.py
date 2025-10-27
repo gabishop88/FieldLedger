@@ -50,7 +50,7 @@ def get_one_farm(
     """## Find a single farm based on either its id or name.
     If both are provided, the id will be prioritized.
     """
-    if not (id and name):
+    if id is None and name is None:
         raise HTTPException(BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
 
     if id is None and name:

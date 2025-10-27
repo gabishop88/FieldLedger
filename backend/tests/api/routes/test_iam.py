@@ -3,6 +3,7 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from app.api.messages import ExeMsg
 from app.core import security
 from app.core.config import settings
 from app.db import crud
@@ -11,7 +12,7 @@ from tests.utils.auth import get_auth_headers
 from tests.utils.rng import generate_email, generate_str
 
 # TODO: test an expired token? How?
-
+PFIX = settings.API_PREFIX
 
 # --------------------------------- User / Login Tests ---------------------------------
 # Many of these must be run in order (rely on objects changed by previous tests)
@@ -25,7 +26,7 @@ def test_superuser_login(client: TestClient, db: Session) -> None:
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
     }
-    res = client.post(f"{settings.API_PREFIX}/account/login/access-token", data=form)
+    res = client.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 200
     assert "access_token" in res.json()
 
@@ -36,23 +37,21 @@ def test_superuser_login(client: TestClient, db: Session) -> None:
 
 def test_fail_superuser_login(client: TestClient) -> None:
     form = {"username": "not@an.email", "password": "Incorrect"}
-    res = client.post(f"{settings.API_PREFIX}/account/login/access-token", data=form)
+    res = client.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 404
-    assert "detail" in res.json()
-    assert res.json()["detail"] == "Email(username) not found."
+    assert res.json()["detail"] == ExeMsg.NF_EMAIL.format("not@an.email")
 
     form["username"] = settings.FIRST_SUPERUSER
-    res = client.post(f"{settings.API_PREFIX}/account/login/access-token", data=form)
+    res = client.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 400
-    assert "detail" in res.json()
-    assert res.json()["detail"] == "Incorrect Password."
+    assert res.json()["detail"] == ExeMsg.BAD_PWD
 
 
 def test_register_user(client: TestClient, db: Session, seed) -> None:
     data = UserCreate(
         email=generate_email(seed), password=generate_str(seed)
     ).model_dump()
-    res = client.put(f"{settings.API_PREFIX}/account", json=data)
+    res = client.put(f"{PFIX}/account", json=data)
     assert res.status_code == 200
 
     user_res = res.json()
@@ -74,9 +73,9 @@ def test_fail_register_duplicate_user(client: TestClient, db: Session, seed) -> 
     ).model_dump()
     assert crud.user.get_by_email(db, data["email"]) is not None, "User should exist."
 
-    res = client.put(f"{settings.API_PREFIX}/account", json=data)
-    assert res.status_code == 400
-    assert res.json()["detail"] == "Email is already registered."
+    res = client.put(f"{PFIX}/account", json=data)
+    assert res.status_code == 409
+    assert res.json()["detail"] == ExeMsg.CONFLICT_EMAIL.format(data["email"])
 
 
 def test_user_login(client: TestClient, db: Session, seed) -> None:
@@ -84,7 +83,7 @@ def test_user_login(client: TestClient, db: Session, seed) -> None:
     user = crud.user.get_by_email(db, data["username"])
     assert user is not None, "Test user should exist."
 
-    res = client.post(f"{settings.API_PREFIX}/account/login/access-token", data=data)
+    res = client.post(f"{PFIX}/account/login/access-token", data=data)
     assert res.status_code == 200
     assert "access_token" in res.json()
     assert security.decode_token(res.json()["access_token"]) == str(user.id)
@@ -100,9 +99,7 @@ def test_user_update(client: TestClient, db: Session, seed, user_headers) -> Non
         full_name=generate_str(seed + 1),
     ).model_dump()
 
-    res = client.patch(
-        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
-    )
+    res = client.patch(f"{PFIX}/account", json=edits, headers=user_headers)
     assert res.status_code == 200
     new_info = res.json()
     assert new_info["email"] == edits["email"]
@@ -123,9 +120,7 @@ def test_fail_user_elevate_self(
     assert user is not None, "Test user should exist."
     edits = UserUpdate(is_superuser=True).model_dump(exclude_unset=True)
 
-    res = client.patch(
-        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
-    )
+    res = client.patch(f"{PFIX}/account", json=edits, headers=user_headers)
     assert res.status_code == 200  # TODO: Should this have a validation error?
     assert res.json()["is_superuser"] is False
 
@@ -140,11 +135,9 @@ def test_fail_update_email_exists(
     assert user is not None, "Test user should exist."
     edits = UserUpdate(email=settings.FIRST_SUPERUSER).model_dump(exclude_unset=True)
 
-    res = client.patch(
-        f"{settings.API_PREFIX}/account", json=edits, headers=user_headers
-    )
+    res = client.patch(f"{PFIX}/account", json=edits, headers=user_headers)
     assert res.status_code == 409
-    assert res.json()["detail"] == "That email is already in use."
+    assert res.json()["detail"] == ExeMsg.CONFLICT_EMAIL.format(edits["email"])
 
     db.refresh(user)
     assert user.email == generate_email(seed + 1)
@@ -154,7 +147,7 @@ def test_get_user(client: TestClient, db: Session, seed, user_headers) -> None:
     user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
 
-    res = client.get(f"{settings.API_PREFIX}/account", headers=user_headers)
+    res = client.get(f"{PFIX}/account", headers=user_headers)
     user_info = res.json()
     assert user_info["email"] == user.email
     assert user_info["full_name"] == user.full_name
@@ -175,9 +168,7 @@ def test_superuser_update_other(
         is_superuser=True,
     ).model_dump()
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}",
-        json=edits,
-        headers=superuser_headers,
+        f"{PFIX}/account/{user.id}", json=edits, headers=superuser_headers
     )
     assert res.status_code == 200
     user_info = res.json()
@@ -193,9 +184,7 @@ def test_superuser_update_other(
     # Reset is_superuser to revoke priveleges for the future.
     edits = UserUpdate(is_superuser=False).model_dump(exclude_unset=True)
     res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}",
-        json=edits,
-        headers=superuser_headers,
+        f"{PFIX}/account/{user.id}", json=edits, headers=superuser_headers
     )
     assert res.status_code == 200
     assert res.json()["is_superuser"] is False
@@ -206,11 +195,9 @@ def test_superuser_update_other(
 def test_fail_update_nonexistant(client: TestClient, superuser_headers) -> None:
     edits = UserUpdate(full_name="NOTANAME").model_dump(exclude_unset=True)
     id = uuid.uuid4()
-    res = client.patch(
-        f"{settings.API_PREFIX}/account/{id}", json=edits, headers=superuser_headers
-    )
+    res = client.patch(f"{PFIX}/account/{id}", json=edits, headers=superuser_headers)
     assert res.status_code == 404
-    assert res.json()["detail"] == f"<User {id}> not found."
+    assert res.json()["detail"] == ExeMsg.NF_USER.format(id)
 
 
 def test_fail_user_update_other(
@@ -221,11 +208,9 @@ def test_fail_user_update_other(
     assert crud.user.get_by_email(db, generate_email(seed + 2)), "User should exist."
 
     edits = UserUpdate(full_name=generate_str(seed)).model_dump(exclude_unset=True)
-    res = client.patch(
-        f"{settings.API_PREFIX}/account/{user.id}", json=edits, headers=user_headers
-    )
+    res = client.patch(f"{PFIX}/account/{user.id}", json=edits, headers=user_headers)
     assert res.status_code == 403
-    assert res.json()["detail"] == "User does not have priveleges."
+    assert res.json()["detail"] == ExeMsg.FBDN_PRIV
 
 
 def test_search_users(client: TestClient, db: Session, seed, user_headers) -> None:
@@ -233,17 +218,13 @@ def test_search_users(client: TestClient, db: Session, seed, user_headers) -> No
     assert user is not None, "Test user should exist."
 
     query: dict[str, str] = {}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 400
-    assert res.json()["detail"] == "Provide a search option."
+    assert res.json()["detail"] == ExeMsg.BAD_EMPTY_SEARCH
 
     # Search for id
     query = {"id": str(user.id)}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
@@ -251,9 +232,7 @@ def test_search_users(client: TestClient, db: Session, seed, user_headers) -> No
 
     # Search for email
     query = {"email": generate_email(seed + 2)}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
@@ -261,9 +240,7 @@ def test_search_users(client: TestClient, db: Session, seed, user_headers) -> No
 
     # Search for name
     query = {"name": generate_str(seed + 2)}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
@@ -271,9 +248,7 @@ def test_search_users(client: TestClient, db: Session, seed, user_headers) -> No
 
     # Search for name, but have an almost match (remove last three characters)
     query = {"name": generate_str(seed + 2)[:-3]}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 1
@@ -284,9 +259,7 @@ def test_search_users(client: TestClient, db: Session, seed, user_headers) -> No
         "This user shouldn't exist."
     )
     query = {"email": generate_email(seed + 1)}
-    res = client.get(
-        f"{settings.API_PREFIX}/account/search", params=query, headers=user_headers
-    )
+    res = client.get(f"{PFIX}/account/search", params=query, headers=user_headers)
     assert res.status_code == 200
     assert "count" in res.json()
     assert res.json()["count"] == 0
@@ -302,18 +275,16 @@ def test_fail_user_delete_superuser(
         "User should exist."
     )
 
-    res = client.delete(
-        f"{settings.API_PREFIX}/account/{user.id}", headers=user_headers
-    )
+    res = client.delete(f"{PFIX}/account/{user.id}", headers=user_headers)
     assert res.status_code == 403
-    assert res.json()["detail"] == "User does not have priveleges."
+    assert res.json()["detail"] == ExeMsg.FBDN_PRIV
 
 
 def test_user_delete_self(client: TestClient, db: Session, seed, user_headers) -> None:
     user = crud.user.get_by_email(db, generate_email(seed + 2))
     assert user is not None, "Test user should exist."
 
-    res = client.delete(f"{settings.API_PREFIX}/account", headers=user_headers)
+    res = client.delete(f"{PFIX}/account", headers=user_headers)
     assert res.status_code == 200
     user_info = res.json()
     assert user_info["id"] == str(user.id)
@@ -329,13 +300,13 @@ def test_fail_first_superuser_delete_self(client: TestClient, db: Session) -> No
 
     head = get_auth_headers(client, user.email, settings.FIRST_SUPERUSER_PASSWORD)
 
-    res = client.delete(f"{settings.API_PREFIX}/account/{user.id}", headers=head)
+    res = client.delete(f"{PFIX}/account/{user.id}", headers=head)
     assert res.status_code == 403
-    assert res.json()["detail"] == "Cannot remove First Superuser."
+    assert res.json()["detail"] == ExeMsg.FBDN_REM_1SU
 
-    res = client.delete(f"{settings.API_PREFIX}/account", headers=head)
+    res = client.delete(f"{PFIX}/account", headers=head)
     assert res.status_code == 403
-    assert res.json()["detail"] == "YOU ARE NEEDED, ADMINISTRATOR."
+    assert res.json()["detail"] == ExeMsg.FBDN_DEL_1SU
 
     # TODO: Test other superuser deletes another, fails to delete FIRST, deletes self.
 
@@ -349,9 +320,7 @@ def test_superuser_delete_user(
         db, UserCreate(email=generate_email(seed + 3), password=generate_str(seed + 3))
     )
 
-    res = client.delete(
-        f"{settings.API_PREFIX}/account/{user.id}", headers=superuser_headers
-    )
+    res = client.delete(f"{PFIX}/account/{user.id}", headers=superuser_headers)
     assert res.status_code == 200
     assert res.json()["id"] == str(user.id)
 
@@ -360,8 +329,6 @@ def test_superuser_delete_user(
 
 def test_fail_superuser_delete_nonexist(client: TestClient, superuser_headers) -> None:
     id = uuid.uuid4()
-    res = client.delete(
-        f"{settings.API_PREFIX}/account/{id}", headers=superuser_headers
-    )
+    res = client.delete(f"{PFIX}/account/{id}", headers=superuser_headers)
     assert res.status_code == 404
-    assert res.json()["detail"] == f"<User {id}> not found."
+    assert res.json()["detail"] == ExeMsg.NF_USER.format(id)

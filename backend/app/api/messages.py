@@ -12,6 +12,7 @@ class ExeMsg(StrEnum):
     # HTTP_400_BAD_REQUEST
     BAD_PWD = "Incorrect Password."
     BAD_EMPTY_SEARCH = "Provide A Search Option"
+    # NOTE: `crud_base.py`  current has the only exception that doesn't use ExeMsg since it passes the exception detail directly up from the database.
 
     # HTTP_403_FORBIDDEN
     FBDN_CRED = "Unable To Validate Credentials."
