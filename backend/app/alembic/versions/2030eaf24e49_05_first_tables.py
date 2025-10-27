@@ -26,15 +26,16 @@ def upgrade() -> None:
     sa.Column('name', sm.AutoString(length=255), nullable=False),
     sa.Column('private', sa.Boolean(), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('name'),
     schema='asset'
     )
     op.create_table('app_user',
     sa.Column('email', sm.AutoString(length=255), nullable=False),
     sa.Column('is_superuser', sa.Boolean(), nullable=False),
     sa.Column('full_name', sm.AutoString(length=255), nullable=True),
-    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('hashed_password', sm.AutoString(length=255), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     schema='iam'

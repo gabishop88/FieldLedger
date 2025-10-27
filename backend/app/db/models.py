@@ -29,9 +29,11 @@ class UserBase(SQLModel):
 class UserPublic(UserBase):
     id: UUID
 
+
 class UsersPublic(SQLModel):
     count: int
     data: list[UserPublic]
+
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=255)
@@ -81,13 +83,18 @@ class AppUser(UserBase, table=True):
 
 
 class FarmBase(SQLModel):
-    name: str = Field(max_length=255)
+    name: str = Field(max_length=255, unique=True)
     private: bool = Field(default=False)
     description: str | None = Field(default=None, sa_column=Column(Text))
 
 
 class FarmPublic(FarmBase):
     id: UUID
+
+
+class FarmsPublic(SQLModel):
+    count: int
+    data: list[FarmPublic]
 
 
 class FarmCreate(FarmBase):
