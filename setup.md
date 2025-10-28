@@ -287,7 +287,11 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
       4. `alembic upgrade head`
       5. save backup of current data with updated revision
       6. Now it is safe to regenerate the database and everything, just make sure to occasionally make new backups.
-  35. I have to figure out how to generate the backups. Do I use a script? Do I call that script automatically in `prestart.py` and/or `env.py`?
+  35. Okay, I added `app/db/backup.py`. Now, a backup can be manually created with any of the following methods:
+      1. `docker compose exec backend uv run python -m app.db.backup`
+      2. `docker compose exec backend uv run python app/db/backup.py`
+      3. `uv run python -m app.db.backup` (If this says the pg_dump version is incompatible, you may need to install `postgresql-client-18`, and maybe set `PATH=/usr/lib/postgresql/18/bin:$PATH` to make sure you are using the version 18 pg_dump to match the db.)
+  36. I don't really like the change I had to make to `backend/Dockerfile` to install the pg_dump tool. See about changing this in the future.
 
 > Functions from old database that may need recreated:
 >

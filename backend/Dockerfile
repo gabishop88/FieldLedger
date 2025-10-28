@@ -2,6 +2,18 @@
 FROM python:3.12-slim
 # This is heavily inspired by https://github.com/fastapi/full-stack-fastapi-template
 
+# Add PGDG apt repo for PostgreSQL 18 client tools
+RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-certificates && \
+    wget --quiet -O /usr/share/keyrings/postgresql-archive-keyring.gpg \
+        https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt/ $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client-18 && \
+    rm -rf /var/lib/apt/lists/*
+
+
+
 # See: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 # See: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
 # See: https://docs.astral.sh/uv/guides/integration/docker/#caching

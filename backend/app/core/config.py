@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     POSTGRES_READONLY_USER: str
     POSTGRES_READONLY_PASSWORD: str = ""
 
+    POSTGRES_BACKUP_DIR: str | None = None
+
     @computed_field
     @property
     def ADMIN_DATABASE_URI(self) -> PostgresDsn:

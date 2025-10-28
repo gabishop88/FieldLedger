@@ -20,6 +20,7 @@ services:
     build:
       context: ./backend
     image: backend:dev
+    container_name: fieldledger_prestart_setup
     depends_on:
       db:
         condition: service_healthy
