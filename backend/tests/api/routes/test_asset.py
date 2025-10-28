@@ -101,8 +101,6 @@ def test_farm_search(client: TestClient, db: Session, seed) -> None:
     assert res.status_code == 200
     assert res.json()["count"] == 0
 
-    # NOTE: Cannot test no search terms since I don't know how many farms are already in the db
-
 
 def test_get_farm(client: TestClient, db: Session, seed) -> None:
     farm = crud.farm.get_by_name(db, generate_str(seed))
@@ -177,7 +175,7 @@ def test_delete_farm(client: TestClient, db: Session, seed, user_headers) -> Non
     assert res.json()["name"] == farm.name
 
 
-def test_fail_delete_nonexistant_farm(client: TestClient,user_headers) -> None:
+def test_fail_delete_nonexistant_farm(client: TestClient, user_headers) -> None:
     bad_id = str(uuid4())
     res = client.delete(f"{PFIX}/farm/{bad_id}", headers=user_headers)
     assert res.status_code == 404

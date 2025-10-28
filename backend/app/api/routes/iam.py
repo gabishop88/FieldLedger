@@ -137,7 +137,7 @@ def search_for_users(
     if name:
         filters.append(func.similarity(AppUser.full_name, name) > NAME_THRESHOLD)
 
-    count = db.exec(select(func.count()).where(*filters)).one()
+    count = db.exec(select(func.count()).select_from(AppUser).where(*filters)).one()
     data = db.exec(select(AppUser).where(*filters).offset(skip).limit(limit)).all()
     return UsersPublic(count=count, data=data)  # type: ignore
 

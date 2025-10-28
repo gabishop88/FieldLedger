@@ -251,7 +251,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
   19. I wanted to get some basic stuff working, so I added the most fundamental routing stuff for the docs pages, openapi.json, etc. and a health check. This sets up the routing structure, but doesn't add any actually useful routes yet.
   20. Okay, now I have a little bit of stuff in place, and I have to decide on a workflow to get everything else in place in a controlled manner. Here is what I will start with, and make any needed adjustments as I go:
       1. Add a few tables to `/backend/app/db/models.py`
-      2. `alembic revision --autogenerate -m "What I added"`, manually go over the revision file in `backend/app/alembic/versions`
+      2. `alembic revision --autogenerate -m "What I changed"`, manually go over the revision file in `backend/app/alembic/versions`
       3. `docker compose exec backend alembic upgrade head`, manually check that my changes were properly applied to the database
       4. Make sure all of the necessary functions are in place in order to CRUD records for the new tables.
       5. Add tests to make sure I can properly modify the new tables in the database and get those records out.
@@ -280,6 +280,14 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
   31. I have already noticed that it is a pain to edit Exception messages. Should I collect them in one place so they are easy to edit? Maybe a StrEnum?
   32. I added endpoints to CRUD the farm table, and tests as well.
   33. I was really tired of looking for exception detail messages while writing tests, and making sure they were formatted the same between using similar detail messages, so I added app/api/messages.py with a StrEnum called `ExeMsg` that will store consistent exception messages to reuse across the app and in tests.
+  34. The next thing I want to work on before I go throuugh another round of adding tables is to add some data to the database and set up the data migration stuff (so that after I run alembic revisions, it should also bring in any data I have associated with that version). I have to make sure to be careful with my revision workflow. I also have to decide whether I should overwrite previous backups, or save them like: `revision_timestamp.dump` and get the newest The steps should look like:
+      1. Develop db changes
+      2. `alembic revision --autogeneratae -m ""`
+      3. save backup of previous data just before upgrading db (overwrite previous?)
+      4. `alembic upgrade head`
+      5. save backup of current data with updated revision
+      6. Now it is safe to regenerate the database and everything, just make sure to occasionally make new backups.
+  35. I have to figure out how to generate the backups. Do I use a script? Do I call that script automatically in `prestart.py` and/or `env.py`?
 
 > Functions from old database that may need recreated:
 >

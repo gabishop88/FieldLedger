@@ -38,7 +38,7 @@ def farm_search(
         filters.append(
             func.word_similarity(Farm.description, description) > FARM_DESC_THRESHOLD
         )
-    count = db.exec(select(func.count()).where(*filters)).one()
+    count = db.exec(select(func.count()).select_from(Farm).where(*filters)).one()
     data = db.exec(select(Farm).where(*filters).offset(skip).limit(limit)).all()
     return FarmsPublic(count=count, data=data)  # type: ignore
 
