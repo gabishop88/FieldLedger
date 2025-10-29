@@ -20,6 +20,7 @@ class DocTags(StrEnum):
     USER = "User Information and Authentication"
     OP = "Field Operations"
     REF = "Reference Tables"
+    MISC = "Miscellaneous"
 
 
 api_router = APIRouter()
@@ -55,13 +56,13 @@ def docs_page():
     )
 
 
-@api_router.get("/health-check")
+@api_router.get("/health-check", tags=[DocTags.MISC])
 @api_router.head("/health-check", include_in_schema=False)
 def health_check(_: Request):
     return PlainTextResponse("<3", status_code=status.HTTP_200_OK)
 
 
-@api_router.post("/dump-csv/{table}")
+@api_router.post("/dump-csv/{table}", tags=[DocTags.MISC])
 async def data_dump(db: UserSession, _: CurrentSuperuser, table: str, file: UploadFile):
     Model: SQLModel | None= getattr(models, table, None)
     if not (Model and Model.__tablename__):
