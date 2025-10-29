@@ -298,7 +298,11 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
 Things that often need changed when autogenerating revisions:
 
 * sa.Uuid() -> sa.UUID()
-* 
+* Add changelog trigger: `op.execute("""--sql
+    CREATE TRIGGER table_audit
+    AFTER INSERT OR UPDATE OR DELETE ON schema.table
+    FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)`
 
 > Functions from old database that may need recreated:
 >
@@ -312,3 +316,4 @@ Things I am putting off for now that may need to be revisited:
 * Naming convention for table constraints. This should be implemented if I need to do anything that refers to a constraint by name, otherwise it is fine to put off.
 * I should tweak the String similarity thresholds for searching, but that will have to happen once I have data in there to do a bunch of testing with. If there are a couple of really good values, then I can maybe centralize them in settings or something.
 * I am not putting a change audit on tables in the ref schema since I don't think it is important like the tables storing useful information that can be edited by anyone. If this needs to be changed, just add the trigger to those tables later.
+* It is also worth noting that the trigger function runs per row in a transaction. This means for sessions with bulk transactions, the function will call a select on iam.app_user and alembic_revision tables for every row in the transaction. This can cause some slowdown on bulk operations. I don't expect large bulk insertions that need to be fast as a common use-case for the API, so I am not worrying about this. If this becomes an issue later, the app_user and revision values that are compused in change_trigger() can be cached at the beginning of the transaction to be reused. For example, by wrapping the trigger in a trigger function that triggers once per transaction that gets those values and calls the current trigger function for each row and passing the values (change_trigger modified to take them as parameters).
