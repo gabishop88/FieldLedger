@@ -24,6 +24,7 @@ class ExeMsg(StrEnum):
     NF_USER = "<User {0}> Not Found."
     NF_FARM = "<Farm {0}> Not Found."
     NF_EMAIL = "<Email {0}> Not Found."
+    NF_TABLE = "<Table {0}> Not Found."
 
     # HTTP_409_CONFLICT
     CONFLICT_EMAIL = "<Email {0}> Already In Use."

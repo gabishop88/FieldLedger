@@ -14,3 +14,5 @@ def test_health_check(client):
     res = client.get(f"{settings.API_PREFIX}/health-check")
     assert res.status_code == status.HTTP_200_OK
     assert res.text == "<3"
+
+# TODO: test data-dump endpoint
