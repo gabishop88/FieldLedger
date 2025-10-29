@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import ClassVar
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from uuid6 import uuid7
 # TODO: Should I separate the table models from the API models?
 # TODO: Should I divide this into multiple files, possibly by schema?
 
-# ----------------------------------- Miscellaneous ------------------------------------
+# region ------------------------------- Miscellaneous ---------------------------------
 
 
 class Token(SQLModel):
@@ -17,7 +18,8 @@ class Token(SQLModel):
     token_type: str = "bearer"
 
 
-# ------------------------------------ Schema: iam -------------------------------------
+# endregion
+# region -------------------------------- Schema: iam ----------------------------------
 
 
 class UserBase(SQLModel):
@@ -79,7 +81,8 @@ class AppUser(UserBase, table=True):
     hashed_password: str = Field(max_length=255)
 
 
-# ----------------------------------- Schema: asset ------------------------------------
+# endregion
+# region ------------------------------- Schema: asset ---------------------------------
 
 
 class FarmBase(SQLModel):
@@ -122,6 +125,7 @@ class Farm(FarmBase, table=True):
     id: UUID = Field(default_factory=uuid7, primary_key=True)
 
 
+# endregion
 # ------------------------------------ Schema: ref -------------------------------------
 
 
@@ -138,3 +142,6 @@ class FieldType(SQLModel, table=True):
 
     name: str = Field(primary_key=True, max_length=32)
     description: str | None = Field(default=None, sa_column=Column(Text))
+
+
+# endregion

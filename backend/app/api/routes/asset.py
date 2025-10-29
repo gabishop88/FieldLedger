@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from sqlmodel import func, select
 
-from app.api.deps import ReadSession, WriteSession
+from app.api.deps import ReadSession, UserSession
 from app.api.messages import ExeMsg
 from app.db import crud
 from app.db.models import Farm, FarmCreate, FarmPublic, FarmsPublic, FarmUpdate
@@ -64,12 +64,12 @@ def get_one_farm(
 
 
 @router.put("/", response_model=FarmPublic)
-def create_farm(db: WriteSession, farm_in: FarmCreate) -> Farm:
+def create_farm(db: UserSession, farm_in: FarmCreate) -> Farm:
     return crud.farm.create(db, farm_in)
 
 
 @router.patch("/{farm_id}", response_model=FarmPublic)
-def update_farm(db: WriteSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
+def update_farm(db: UserSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
     farm = db.get(Farm, farm_id)
     if not farm:
         raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))
@@ -77,7 +77,7 @@ def update_farm(db: WriteSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
 
 
 @router.delete("/{farm_id}", response_model=FarmPublic)
-def delete_farm(db: WriteSession, farm_id: UUID) -> Farm:
+def delete_farm(db: UserSession, farm_id: UUID) -> Farm:
     farm = db.get(Farm, farm_id)
     if not farm:
         raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))
