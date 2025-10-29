@@ -26,7 +26,7 @@ def include_object(object, name, type_, reflected, compare_to):
     by migrations.
     """
     # object may be None for some autogenerate hooks; just include in that case
-    if type_ == "table" and name in ("spatial_ref_sys", "alembic_version"):
+    if type_ == "table" and name in ("spatial_ref_sys", "alembic_version", "changelog"):
         return False
     return True
 

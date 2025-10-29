@@ -23,5 +23,6 @@
     "**/.uv": true,
     "**/.venv": true,
     "**/.coverage": true,
-  }
+  },
+  "inlineSQL.lintSQLFiles": true,
 }
