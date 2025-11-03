@@ -18,11 +18,11 @@ from app.core.config import settings
 
 def get_revision() -> str:
     result = subprocess.run(["alembic", "current"], capture_output=True, text=True)
-    return result.stdout.split(" ")[0]
+    return result.stdout.split(" ")[0].strip()
 
 
 def get_timestamp() -> str:
-    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S").strip()
 
 
 def make_backup(dir: Path) -> None:

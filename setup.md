@@ -325,3 +325,4 @@ Things I am putting off for now that may need to be revisited:
 * Should I add a `ref.equipment_type.category` column like `ref.product_type.category`?
 * Everywhere I have a FK in models.py, should I add the `max_length` or is it fine since that constraint is on the col it references? like `ColInfo(sa_column=Column(ForeignKey(...), nullable=False), max_length=32)` or something.
 * Is it okay to use the AutoString for everything in models.py (by just using str annotation)? Should I remove the max_length=255 constraints?
+* Should I add a superuser endpoint that executes a data backup?
