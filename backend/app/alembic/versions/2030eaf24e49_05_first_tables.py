@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.create_table('farm',
     sa.Column('name', sm.AutoString(length=255), nullable=False),
     sa.Column('private', sa.Boolean(), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('description', sm.AutoString(), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name'),
@@ -43,7 +43,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_iam_app_user_email'), 'app_user', ['email'], unique=True, schema='iam')
     op.create_table('field_type',
     sa.Column('name', sm.AutoString(length=32), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('description', sm.AutoString(), nullable=True),
     sa.PrimaryKeyConstraint('name'),
     schema='ref'
     )

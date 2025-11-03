@@ -293,7 +293,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
       3. `uv run python -m app.db.backup` (If this says the pg_dump version is incompatible, you may need to install `postgresql-client-18`, and maybe set `PATH=/usr/lib/postgresql/18/bin:$PATH` to make sure you are using the version 18 pg_dump to match the db.)
   36. I don't really like the change I had to make to `backend/Dockerfile` to install the pg_dump tool. See about changing this in the future.
   37. The last thing I can think of that should be added before I move on is the `audit.changelog` table. This will just sit in the background and hopefully not be thought about unless something goes wrong and we need to see what happened. I created the table manually with a revision and added it to be ignored in autogeneration. This is because I didn't want to add it to `models.py` since it should not be used by the API. If for some reason it ever is used by the API, just add it to `models.py` in the same way it was originally defined, and then remove from the ignore in `env.py` (then autogenerate a revision to make sure it is empty).
-  <!-- 38. I feel like I am ready to add new tables. For this round, I want to add `ref.boundary_type`, `ref.product_type`, `ref.crop`, `asset.field`, `asset.field_boundary`, `asset.product`, `asset.equipment` -->
+  38. I feel like I am ready to add new tables. For this round, I want to add `ref.boundary_type`, `ref.product_type`, `ref.equipment_type`, `ref.unit`, `ref.crop`, `asset.field`, `asset.field_boundary`, `asset.product`, `asset.equipment`. That's quite a few tables, but they are generally related.
 
 Things that often need changed when autogenerating revisions:
 
@@ -303,6 +303,7 @@ Things that often need changed when autogenerating revisions:
     AFTER INSERT OR UPDATE OR DELETE ON schema.table
     FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
     """)`
+* `import sqlmodel.sql.sqltypes as sm` and replace `sqlmodel.sql.sqltypes` with `sm` everywhere.
 
 > Functions from old database that may need recreated:
 >
@@ -317,3 +318,10 @@ Things I am putting off for now that may need to be revisited:
 * I should tweak the String similarity thresholds for searching, but that will have to happen once I have data in there to do a bunch of testing with. If there are a couple of really good values, then I can maybe centralize them in settings or something.
 * I am not putting a change audit on tables in the ref schema since I don't think it is important like the tables storing useful information that can be edited by anyone. If this needs to be changed, just add the trigger to those tables later.
 * It is also worth noting that the trigger function runs per row in a transaction. This means for sessions with bulk transactions, the function will call a select on iam.app_user and alembic_revision tables for every row in the transaction. This can cause some slowdown on bulk operations. I don't expect large bulk insertions that need to be fast as a common use-case for the API, so I am not worrying about this. If this becomes an issue later, the app_user and revision values that are compused in change_trigger() can be cached at the beginning of the transaction to be reused. For example, by wrapping the trigger in a trigger function that triggers once per transaction that gets those values and calls the current trigger function for each row and passing the values (change_trigger modified to take them as parameters).
+* I could add a check constraint to ref.unit like "(si_unit_name <> name) OR (si_conv = 1.0)" to ensure SI base units refer to themself with a multiplier of 1.0.
+* For now, I am cascading deletes over FKs. If I want to reduce the risk of accidental deletion, I may want to change that behavior or handle it manually?
+* I need to figure out where I should have a fk be a string vs the Relationship() object? Especially for reference column like `field.type`.
+* Should I make `asset.product.farm_id` nullable so that I can create cross-farm products, like 'default' options that everyone has access to?
+* Should I add a `ref.equipment_type.category` column like `ref.product_type.category`?
+* Everywhere I have a FK in models.py, should I add the `max_length` or is it fine since that constraint is on the col it references? like `ColInfo(sa_column=Column(ForeignKey(...), nullable=False), max_length=32)` or something.
+* Is it okay to use the AutoString for everything in models.py (by just using str annotation)? Should I remove the max_length=255 constraints?
