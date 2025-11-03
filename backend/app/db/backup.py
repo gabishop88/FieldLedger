@@ -1,3 +1,14 @@
+"""## Tools to create a backup of the database
+You can call `make_backup(backup_dir)` to make a backup, or run one of the following:
+
+```sh
+docker compose exec backend uv run python -m app.db.backup
+```
+OR
+```sh
+uv run python -m app.db.backup
+```
+"""
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
