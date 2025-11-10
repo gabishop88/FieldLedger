@@ -1,3 +1,5 @@
+import re
+
 from fastapi import FastAPI, status
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRoute
@@ -6,9 +8,14 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.router import DocTags, api_router
 from app.core.config import settings
 
+SNAKIFIER = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+
 
 def custom_route_id(route: APIRoute) -> str:
-    return f"{route.tags[0] if len(route.tags) else 'default'}-{route.name}"
+    tag = route.tags[0] if route.tags else "default"
+    tag = str(tag).strip().replace(" ", "_")
+    tag = SNAKIFIER.sub("_", tag).lower()
+    return f"{tag}_{route.name}"
 
 
 app = FastAPI(
