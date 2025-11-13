@@ -25,34 +25,38 @@ class Token(SQLModel):
 # region -------------------------------- Schema: ref ----------------------------------
 
 
-class BasicRef(SQLModel):
+class TypeRef(SQLModel):
     name: str = ColInfo(primary_key=True, max_length=32)
     description: str | None = None
 
 
-class FieldType(BasicRef, table=True):
+class TypeRefUpdate(TypeRef):
+    name: str | None = None
+
+
+class FieldType(TypeRef, table=True):
     __tablename__: ClassVar[str] = "field_type"
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
-class BoundaryType(BasicRef, table=True):
+class BoundaryType(TypeRef, table=True):
     __tablename__: ClassVar[str] = "boundary_type"
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
-class EquipmentType(BasicRef, table=True):
+class EquipmentType(TypeRef, table=True):
     __tablename__: ClassVar[str] = "equipment_type"
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
-class ProductType(BasicRef, table=True):
+class ProductType(TypeRef, table=True):
     __tablename__: ClassVar[str] = "product_type"
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     category: str | None = None
 
 
-class Unit(BasicRef, table=True):
+class Unit(TypeRef, table=True):
     __tablename__: ClassVar[str] = "unit"
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
@@ -66,24 +70,47 @@ class Unit(BasicRef, table=True):
     si_conv: float
 
 
-class Crop(SQLModel, table=True):
-    __tablename__: ClassVar[str] = "crop"
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
+class UnitUpdate(TypeRef):
+    name: str | None = None
+    category: str | None = None
+    si_unit_name: str | None = None
+    si_conv: float | None = None
 
-    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+class CropBase(SQLModel):
     common_name: str
     latin_name: str
     description: str | None = None
     density: float | None = None
-
     density_unit_name: str | None = ColInfo(
         sa_column=Column(
             ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
             nullable=True,
         )
     )
+
+
+class CropUpdate(CropBase):
+    common_name: str | None = None
+    latin_name: str | None = None
+
+
+# TODO: Should I make Crop.latin_name the PK? Should I standardize the amount of detail (subsp, var, etc.) that should be used?
+class Crop(CropBase, table=True):
+    __tablename__: ClassVar[str] = "crop"
+    __table_args__: ClassVar[dict] = {"schema": "ref"}
+
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
     density_unit: Unit = Relationship()
 
+
+ReferencePublic = TypeRef | ProductType | Unit | Crop
+ReferenceCreate = TypeRef | ProductType | Unit | CropBase
+ReferenceUpdate = TypeRefUpdate | ProductType | UnitUpdate | CropUpdate
+
+class ReferencesPublic(SQLModel):
+    count: int
+    data: list[ReferencePublic]
 
 # endregion
 # region -------------------------------- Schema: iam ----------------------------------

@@ -293,7 +293,7 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
       3. `uv run python -m app.db.backup` (If this says the pg_dump version is incompatible, you may need to install `postgresql-client-18`, and maybe set `PATH=/usr/lib/postgresql/18/bin:$PATH` to make sure you are using the version 18 pg_dump to match the db.)
   36. I don't really like the change I had to make to `backend/Dockerfile` to install the pg_dump tool. See about changing this in the future.
   37. The last thing I can think of that should be added before I move on is the `audit.changelog` table. This will just sit in the background and hopefully not be thought about unless something goes wrong and we need to see what happened. I created the table manually with a revision and added it to be ignored in autogeneration. This is because I didn't want to add it to `models.py` since it should not be used by the API. If for some reason it ever is used by the API, just add it to `models.py` in the same way it was originally defined, and then remove from the ignore in `env.py` (then autogenerate a revision to make sure it is empty).
-  38. I feel like I am ready to add new tables. For this round, I want to add `ref.boundary_type`, `ref.product_type`, `ref.equipment_type`, `ref.unit`, `ref.crop`, `asset.field`, `asset.field_boundary`, `asset.product`, `asset.equipment`. That's quite a few tables, but they are generally related.
+  38. I feel like I am ready to add new tables. For this round, I want to add `ref.boundary_type`, `ref.product_type`, `ref.equipment_type`, `ref.unit`, `ref.crop`, `asset.field`, `asset.field_boundary`, `asset.product`, `asset.equipment`. That's quite a few tables, but they are generally related. Part of adding all of these is including the important API endpoints and tests.
 
 Things that often need changed when autogenerating revisions:
 
@@ -326,3 +326,4 @@ Things I am putting off for now that may need to be revisited:
 * Everywhere I have a FK in models.py, should I add the `max_length` or is it fine since that constraint is on the col it references? like `ColInfo(sa_column=Column(ForeignKey(...), nullable=False), max_length=32)` or something.
 * Is it okay to use the AutoString for everything in models.py (by just using str annotation)? Should I remove the max_length=255 constraints?
 * Should I add a superuser endpoint that executes a data backup?
+* I am thinking about allowing uuid searching in places where it is less important (like you can give a partial uuid and it will match it if it is the only uuid that starts with that sequence? kind of like the alembic revision searching).

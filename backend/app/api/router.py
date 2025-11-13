@@ -10,7 +10,7 @@ from sqlmodel import SQLModel
 
 from app.api.deps import SuperuserSession
 from app.api.messages import ExeMsg
-from app.api.routes import asset, iam
+from app.api.routes import asset, iam, ref
 from app.core.config import settings
 from app.db import models
 
@@ -26,6 +26,7 @@ class DocTags(StrEnum):
 api_router = APIRouter()
 api_router.include_router(asset.router, tags=[DocTags.ASSET])
 api_router.include_router(iam.router, tags=[DocTags.USER])
+api_router.include_router(ref.router, tags=[DocTags.REF])
 
 
 # ----------------------------------- Base Endpoints -----------------------------------
