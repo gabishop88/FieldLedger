@@ -1,8 +1,12 @@
 # To perform CRUD operations, it is recommended to: `from app.db import crud` -> `crud.tablename.operation()`
 
+from typing import Any
+
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel
+
+from app.api.messages import ExeMsg
 
 
 class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
@@ -25,6 +29,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             db.refresh(obj)
         except IntegrityError as e:
             detail = e.orig
+            # pgcode = getattr(detail, "pgcode", None)  # TODO: raise different statuses for different errors?
             if hasattr(detail, "diag"):
                 detail = detail.diag.message_detail  # type: ignore
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail)
@@ -36,6 +41,18 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         db_obj = self.model.model_validate(new_record)
         self._safe_add(db, db_obj)
         return db_obj
+
+    # ----------------- READ -----------------
+
+    def get_or_raise(self, db: Session, key: Any) -> ModelType:
+        """## Get one record or raise HTTPException(404) if not found."""
+        record = db.get(self.model, key)
+        if not record:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                ExeMsg.NF_TABLE_KEY.format(self.model.__name__, key),
+            )
+        return record
 
     # ---------------- UPDATE ----------------
 

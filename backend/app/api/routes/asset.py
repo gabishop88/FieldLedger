@@ -70,15 +70,11 @@ def create_farm(db: UserSession, farm_in: FarmCreate) -> Farm:
 
 @router.patch("/{farm_id}", response_model=FarmPublic)
 def update_farm(db: UserSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
-    farm = db.get(Farm, farm_id)
-    if not farm:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))
+    farm = crud.farm.get_or_raise(db, farm_id)
     return crud.farm.update(db, farm, edits)
 
 
 @router.delete("/{farm_id}", response_model=FarmPublic)
 def delete_farm(db: UserSession, farm_id: UUID) -> Farm:
-    farm = db.get(Farm, farm_id)
-    if not farm:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(farm_id))
+    farm = crud.farm.get_or_raise(db, farm_id)
     return crud.farm.delete(db, farm)
