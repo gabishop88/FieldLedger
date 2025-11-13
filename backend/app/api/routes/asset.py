@@ -6,15 +6,12 @@ from sqlmodel import func, select
 from app.api.deps import ReadSession, UserSession
 from app.api.messages import ExeMsg
 from app.db import crud
-from app.db.models import Farm, FarmCreate, FarmPublic, FarmsPublic, FarmUpdate
+from app.db.models import Farm, FarmCreate, FarmsPublic, FarmUpdate
 
 # Similarity thresholds when searching
 FARM_NAME_THRESHOLD = 0.4
 FARM_DESC_THRESHOLD = 0.2
 
-# Shorten the status codes I use explicitly
-BAD_REQUEST = status.HTTP_400_BAD_REQUEST
-NOT_FOUND = status.HTTP_404_NOT_FOUND
 
 router = APIRouter(prefix="/farm")
 
@@ -43,7 +40,7 @@ def farm_search(
     return FarmsPublic(count=count, data=data)  # type: ignore
 
 
-@router.get("/", response_model=FarmPublic)
+@router.get("/", response_model=Farm)
 def get_one_farm(
     db: ReadSession, id: UUID | None = None, name: str | None = None
 ) -> Farm:
@@ -51,30 +48,28 @@ def get_one_farm(
     If both are provided, the id will be prioritized.
     """
     if id is None and name is None:
-        raise HTTPException(BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
 
-    if id is None and name:
-        farm = crud.farm.get_by_name(db, name)
-    else:
-        farm = db.get(Farm, id)
-
+    farm = db.get(Farm, id) or crud.farm.get_by_name(db, name)  # type: ignore
     if farm is None:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF_FARM.format(id or name))
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, ExeMsg.NF_FARM.format(id or name)
+        )
     return farm
 
 
-@router.put("/", response_model=FarmPublic)
+@router.put("/", response_model=Farm)
 def create_farm(db: UserSession, farm_in: FarmCreate) -> Farm:
     return crud.farm.create(db, farm_in)
 
 
-@router.patch("/{farm_id}", response_model=FarmPublic)
+@router.patch("/{farm_id}", response_model=Farm)
 def update_farm(db: UserSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
     farm = crud.farm.get_or_raise(db, farm_id)
     return crud.farm.update(db, farm, edits)
 
 
-@router.delete("/{farm_id}", response_model=FarmPublic)
+@router.delete("/{farm_id}", response_model=Farm)
 def delete_farm(db: UserSession, farm_id: UUID) -> Farm:
     farm = crud.farm.get_or_raise(db, farm_id)
     return crud.farm.delete(db, farm)

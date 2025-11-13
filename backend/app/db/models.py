@@ -147,15 +147,6 @@ class FarmBase(SQLModel):
     description: str | None = None
 
 
-class FarmPublic(FarmBase):
-    id: UUID
-
-
-class FarmsPublic(SQLModel):
-    count: int
-    data: list[FarmPublic]
-
-
 class FarmCreate(FarmBase):
     pass
 
@@ -170,6 +161,11 @@ class Farm(FarmBase, table=True):
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+class FarmsPublic(SQLModel):
+    count: int
+    data: list[Farm]
 
 
 class FieldBase(SQLModel):
