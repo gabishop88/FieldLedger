@@ -8,9 +8,9 @@ from pydantic import EmailStr
 from sqlmodel import func, select
 
 from app.api.deps import (
-    CurrentSuperuser,
     CurrentUser,
     ReadSession,
+    SuperuserSession,
     UserSession,
     WriteSession,
 )
@@ -143,9 +143,7 @@ def search_for_users(
 
 
 @router.patch("/{user_id}", response_model=UserPublic)
-def edit_other_user(
-    db: UserSession, _: CurrentSuperuser, user_id: UUID, edits: UserUpdate
-) -> AppUser:
+def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> AppUser:
     """## Edit the data of another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
@@ -159,7 +157,7 @@ def edit_other_user(
 
 
 @router.delete("/{user_id}", response_model=UserPublic)
-def delete_other_user(db: UserSession, _: CurrentSuperuser, user_id: UUID) -> AppUser:
+def delete_other_user(db: SuperuserSession, user_id: UUID) -> AppUser:
     """## Delete another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """

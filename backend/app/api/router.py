@@ -8,7 +8,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import ValidationError
 from sqlmodel import SQLModel
 
-from app.api.deps import CurrentSuperuser, UserSession
+from app.api.deps import SuperuserSession
 from app.api.messages import ExeMsg
 from app.api.routes import asset, iam
 from app.core.config import settings
@@ -63,7 +63,7 @@ def health_check(_: Request):
 
 
 @api_router.post("/dump-csv/{table}", tags=[DocTags.MISC])
-async def data_dump(db: UserSession, _: CurrentSuperuser, table: str, file: UploadFile):
+async def data_dump(db: SuperuserSession, table: str, file: UploadFile):
     Model: SQLModel | None= getattr(models, table, None)
     if not (Model and Model.__tablename__):
         raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_TABLE.format(table))

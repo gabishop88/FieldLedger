@@ -70,5 +70,5 @@ def user_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
 
 
 @pytest.fixture(scope="module")
-def superuser_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
+def su_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
     return random_user_headers(client, db, seed, is_superuser=True)

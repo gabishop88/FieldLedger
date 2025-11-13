@@ -11,16 +11,11 @@ Where `SomeSession` can be:
 * `ReadSession`: Basic read-only session that can safely be used by anyone and cannot alter the database.
 * `WriteSession`: Read/write session (no auditability). Recommended not to use unless for some reason you can't have a user logged in when calling endpoint.
 * `UserSession`: Just a `WriteSession`, except it makes sure there is a user logged in.
+* `SuperuserSession`: Same as `UserSession` but raises exception if current user is not a superuser
 
 and `SomeUser` can be:
 * `CurrentUser`: returns the user that is logged in. Can be any user, but if this is a parameter in an endpoint function, that endpoint will always return an exception if the user is not authenticated.
 * `CurrentSuperuser`: same as `CurrentUser` but raises exception if `CurrentUser` is not a superuser.
-
-if you want to make sure an endpoint can only be called by a superuser, but you don't actually need that user for anything, you can:
-```py
-def secure_endpoint(db: UserSession, _: CurrentSuperuser):
-    ...
-```
 """
 
 import logging
@@ -118,3 +113,12 @@ def write_session_with_user(
 
 
 UserSession = Annotated[Session, Depends(write_session_with_user)]
+
+
+def write_session_with_superuser(
+    db: WriteSession, user: CurrentSuperuser
+) -> Generator[Session, None, None]:
+    yield from write_session_with_user(db, user)
+
+
+SuperuserSession = Annotated[Session, Depends(write_session_with_superuser)]

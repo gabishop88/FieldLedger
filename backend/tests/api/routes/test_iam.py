@@ -156,7 +156,7 @@ def test_get_user(client: TestClient, db: Session, seed, user_headers) -> None:
 
 
 def test_superuser_update_other(
-    client: TestClient, db: Session, seed, superuser_headers
+    client: TestClient, db: Session, seed, su_headers
 ) -> None:
     user = crud.user.get_by_email(db, generate_email(seed + 1))
     assert user is not None, "Test user should exist."
@@ -167,9 +167,7 @@ def test_superuser_update_other(
         full_name=generate_str(seed + 2),
         is_superuser=True,
     ).model_dump()
-    res = client.patch(
-        f"{PFIX}/account/{user.id}", json=edits, headers=superuser_headers
-    )
+    res = client.patch(f"{PFIX}/account/{user.id}", json=edits, headers=su_headers)
     assert res.status_code == 200
     user_info = res.json()
     assert user_info["email"] == edits["email"]
@@ -183,19 +181,17 @@ def test_superuser_update_other(
 
     # Reset is_superuser to revoke priveleges for the future.
     edits = UserUpdate(is_superuser=False).model_dump(exclude_unset=True)
-    res = client.patch(
-        f"{PFIX}/account/{user.id}", json=edits, headers=superuser_headers
-    )
+    res = client.patch(f"{PFIX}/account/{user.id}", json=edits, headers=su_headers)
     assert res.status_code == 200
     assert res.json()["is_superuser"] is False
     db.refresh(user)
     assert user.is_superuser is False
 
 
-def test_fail_update_nonexistant(client: TestClient, superuser_headers) -> None:
+def test_fail_update_nonexistant(client: TestClient, su_headers) -> None:
     edits = UserUpdate(full_name="NOTANAME").model_dump(exclude_unset=True)
     id = uuid.uuid4()
-    res = client.patch(f"{PFIX}/account/{id}", json=edits, headers=superuser_headers)
+    res = client.patch(f"{PFIX}/account/{id}", json=edits, headers=su_headers)
     assert res.status_code == 404
     assert res.json()["detail"] == ExeMsg.NF_USER.format(id)
 
@@ -312,7 +308,7 @@ def test_fail_first_superuser_delete_self(client: TestClient, db: Session) -> No
 
 
 def test_superuser_delete_user(
-    client: TestClient, db: Session, seed, superuser_headers
+    client: TestClient, db: Session, seed, su_headers
 ) -> None:
     user = crud.user.get_by_email(db, generate_email(seed + 3))
     assert user is None
@@ -320,15 +316,15 @@ def test_superuser_delete_user(
         db, UserCreate(email=generate_email(seed + 3), password=generate_str(seed + 3))
     )
 
-    res = client.delete(f"{PFIX}/account/{user.id}", headers=superuser_headers)
+    res = client.delete(f"{PFIX}/account/{user.id}", headers=su_headers)
     assert res.status_code == 200
     assert res.json()["id"] == str(user.id)
 
     assert crud.user.get_by_email(db, generate_email(seed + 3)) is None
 
 
-def test_fail_superuser_delete_nonexist(client: TestClient, superuser_headers) -> None:
+def test_fail_superuser_delete_nonexist(client: TestClient, su_headers) -> None:
     id = uuid.uuid4()
-    res = client.delete(f"{PFIX}/account/{id}", headers=superuser_headers)
+    res = client.delete(f"{PFIX}/account/{id}", headers=su_headers)
     assert res.status_code == 404
     assert res.json()["detail"] == ExeMsg.NF_USER.format(id)

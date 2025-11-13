@@ -42,7 +42,7 @@ if settings.all_cors_origins:
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
 
-# redirect some expected base urls to use the settings.API_V1_PREFIX.
+# redirect some expected base urls to use the settings.API_PREFIX.
 @app.get("/", include_in_schema=False)
 @app.get("/help", include_in_schema=False)
 @app.get("/docs", include_in_schema=False)
