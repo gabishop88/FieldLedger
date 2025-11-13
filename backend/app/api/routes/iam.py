@@ -55,7 +55,10 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
             raise HTTPException(NOT_FOUND, ExeMsg.NF_EMAIL.format(login_data.username))
 
     expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return Token(access_token=create_access_token(user.id, expires_after))
+    return Token(
+        access_token=create_access_token(user.id, expires_after),
+        expires_min=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
 
 
 # ---------------------------------- Modify Own User -----------------------------------
@@ -76,8 +79,6 @@ def get_your_user_info(user: CurrentUser) -> AppUser:
 @router.put("/", response_model=UserPublic)
 def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
     """## Register a new user account."""
-    if crud.user.get_by_email(db, user_in.email):
-        raise HTTPException(CONFLICT, ExeMsg.CONFLICT_EMAIL.format(user_in.email))
     # TODO: Send a 'New Account' email? Add email verification? Use email-validator library?
     return crud.user.create(db, user_in)
 
@@ -88,8 +89,6 @@ def edit_your_user_info(
     db: UserSession, user: CurrentUser, edits: UserUpdateSelf
 ) -> AppUser:
     """## Edit the currently authorized user."""
-    if edits.email and crud.user.get_by_email(db, edits.email):
-        raise HTTPException(CONFLICT, ExeMsg.CONFLICT_EMAIL.format(edits.email))
     return crud.user.update(db, user, edits)
 
 

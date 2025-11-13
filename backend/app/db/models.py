@@ -18,6 +18,7 @@ from uuid6 import uuid7
 class Token(SQLModel):
     access_token: str
     token_type: str = "bearer"
+    expires_min: int
 
 
 # endregion
