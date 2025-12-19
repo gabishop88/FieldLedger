@@ -31,7 +31,8 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         except IntegrityError as e:
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
-            if getattr(e.orig, "pgcode", None) in ("23505", "23P01"):  # Unique/exlusion
+            # TODO: Relying on msg contents to detect unique violation is unstable. However, I can't find the "pgcode" or similar to do this properly.
+            if "already exists" in msg:  # Unique/exclusion violation
                 raise HTTPException(status.HTTP_409_CONFLICT, msg)
             # FK, NOTNULL, Check, etc.
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
