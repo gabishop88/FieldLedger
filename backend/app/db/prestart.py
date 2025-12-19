@@ -3,13 +3,14 @@ import subprocess
 from pathlib import Path
 
 import alembic.config
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+# NOTE: Avoided `from app.db import crud` because crud.ref relies on db being set up.
 from app.core.config import settings
-from app.db import crud
+from app.core.security import get_password_hash
 from app.db.backup import get_revision
 from app.db.connection import get_engine, test_connection
-from app.db.models import UserCreate
+from app.db.models import AppUser, UserCreate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.db.prestart")
@@ -40,17 +41,21 @@ def find_backup() -> Path | None:
 
 
 def ensure_superuser_exists(db: Session) -> None:
-    user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
+    user = db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first()
     if not user:
         first_user_data = UserCreate(
             email=settings.FIRST_SUPERUSER,
             password=settings.FIRST_SUPERUSER_PASSWORD,
             is_superuser=True,
         )
-        crud.user.create(db, first_user_data)
+        record = AppUser.model_validate(
+            first_user_data,
+            update={"hashed_password": get_password_hash(first_user_data.password)},
+        )
+        db.add(record)
         db.commit()
-
-    user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
+        db.refresh(record)
+    user = db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first()
     assert user, "First superuser could not be created."
 
 
@@ -67,7 +72,7 @@ if __name__ == "__main__":
     logger.info("Alembic Migration Complete.")
 
     with Session(engine) as db:
-        if crud.user.get_by_email(db, settings.FIRST_SUPERUSER) is None:
+        if db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first() is None:
             # Restore compatible backup if exists
             backup = find_backup()
             if backup:
