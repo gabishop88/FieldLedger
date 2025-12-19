@@ -23,17 +23,31 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         self.model = model
 
     def _safe_add(self, db: Session, obj: ModelType) -> ModelType:
-        db.add(obj)
         try:
+            db.add(obj)
             db.flush()
             db.refresh(obj)
+            return obj
         except IntegrityError as e:
-            detail = e.orig
-            # pgcode = getattr(detail, "pgcode", None)  # TODO: raise different statuses for different errors?
-            if hasattr(detail, "diag"):
-                detail = detail.diag.message_detail  # type: ignore
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail)
-        return obj
+            # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
+            msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
+            if getattr(e.orig, "pgcode", None) in ("23505", "23P01"):  # Unique/exlusion
+                raise HTTPException(status.HTTP_409_CONFLICT, msg)
+            # FK, NOTNULL, Check, etc.
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
+
+    def _safe_delete(self, db: Session, obj: ModelType) -> ModelType:
+        try:
+            db.delete(obj)
+            db.flush()
+            return obj
+        except IntegrityError as e:
+            # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
+            msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
+            if getattr(e.orig, "pgcode", None) in ("23503",):  # FK constraint
+                raise HTTPException(status.HTTP_409_CONFLICT, msg)
+            # delete fails for any other reason
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
     # ---------------- CREATE ----------------
 
