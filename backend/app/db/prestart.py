@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -17,10 +18,13 @@ logger = logging.getLogger("app.db.prestart")
 
 
 def restore_backup(backup_fp: Path) -> None:
-    pg_url = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
-    cmd = ["pg_restore", "-c", "-d", pg_url, backup_fp]
+    db_uri = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
+    cmd = ["pg_restore", "-va", "-d", db_uri, "-N", "public", backup_fp]
     logger.info(f"Applying backup file: {backup_fp}")
-    subprocess.check_call(cmd)
+
+    env = os.environ.copy()
+    env["PGOPTIONS"] = "-c audit.skip_changelog=on"
+    subprocess.check_call(cmd, env=env)
 
 
 def find_backup() -> Path | None:

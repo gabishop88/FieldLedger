@@ -68,10 +68,16 @@ def upgrade() -> None:
         app_user JSONB;
         revision TEXT;
     BEGIN
+        -- STEP 1: Make sure logging is not disabled
+        IF current_setting('audit.skip_changelog', true) = 'on' THEN
+            RETURN NULL;
+        END IF;
+
+        -- STEP 2: Get app_user and revision variables
         app_user := iam.get_current_user();
+        SELECT version_num INTO revision FROM public.alembic_version LIMIT 1;
 
-        SELECT version_num INTO revision FROM alembic_version LIMIT 1;
-
+        -- STEP 3: Log the change
         INSERT INTO audit.changelog("revision", "schema", "table", "op", "new_data", "old_data", "app_user")
         VALUES (revision, TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_OP, to_jsonb(NEW), to_jsonb(OLD), app_user);
 
