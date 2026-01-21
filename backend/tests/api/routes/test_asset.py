@@ -11,6 +11,9 @@ from tests.utils.rng import generate_str
 
 PFIX = settings.API_PREFIX
 
+# NOTE: Many tests rely on other tests to have been run previously to prepare the database state.
+# I have added comments to manually call those tests if you want to run one by itself.
+
 
 def test_create_farm(client: TestClient, db: Session, seed, user_headers) -> None:
     data = FarmCreate(
@@ -32,23 +35,21 @@ def test_create_farm(client: TestClient, db: Session, seed, user_headers) -> Non
 def test_fail_create_duplicate_farm_name(
     client: TestClient, db: Session, seed, user_headers
 ) -> None:
+    # test_create_farm(client, db, seed, user_headers)
     assert crud.farm.get_by_name(db, generate_str(seed)), "Farm should exist."
 
     data = FarmCreate(
         name=generate_str(seed), description=generate_str(seed + 1)
     ).model_dump()
     res = client.put(f"{PFIX}/farm", json=data, headers=user_headers)
-    assert res.status_code == 400
+    assert res.status_code == 409
     assert res.json()["detail"] == f"Key (name)=({data['name']}) already exists."
 
-    # Since that was an error caught and raised directly by the database, the session
-    # must be rolled back and the farm inserted again. This is an issue because the tests
-    # Reuse the same session (so that I can have persistent objects that get rolled back at the end).
-    # In a regular API session, the transaction that caused the error would just send back
-    # an exception to the user, so the following transactions would never get called.
+    # This test relies on `test_create_farm` to add a farm to the session that will cause the expected conflict.
+    # Since my tests use the same session, which allows me to run tests in order and let them 'see' objects that were added/edited/deleted by other tests,
+    # I also have to reset the session after the previous call caused an exception from the database, and then put the farm back for the following tests.
     db.rollback()
-    res = client.put(f"{PFIX}/farm", json=data, headers=user_headers)
-    assert res.status_code == 200
+    test_create_farm(client, db, seed, user_headers)
 
 
 def test_farm_search(client: TestClient, db: Session, seed) -> None:

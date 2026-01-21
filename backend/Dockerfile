@@ -13,7 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-c
     rm -rf /var/lib/apt/lists/*
 
 
-
 # See: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
 # See: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
 # See: https://docs.astral.sh/uv/guides/integration/docker/#caching
