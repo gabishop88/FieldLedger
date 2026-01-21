@@ -42,7 +42,7 @@ services:
       backend-prestart:
         condition: service_completed_successfully
     env_file:
-      - .env
+      - ./.env
     environment:
       - POSTGRES_SERVER=fieldledger_db
     volumes:
