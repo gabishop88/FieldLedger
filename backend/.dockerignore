@@ -1,5 +1,6 @@
 # Python
 __pycache__
+.pytest_cache
 app.egg-info
 *.pyc
 .mypy_cache

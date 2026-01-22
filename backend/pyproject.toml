@@ -6,27 +6,30 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.16.5",
-    "argon2-cffi>=25.1.0",
+    # FastAPI
     "fastapi[standard]>=0.118.0",
-    "geoalchemy2>=0.18.0",
-    "passlib[argon2]>=1.7.4",
+    "uvicorn[standard]>=0.37.0",
+
+    # PostGIS Database
     "psycopg[binary]>=3.2.10",
-    "pydantic>=2.11.9",
-    "pydantic-settings>=2.11.0",
-    "python-jose[cryptography]>=3.5.0",
+    "geoalchemy2>=0.18.0",
     "sqlmodel>=0.0.25",
+    "alembic>=1.16.5",
+
+    # Security
+    "passlib[argon2]>=1.7.4",
+    "python-jose[cryptography]>=3.5.0",
+
+    # Utilities
+    "pydantic-settings>=2.11.0",
     "tenacity>=9.1.2",
     "uuid6>=2025.0.1",
-    "uvicorn[standard]>=0.37.0",
 ]
 
 [dependency-groups]
 dev = [
-    "coverage>=7.10.7",
-    "mypy>=1.18.2",
     "pre-commit>=4.3.0",
-    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
     "ruff>=0.13.2",
 ]
 
@@ -36,33 +39,44 @@ prepend_sys_path = ["."]
 
 [tool.ruff]
 target-version = "py312"
-exclude = ["alembic"]
+exclude = ["alembic/**"]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-    "ARG001", # unused arguments in functions
-    "T201",   # print statements are not allowed
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4", # Unnecessary list comprehensions
+    "UP",
+    "ARG001",
+    "T201",
+    "SIM",
 ]
-ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "W191",  # indentation contains tabs
-    "B904",  # Allow raising exceptions without from e, for HTTPException
-]
+ignore = ["E501", "B008", "B904"]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
 
 [tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=xml"
 filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning:passlib",
     "ignore:Accessing argon2.__version__:DeprecationWarning:passlib",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = [
+    "app/alembic/*",
+    "**/__init__.py",
+    "tests/*"
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80
