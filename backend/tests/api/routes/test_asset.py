@@ -11,50 +11,33 @@ from tests.utils.rng import generate_str
 
 PFIX = settings.API_PREFIX
 
-# NOTE: Many tests rely on other tests to have been run previously to prepare the database state.
-# I have added comments to manually call those tests if you want to run one by itself.
-
 
 def test_create_farm(cli: TestClient, db: Session, seed, user_head) -> None:
-    data = FarmCreate(
-        name=generate_str(seed), description=generate_str(seed + 1)
-    ).model_dump()
-    res = cli.put(f"{PFIX}/farm", json=data, headers=user_head)
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    res = cli.put(f"{PFIX}/farm", json=farm_in.model_dump(), headers=user_head)
     assert res.status_code == 200
     farm_res = res.json()
-    assert farm_res["name"] == generate_str(seed)
-    assert farm_res["description"] == generate_str(seed + 1)
+    assert farm_res["name"] == farm_in.name
+    assert farm_res["description"] == farm_in.description
+    assert farm_res["private"] is False
 
-    farm_db = db.get(Farm, farm_res["id"])
-    assert farm_db
-    assert farm_db.name == farm_res["name"]
-    assert farm_db.description == farm_res["description"]
-    assert farm_db.private == farm_res["private"]
+    db_farm = db.get(Farm, farm_res["id"])
+    assert db_farm
+    assert db_farm.name == farm_in.name
 
 
-def test_fail_create_duplicate_farm_name(
-    cli: TestClient, db: Session, seed, user_head
-) -> None:
-    # test_create_farm(client, db, seed, user_headers)
-    assert crud.farm.get_by_name(db, generate_str(seed)), "Farm should exist."
+def test_fail_create_farm(cli: TestClient, db: Session, seed, user_head) -> None:
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    crud.farm.create(db, farm_in)
 
-    data = FarmCreate(
-        name=generate_str(seed), description=generate_str(seed + 1)
-    ).model_dump()
-    res = cli.put(f"{PFIX}/farm", json=data, headers=user_head)
+    res = cli.put(f"{PFIX}/farm", json=farm_in.model_dump(), headers=user_head)
     assert res.status_code == 409
-    assert res.json()["detail"] == f"Key (name)=({data['name']}) already exists."
-
-    # This test relies on `test_create_farm` to add a farm to the session that will cause the expected conflict.
-    # Since my tests use the same session, which allows me to run tests in order and let them 'see' objects that were added/edited/deleted by other tests,
-    # I also have to reset the session after the previous call caused an exception from the database, and then put the farm back for the following tests.
-    db.rollback()
-    test_create_farm(cli, db, seed, user_head)
+    assert res.json()["detail"] == f"Key (name)=({farm_in.name}) already exists."
 
 
 def test_farm_search(cli: TestClient, db: Session, seed) -> None:
-    farm = crud.farm.get_by_name(db, generate_str(seed))
-    assert farm is not None, "Test Farm should exist."
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    farm = crud.farm.create(db, farm_in)
 
     # Test search by name
     query = {"name": generate_str(seed)}
@@ -104,8 +87,8 @@ def test_farm_search(cli: TestClient, db: Session, seed) -> None:
 
 
 def test_get_farm(cli: TestClient, db: Session, seed) -> None:
-    farm = crud.farm.get_by_name(db, generate_str(seed))
-    assert farm is not None, "Test Farm should exist."
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    farm = crud.farm.create(db, farm_in)
 
     # Get by id
     res = cli.get(f"{PFIX}/farm", params={"id": str(farm.id)})
@@ -136,8 +119,8 @@ def test_get_farm(cli: TestClient, db: Session, seed) -> None:
 
 
 def test_update_farm(cli: TestClient, db: Session, seed, user_head) -> None:
-    farm = crud.farm.get_by_name(db, generate_str(seed))
-    assert farm is not None, "Test farm should exist."
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    farm = crud.farm.create(db, farm_in)
     assert farm.private is False
     assert farm.description == generate_str(seed + 1)
 
@@ -167,13 +150,15 @@ def test_fail_update_nonexistant_farm(cli: TestClient, user_head) -> None:
 
 
 def test_delete_farm(cli: TestClient, db: Session, seed, user_head) -> None:
-    farm = crud.farm.get_by_name(db, generate_str(seed + 3))
-    assert farm is not None, "Test Farm should exist."
+    farm_in = FarmCreate(name=generate_str(seed), description=generate_str(seed + 1))
+    farm = crud.farm.create(db, farm_in)
 
     res = cli.delete(f"{PFIX}/farm/{farm.id}", headers=user_head)
     assert res.status_code == 200
     assert res.json()["id"] == str(farm.id)
     assert res.json()["name"] == farm.name
+
+    assert db.get(Farm, farm.id) is None
 
 
 def test_fail_delete_nonexistant_farm(cli: TestClient, user_head) -> None:
