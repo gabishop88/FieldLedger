@@ -41,4 +41,4 @@ def update_reference_value(
 @router.delete("/{table}/{key}", response_model=ReferencePublic)
 def delete_reference_value(db: SuperuserSession, table: RefTable, key: str):
     record = crud.ref.get_or_raise(db, table, key)
-    return getattr(crud, table).delete(db, record)
+    return crud.ref.delete(db, table, record)

@@ -17,7 +17,7 @@ def test_list_reference_tables(cli: TestClient) -> None:
     assert tables == get_table_names()
 
 
-def test_create_update_delete_field_type(
+def test_crud_field_type(
     cli: TestClient, db: Session, seed: int, su_head: dict[str, str]
 ) -> None:
     name = generate_str(seed)
