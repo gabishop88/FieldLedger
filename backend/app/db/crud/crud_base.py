@@ -75,13 +75,10 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         """## Modify the selected `record` with the provided `changes`."""
         update_dict = changes.model_dump(exclude_unset=True)
         record.sqlmodel_update(update_dict)
-        self._safe_add(db, record)
-        return record
+        return self._safe_add(db, record)
 
     # ---------------- DELETE ----------------
 
     def delete(self, db: Session, record: ModelType) -> ModelType:
         """## Deletes the given `record` and returns it (as it was before deletion)."""
-        db.delete(record)
-        db.flush()
-        return record
+        return self._safe_delete(db, record)
