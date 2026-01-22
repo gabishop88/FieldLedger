@@ -50,7 +50,7 @@ def get_one_farm(
     if id is None and name is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
 
-    farm = db.get(Farm, id) or crud.farm.get_by_name(db, name)  # type: ignore
+    farm = db.get(Farm, id) if id is not None else crud.farm.get_by_name(db, name)
     if farm is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, ExeMsg.NF_FARM.format(id or name)
