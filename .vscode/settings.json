@@ -30,4 +30,7 @@
   "editor.fontLigatures": "'calt', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05'",
   "editor.inlineSuggest.fontFamily": "Monaspace Neon Var",
   "editor.inlayHints.fontFamily": "Monaspace Radon Var",
+  "[python]": {
+    "editor.rulers": [88]
+  }
 }

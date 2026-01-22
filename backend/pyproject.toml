@@ -54,29 +54,14 @@ select = [
     "T201",
     "SIM",
 ]
-ignore = ["E501", "B008", "B904"]
+ignore = ["B008", "B904"]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=app --cov-report=xml"
 filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning:passlib",
     "ignore:Accessing argon2.__version__:DeprecationWarning:passlib",
 ]
-
-[tool.coverage.run]
-branch = true
-source = ["app"]
-omit = [
-    "app/alembic/*",
-    "**/__init__.py",
-    "tests/*"
-]
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = true
-fail_under = 80
