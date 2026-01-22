@@ -9,8 +9,8 @@ from tests.utils.rng import generate_str
 PFIX = settings.API_PREFIX
 
 
-def test_list_reference_tables(client: TestClient) -> None:
-    res = client.get(f"{PFIX}/ref/tables")
+def test_list_reference_tables(cli: TestClient) -> None:
+    res = cli.get(f"{PFIX}/ref/tables")
     assert res.status_code == 200
     tables = res.json()
     assert isinstance(tables, list)
@@ -18,14 +18,14 @@ def test_list_reference_tables(client: TestClient) -> None:
 
 
 def test_create_update_delete_field_type(
-    client: TestClient, db: Session, seed: int, su_headers: dict[str, str]
+    cli: TestClient, db: Session, seed: int, su_head: dict[str, str]
 ) -> None:
     name = generate_str(seed)
     desc = generate_str(seed + 1)
 
     # create
     data = {"name": name, "description": desc}
-    res = client.put(f"{PFIX}/ref/FieldType", json=data, headers=su_headers)
+    res = cli.put(f"{PFIX}/ref/FieldType", json=data, headers=su_head)
     assert res.status_code == 200
     created = res.json()
     assert created["name"] == name
@@ -39,7 +39,7 @@ def test_create_update_delete_field_type(
     # update description
     new_desc = generate_str(seed + 2)
     edits = {"description": new_desc}
-    res = client.patch(f"{PFIX}/ref/FieldType/{name}", json=edits, headers=su_headers)
+    res = cli.patch(f"{PFIX}/ref/FieldType/{name}", json=edits, headers=su_head)
     assert res.status_code == 200
     updated = res.json()
     assert updated["name"] == name
@@ -49,7 +49,7 @@ def test_create_update_delete_field_type(
     assert ft.description == new_desc
 
     # delete
-    res = client.delete(f"{PFIX}/ref/FieldType/{name}", headers=su_headers)
+    res = cli.delete(f"{PFIX}/ref/FieldType/{name}", headers=su_head)
     assert res.status_code == 200
     deleted = res.json()
     assert deleted["name"] == name
@@ -59,15 +59,15 @@ def test_create_update_delete_field_type(
 
 
 def test_fail_update_delete_nonexistent(
-    client: TestClient, su_headers: dict[str, str]
+    cli: TestClient, su_head: dict[str, str]
 ) -> None:
     bad_name = "no_such_ref"
 
     edits = {"description": "nope"}
-    res = client.patch(
-        f"{PFIX}/ref/FieldType/{bad_name}", json=edits, headers=su_headers
+    res = cli.patch(
+        f"{PFIX}/ref/FieldType/{bad_name}", json=edits, headers=su_head
     )
     assert res.status_code == 404
 
-    res = client.delete(f"{PFIX}/ref/FieldType/{bad_name}", headers=su_headers)
+    res = cli.delete(f"{PFIX}/ref/FieldType/{bad_name}", headers=su_head)
     assert res.status_code == 404

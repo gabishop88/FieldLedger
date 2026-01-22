@@ -21,7 +21,7 @@ from app.main import app
 from tests.utils.auth import random_user_headers
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> Generator[Session, None, None]:
     """Get a database session. DO NOT call `db.commit()`."""
     with Session(get_engine()) as session:
@@ -32,8 +32,8 @@ def db() -> Generator[Session, None, None]:
             session.rollback()
 
 
-@pytest.fixture(scope="module")
-def client(db: Session) -> Generator[TestClient, None, None]:
+@pytest.fixture(scope="function")
+def cli(db: Session) -> Generator[TestClient, None, None]:
     # FIXME: Without dep overrides, the client uses actual dep sessions (test data is saved and changes made directly by the db in the test function are not available to the client)
     # However, with these dep overrides, I am getting stale data error. One possibility is the session.close in CurrentUser (deps.py) might be closing the session since I override both with the same generator. Possible solution is to make a second geneator fixture for that purpose? or override the CurrentUser dep?
     def test_session_override():
@@ -64,11 +64,11 @@ def seed() -> int:
     return random.randint(0, 2**16 - 1)  # 2**16: random enough, has room in int range
 
 
-@pytest.fixture(scope="module")
-def user_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
-    return random_user_headers(client, db, seed)
+@pytest.fixture(scope="function")
+def user_head(cli: TestClient, db: Session, seed: int) -> dict[str, str]:
+    return random_user_headers(cli, db, seed)
 
 
-@pytest.fixture(scope="module")
-def su_headers(client: TestClient, db: Session, seed: int) -> dict[str, str]:
-    return random_user_headers(client, db, seed, is_superuser=True)
+@pytest.fixture(scope="function")
+def su_head(cli: TestClient, db: Session, seed: int) -> dict[str, str]:
+    return random_user_headers(cli, db, seed, is_superuser=True)

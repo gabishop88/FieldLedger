@@ -27,5 +27,5 @@ class ExeMsg(StrEnum):
     NF_TABLE = "<Table {0}> Not Found."
     NF_TABLE_KEY = "<{0} {1}> Not Found."
 
-    # HTTP_409_CONFLICT
-    CONFLICT_EMAIL = "<Email {0}> Already In Use."
+    # HTTP_409_CONFLICT (Matches excepion format sent by db the when violating a constraint).
+    KEY_EXISTS = "Key ({0})=({1}) already exists."
