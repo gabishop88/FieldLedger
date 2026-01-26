@@ -15,6 +15,8 @@ FARM_DESC_THRESHOLD = 0.2
 
 router = APIRouter(prefix="/farm")
 
+# region ------------------------------- Farm Endpoints -------------------------------
+
 
 @router.get("/search", response_model=FarmsPublic)
 def farm_search(
@@ -58,7 +60,7 @@ def get_one_farm(
     return farm
 
 
-@router.put("/", response_model=Farm)
+@router.post("/", response_model=Farm)
 def create_farm(db: UserSession, farm_in: FarmCreate) -> Farm:
     return crud.farm.create(db, farm_in)
 
@@ -73,3 +75,16 @@ def update_farm(db: UserSession, edits: FarmUpdate, farm_id: UUID) -> Farm:
 def delete_farm(db: UserSession, farm_id: UUID) -> Farm:
     farm = crud.farm.get_or_raise(db, farm_id)
     return crud.farm.delete(db, farm)
+
+# endregion
+# region ------------------------------ Field Endpoints -------------------------------
+
+
+# TODO: These are the minimum required endpoints for fields:
+
+# @router.get("/{farm}/fields", response_model=List[Field])
+# @router.get("/{farm}/fields/{field}", response_model=Field)
+# @router.
+
+
+# endregion

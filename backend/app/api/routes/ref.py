@@ -25,7 +25,7 @@ def list_reference_values(db: ReadSession, table: RefTable):
         return db.exec(select(crud.ref.model)).all()
 
 
-@router.put("/{table}", response_model=ReferencePublic)
+@router.post("/{table}", response_model=ReferencePublic)
 def add_reference_value(db: SuperuserSession, table: RefTable, new: ReferenceCreate):
     return crud.ref.create(db, table, new)
 

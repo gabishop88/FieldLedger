@@ -67,19 +67,19 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
 @router.get("/", response_model=UserPublic)
 def get_your_user_info(user: CurrentUser) -> AppUser:
     """## See the account information for the user that is currently authenticated.
-    To be considered 'authenticated', you must make sure that you send the auth token in the request headers.
+    To be 'authenticated', send the auth token in request "Auth" headers.
 
-    If you are using the /docs page, log in with the green 'Authorize' button at the top of the page.
+    If using /docs page, log in with the green 'Authorize' button.
 
-    # TODO: add instructions for authentication via postman or manual Authentication header.
+    # TODO: add instructions for authentication via postman or manually via header.
     """
     return user
 
 
-@router.put("/", response_model=UserPublic)
+@router.post("/", response_model=UserPublic)
 def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
     """## Register a new user account."""
-    # TODO: Send a 'New Account' email? Add email verification? Use email-validator library?
+    # TODO: Send a 'New Account' email? Add email verification? Use email-validator lib?
     return crud.user.create(db, user_in)
 
 
@@ -88,14 +88,18 @@ def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
 def edit_your_user_info(
     db: UserSession, user: CurrentUser, edits: UserUpdateSelf
 ) -> AppUser:
-    """## Edit the currently authorized user."""
+    """## Edit the currently authorized user.
+    Allows partial edits.
+
+    Returns the updated user info.
+    """
     return crud.user.update(db, user, edits)
 
 
 @router.delete("/", response_model=UserPublic)
 def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
     """## Delete the currently authorized user.
-    Returns user info as it was before deletion, will not exist after call.
+    Returns user info as it was before deletion, it will not exist after calling.
     """
     if user.email == settings.FIRST_SUPERUSER:
         raise HTTPException(FORBIDDEN, ExeMsg.FBDN_DEL_1SU)
@@ -119,14 +123,14 @@ def search_for_users(
 
     To prevent a huge dump of all users, provide at least one of these search options.
 
-    Use `skip` and `limit` to paginate if necessary.
-    The `count` returned will be the total number of results found, so if there are fewer users in `data`
+    Use `skip` and `limit` to paginate.
+    The `count` is the total number of results found. If there are fewer users in `data`
     than the `count` would suggest, then there are additional pages of results.
     """
     if not any((email, id, name)):
         raise HTTPException(BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
     # TODO: Should I restrict this to being able to be used by superusers only?
-    # On one hand, privacy. On the other, looking up people to give them permissions for your farm.
+    # On one hand, privacy. On the other, looking up accts to give them permissions?
 
     filters = []
     if email:
@@ -150,7 +154,7 @@ def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> A
     if not other_user:
         raise HTTPException(NOT_FOUND, ExeMsg.NF_USER.format(user_id))
     if edits.email and crud.user.get_by_email(db, edits.email):
-        raise HTTPException(CONFLICT, ExeMsg.CONFLICT_EMAIL.format(edits.email))
+        raise HTTPException(CONFLICT, ExeMsg.KEY_EXISTS.format("email", edits.email))
 
     return crud.user.update(db, other_user, edits)
 
