@@ -41,23 +41,23 @@ class DynamicStrEnumMeta(EnumMeta):
         return super().__new__(mcls, name, bases, dct)
 
 
-class RefTable(StrEnum, metaclass=DynamicStrEnumMeta, vals=get_table_names()): ...
+class RefTables(StrEnum, metaclass=DynamicStrEnumMeta, vals=get_table_names()): ...
 
 
 class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
     """## One CRUD object for all reference tables.
-    To edit a reference table, just provide the table as an argument: `crud.ref.create(table, ...)`
+    To edit a reference table, provide table argument: `crud.ref.create(..., table)`
 
-    Any value in the Enum `RefTable` is a valid value for `table` in any CRUD function.
+    Any value in the Enum `RefTables` is a valid value for `table` in any CRUD function.
     """
 
     def __init__(self):
         super().__init__(None)  # type: ignore
 
     @contextmanager
-    def _use_model(self, tbl: RefTable) -> Generator[None, None, None]:
-        """Operations performed by `crud.ref` in this context use provided table model.
-        > Note: `crud.ref.create, update, delete` use this internally, just give them `table`.
+    def _use_model(self, tbl: RefTables) -> Generator[None, None, None]:
+        """## Operations performed by `crud.ref` in this context apply to `table`.
+        > Note: `all functions` use this internally when you provide `table`.
 
         e.g.
         ```
@@ -69,7 +69,7 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
         crud.ref.update(db, table, record, changes)
         ```
         """
-        if tbl not in RefTable:
+        if tbl not in RefTables:
             raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_TABLE.format(tbl))
         try:
             self.model = getattr(models, tbl)
@@ -78,22 +78,38 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
             self.model = None
 
     def create(
-        self, db: Session, table: RefTable, new_record: ReferenceCreate
+        self, db: Session, new_record: ReferenceCreate, table: RefTables | None = None
     ) -> ModelType:
+        if table is None:
+            raise RuntimeError("Reference table is not set. Provide `table` argument.")
         with self._use_model(table):
             return super().create(db, new_record)
 
-    def get_or_raise(self, db: Session, table: RefTable, key: Any) -> ModelType:
+    def get_or_raise(
+        self, db: Session, key: Any, table: RefTables | None = None
+    ) -> ModelType:
+        if table is None:
+            raise RuntimeError("Reference table is not set. Provide `table` argument.")
         with self._use_model(table):
             return super().get_or_raise(db, key)
 
     def update(
-        self, db: Session, table: RefTable, record: ModelType, changes: ReferenceUpdate
+        self,
+        db: Session,
+        record: ModelType,
+        changes: ReferenceUpdate,
+        table: RefTables | None = None,
     ) -> ModelType:
+        if table is None:
+            raise RuntimeError("Reference table is not set. Provide `table` argument.")
         with self._use_model(table):
             return super().update(db, record, changes)
 
-    def delete(self, db: Session, table: RefTable, record: ModelType) -> ModelType:
+    def delete(
+        self, db: Session, record: ModelType, table: RefTables | None = None
+    ) -> ModelType:
+        if table is None:
+            raise RuntimeError("Reference table is not set. Provide `table` argument.")
         with self._use_model(table):
             return super().delete(db, record)
 
