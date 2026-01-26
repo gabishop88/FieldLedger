@@ -30,34 +30,35 @@ class TypeRef(SQLModel):
     description: str | None = None
 
 
-class TypeRefUpdate(TypeRef):
+class TypeRefUpdate(SQLModel):
     name: str | None = None
+    description: str | None = None
 
 
 class FieldType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "field_type"
+    __tablename__: ClassVar[str] = "field_type" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class BoundaryType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "boundary_type"
+    __tablename__: ClassVar[str] = "boundary_type" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class EquipmentType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "equipment_type"
+    __tablename__: ClassVar[str] = "equipment_type" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class ProductType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "product_type"
+    __tablename__: ClassVar[str] = "product_type" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     category: str | None = None
 
 
 class Unit(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "unit"
+    __tablename__: ClassVar[str] = "unit" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     category: str | None = None
@@ -70,8 +71,9 @@ class Unit(TypeRef, table=True):
     si_conv: float
 
 
-class UnitUpdate(TypeRef):
+class UnitUpdate(SQLModel):
     name: str | None = None
+    description: str | None = None
     category: str | None = None
     si_unit_name: str | None = None
     si_conv: float | None = None
@@ -90,14 +92,17 @@ class CropBase(SQLModel):
     )
 
 
-class CropUpdate(CropBase):
+class CropUpdate(SQLModel):
     common_name: str | None = None
     latin_name: str | None = None
+    description: str | None = None
+    density: float | None = None
+    density_unit_name: str | None = None
 
 
-# TODO: Should I make Crop.latin_name the PK? Should I standardize the amount of detail (subsp, var, etc.) that should be used?
+# TODO: Make Crop.latin_name PK? Sstandardize the amount of detail (subsp, var, etc.)?
 class Crop(CropBase, table=True):
-    __tablename__: ClassVar[str] = "crop"
+    __tablename__: ClassVar[str] = "crop" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -141,9 +146,11 @@ class UserRegister(SQLModel):
     full_name: str | None = None
 
 
-class UserUpdate(UserBase):
+class UserUpdate(SQLModel):
     email: EmailStr | None = ColInfo(default=None, max_length=255)
     password: str | None = ColInfo(default=None, min_length=8, max_length=255)
+    is_superuser: bool = False
+    full_name: str | None = None
 
 
 class UserUpdateSelf(SQLModel):
@@ -158,7 +165,7 @@ class PasswordReset(SQLModel):
 
 
 class AppUser(UserBase, table=True):
-    __tablename__: ClassVar[str] = "app_user"
+    __tablename__: ClassVar[str] = "app_user" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "iam"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -179,13 +186,14 @@ class FarmCreate(FarmBase):
     pass
 
 
-class FarmUpdate(FarmBase):
+class FarmUpdate(SQLModel):
     name: str | None = ColInfo(default=None, max_length=255)
     private: bool | None = None
+    description: str | None = None
 
 
 class Farm(FarmBase, table=True):
-    __tablename__: ClassVar[str] = "farm"
+    __tablename__: ClassVar[str] = "farm" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -208,7 +216,7 @@ class FieldBase(SQLModel):
 
 
 class Field(FieldBase, table=True):
-    __tablename__: ClassVar[str] = "field"
+    __tablename__: ClassVar[str] = "field" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -237,7 +245,7 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
 
 
 class FieldBoundary(BoundaryBase, table=True):
-    __tablename__: ClassVar[str] = "field_boundary"
+    __tablename__: ClassVar[str] = "field_boundary" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -260,7 +268,7 @@ class ProductBase(SQLModel):
 
 
 class Product(ProductBase, table=True):
-    __tablename__: ClassVar[str] = "product"
+    __tablename__: ClassVar[str] = "product" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -282,7 +290,7 @@ class EquipmentBase(SQLModel):
 
 
 class Equipment(EquipmentBase, table=True):
-    __tablename__: ClassVar[str] = "equipment"
+    __tablename__: ClassVar[str] = "equipment" # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
