@@ -25,7 +25,7 @@ def test_crud_field_type(
 
     # create
     data = {"name": name, "description": desc}
-    res = cli.put(f"{PFIX}/ref/FieldType", json=data, headers=su_head)
+    res = cli.post(f"{PFIX}/ref/FieldType", json=data, headers=su_head)
     assert res.status_code == 200
     created = res.json()
     assert created["name"] == name

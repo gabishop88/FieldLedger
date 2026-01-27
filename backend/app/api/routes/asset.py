@@ -41,22 +41,23 @@ def farm_search(
     or by description to match farm descriptions that approximately contain the search.
     """
     filters = []
-    if name:
+    if name is not None:
         filters.append(func.similarity(Farm.name, name) > NAME_THRESH)
-    if desc:
+    if desc is not None:
         filters.append(func.word_similarity(Farm.description, desc) > DESC_THRESH)
 
     return crud.farm.get_paginated(db, skip, limit, *filters)
 
 
 @router.get("/{farm}", response_model=Farm)
-def get_one_farm(db: ReadSession, farm: UUID | str) -> Farm:
+def get_one_farm(db: ReadSession, farm: str) -> Farm:
     """## Find a single farm based on either its id or name.
     Matches name using similarity search.
     """
-    if isinstance(farm, UUID):
-        rec = db.get(Farm, farm)
-    else:
+    try:
+        id = UUID(farm)
+        rec = db.get(Farm, id)
+    except ValueError:
         rec = db.exec(
             select(Farm)
             .where(func.similarity(Farm.name, farm) > NAME_THRESH)
@@ -74,13 +75,13 @@ def create_farm(db: UserSession, farm_in: FarmCreate) -> Farm:
 
 
 @router.patch("/{farm}", response_model=Farm)
-def update_farm(db: UserSession, edits: FarmUpdate, farm: UUID | str) -> Farm:
+def update_farm(db: UserSession, edits: FarmUpdate, farm: str) -> Farm:
     rec = get_one_farm(db, farm)
     return crud.farm.update(db, rec, edits)
 
 
 @router.delete("/{farm}", response_model=Farm)
-def delete_farm(db: UserSession, farm: UUID | str) -> Farm:
+def delete_farm(db: UserSession, farm: str) -> Farm:
     farm_obj = get_one_farm(db, farm)
     return crud.farm.delete(db, farm_obj)
 
@@ -91,7 +92,7 @@ def delete_farm(db: UserSession, farm: UUID | str) -> Farm:
 
 @router.get("/{farm}/fields", response_model=Paginated[Field])
 def get_farm_fields(
-    db: ReadSession, farm: UUID | str, skip=0, limit=10
+    db: ReadSession, farm: str, skip=0, limit=10
 ) -> Paginated[Field]:
     """## Get all fields for a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
@@ -99,13 +100,14 @@ def get_farm_fields(
 
 
 @router.get("/{farm}/fields/{field}", response_model=Field)
-def get_farm_field(db: ReadSession, farm: UUID | str, field: UUID | str) -> Field:
+def get_farm_field(db: ReadSession, farm: str, field: str) -> Field:
     """## Get a single field by its ID or name within a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
 
-    if isinstance(field, UUID):
-        field_rec = db.get(Field, field)
-    else:
+    try:
+        field_id = UUID(field)
+        field_rec = db.get(Field, field_id)
+    except ValueError:
         field_rec = db.exec(
             select(Field)
             .where(
@@ -122,7 +124,7 @@ def get_farm_field(db: ReadSession, farm: UUID | str, field: UUID | str) -> Fiel
 
 @router.post("/{farm}/fields", response_model=list[Field])
 def add_fields(
-    db: UserSession, farm: UUID | str, new_fields: list[FieldCreate]
+    db: UserSession, farm: str, new_fields: list[FieldCreate]
 ) -> Sequence[Field]:
     """## Add one or more fields to a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
@@ -136,7 +138,7 @@ def add_fields(
 
 @router.patch("/{farm}/fields/{field}", response_model=Field)
 def update_field(
-    db: UserSession, farm: UUID | str, field: UUID | str, edits: FieldUpdate
+    db: UserSession, farm: str, field: str, edits: FieldUpdate
 ) -> Field:
     """## Update a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
@@ -144,7 +146,7 @@ def update_field(
 
 
 @router.delete("/{farm}/fields/{field}", response_model=Field)
-def delete_field(db: UserSession, farm: UUID | str, field: UUID | str) -> Field:
+def delete_field(db: UserSession, farm: str, field: str) -> Field:
     """## Delete a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
     return crud.field.delete(db, field_rec)

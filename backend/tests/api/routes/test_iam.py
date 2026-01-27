@@ -47,7 +47,7 @@ def test_fail_superuser_login(cli: TestClient) -> None:
 
 def test_register_user(cli: TestClient, db: Session, seed) -> None:
     user_in = UserCreate(email=generate_email(seed), password=generate_str(seed))
-    res = cli.put(f"{PFIX}/account", json=user_in.model_dump())
+    res = cli.post(f"{PFIX}/account", json=user_in.model_dump())
     assert res.status_code == 200
 
     user_res = res.json()
@@ -67,7 +67,7 @@ def test_fail_register_duplicate_user(cli: TestClient, db: Session, seed) -> Non
     user_in = UserCreate(email=generate_email(seed), password=generate_str(seed))
     crud.user.create(db, user_in)
 
-    res = cli.put(f"{PFIX}/account", json=user_in.model_dump())
+    res = cli.post(f"{PFIX}/account", json=user_in.model_dump())
     assert res.status_code == 409
     assert res.json()["detail"] == ExeMsg.KEY_EXISTS.format("email", user_in.email)
 
@@ -110,7 +110,7 @@ def test_fail_user_elevate_self(cli: TestClient, db: Session, seed, user_head) -
     assert user
 
     res = cli.patch(f"{PFIX}/account", json=edits, headers=user_head)
-    assert res.status_code != 200
+    assert res.status_code == 200  # This doesn't fail, it just ignores is_superuser.
     assert res.json()["is_superuser"] is False
 
     db.refresh(user)
