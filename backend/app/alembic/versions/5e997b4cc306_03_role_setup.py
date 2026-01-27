@@ -26,7 +26,7 @@ env_vars = [
 ]
 
 
-def get_env_vars() -> dict[str, str]:
+def get_env_vars() -> dict[str, str | None]:
     """Ensures `env_vars` exist and returns their values in a list of the same size."""
     vals = [os.getenv(var) for var in env_vars]
     if not all(vals):
@@ -61,7 +61,7 @@ def upgrade() -> None:
     """)
 
     # Let new roles connect and read/write on new schemas
-    # By default, they could create tables in public. Prevent that, as the admin should be the only one to modify the structure.
+    # Prevent non-admin roles from creating in public schema.
     op.execute(f"""--sql
         GRANT CONNECT ON DATABASE {db} TO {api_user}, {ro_user};
         GRANT USAGE ON SCHEMA {", ".join(schemas)} TO {api_user}, {ro_user};
@@ -74,7 +74,7 @@ def upgrade() -> None:
             GRANT SELECT ON ALL TABLES IN SCHEMA {schema} TO {ro_user};
             ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {api_user};
             ALTER DEFAULT PRIVILEGES IN SCHEMA {schema} GRANT SELECT ON TABLES TO {ro_user};
-        """)
+        """)  # noqa: E501
 
 
 def downgrade() -> None:

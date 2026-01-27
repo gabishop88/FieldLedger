@@ -45,7 +45,9 @@ def find_backup() -> Path | None:
 
 
 def ensure_superuser_exists(db: Session) -> None:
-    user = db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first()
+    user = db.exec(
+        select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)
+    ).first()
     if not user:
         first_user_data = UserCreate(
             email=settings.FIRST_SUPERUSER,
@@ -59,7 +61,9 @@ def ensure_superuser_exists(db: Session) -> None:
         db.add(record)
         db.commit()
         db.refresh(record)
-    user = db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first()
+    user = db.exec(
+        select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)
+    ).first()
     assert user, "First superuser could not be created."
 
 
@@ -76,7 +80,12 @@ if __name__ == "__main__":
     logger.info("Alembic Migration Complete.")
 
     with Session(engine) as db:
-        if db.exec(select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)).first() is None:
+        if (
+            db.exec(
+                select(AppUser).where(AppUser.email == settings.FIRST_SUPERUSER)
+            ).first()
+            is None
+        ):
             # Restore compatible backup if exists
             backup = find_backup()
             if backup:

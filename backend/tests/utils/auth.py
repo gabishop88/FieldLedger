@@ -21,11 +21,11 @@ def random_user_headers(
     client: TestClient, db: Session, seed: int, is_superuser: bool = False
 ) -> dict[str, str]:
     """Generate a random user, insert with `db` and then return the auth headers.
-    User info is not provided, but can be recreated using `generate_email` and `generate_str`
+    User info not provided, but can be recreated with `generate_email`/`generate_str`
     from `tests.utils.rng`.
 
-    The email is `generate_email(seed)` and the password and full_name are both `generate_str(seed)`
-    which is also the same as the first section of the email (before '@').
+    Email is `generate_email(seed)`, password and full_name are `generate_str(seed)`
+    (which is also the same as the first section of the email, before '@').
     """
     email = generate_email(seed)
     pwd = generate_str(seed)

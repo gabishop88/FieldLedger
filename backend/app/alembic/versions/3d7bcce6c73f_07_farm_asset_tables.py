@@ -5,18 +5,18 @@ Revises: e308e3ec1434
 Create Date: 2025-11-03 14:57:24.260222
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
-from geoalchemy2.types import Geometry
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes as sm
+from alembic import op
+from geoalchemy2.types import Geometry
 
 # revision identifiers, used by Alembic.
 revision: str = '3d7bcce6c73f'
-down_revision: Union[str, Sequence[str], None] = 'e308e3ec1434'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'e308e3ec1434'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

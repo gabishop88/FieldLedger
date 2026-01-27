@@ -52,7 +52,7 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
     """
 
     def __init__(self):
-        super().__init__(None)  # type: ignore
+        super().__init__(None)
 
     @contextmanager
     def _use_model(self, tbl: RefTables) -> Generator[None, None, None]:

@@ -8,14 +8,14 @@ def endpoint_function(db: SomeSession, user: SomeUser): # For example
     ...
 ```
 Where `SomeSession` can be:
-* `ReadSession`: Basic read-only session that can safely be used by anyone and cannot alter the database.
-* `WriteSession`: Read/write session (no auditability). Recommended not to use unless for some reason you can't have a user logged in when calling endpoint.
+* `ReadSession`: Read-only session to be used by anyone; cannot alter the database.
+* `WriteSession`: Read/write (no auditability). Only if you can't have user logged in.
 * `UserSession`: Just a `WriteSession`, except it makes sure there is a user logged in.
-* `SuperuserSession`: Same as `UserSession` but raises exception if current user is not a superuser
+* `SuperuserSession`: Same as `UserSession` but enforces user.is_superuser=True.
 
 and `SomeUser` can be:
-* `CurrentUser`: returns the user that is logged in. Can be any user, but if this is a parameter in an endpoint function, that endpoint will always return an exception if the user is not authenticated.
-* `CurrentSuperuser`: same as `CurrentUser` but raises exception if `CurrentUser` is not a superuser.
+* `CurrentUser`: Currently Authenticated User based on Auth header. Exception if no user
+* `CurrentSuperuser`: same as `CurrentUser` but enforces user.is_superuser=True.
 """
 
 import logging
@@ -35,7 +35,7 @@ from app.db.models import AppUser
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# NOTE: read_session and write_session call 'RESET "app.current_user"' so that the session var exists (but is not set) which will prevent an error if the database tries to access it.
+# NOTE: read/write_session calls 'RESET "app.current_user"' to prevent any missing errs.
 
 
 # --------------------------- Auth Token from Request Header ---------------------------
@@ -67,7 +67,7 @@ def get_current_user(db: ReadSession, token: AccessToken) -> AppUser:
 
     user = db.get(AppUser, key)
     if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_USER.format(key))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("AppUser", key))
 
     db.close()  # Close the readonly session that was only needed to get current user.
     return user

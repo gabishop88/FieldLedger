@@ -26,15 +26,15 @@ class Settings(BaseSettings):
     """
     Settings contains config constants, default values, and computes derived constants.
 
-    Note that these values can (and should) be overwriteen using .env, but does not load .env directly.
-    Instead, docker loads .env as environment variables using `env_file:` in `docker-compose.yaml`.
+    Tthese values can/should be overwriteen using .env, but does not load .env directly.
+    Docker loads .env as env vars using `env_file:` in `docker-compose.yaml`.
     While it is possible to run pytest from project (base directory or /backend),
     it is recommended to run tests using `docker compose exec backend pytest [flags]`.
     """
     # FIXME: This info is buried here. I need to move it somewhere more useful.
     model_config = SettingsConfigDict(env_ignore_empty=True, extra="ignore")
 
-    # TODO: Should I change to v3 since this is at least the third time I have started over?
+    # TODO: Should I change to v3 since I have started over >= 3 times?
     API_PREFIX: str = "/api/v1"
     # NOTE: Restarting API will invalidate access tokens generated with old SECRET_KEYs.
     SECRET_KEY: str = secrets.token_urlsafe(32)

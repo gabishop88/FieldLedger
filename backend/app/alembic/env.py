@@ -1,8 +1,8 @@
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
-from app.db.models import SQLModel
 from app.core.config import settings
+from app.db.models import SQLModel
 
 # Access to the config options in the .ini file
 # `opt = config.get_main_option("opt")` to get options from .ini to use in env.py.
@@ -17,8 +17,10 @@ config = context.config
 # add your model's MetaData object here
 target_metadata = SQLModel.metadata
 
+skip_tables = ["spatial_ref_sys", "alembic_version", "changelog"]
 
-def include_object(object, name, type_, reflected, compare_to):
+
+def include_object(object, name, type_, reflected, compare_to):  # noqa: ARG001
     """Return True if Alembic should include this object in autogenerate.
 
     We skip the PostGIS `spatial_ref_sys` table because it is a system table
@@ -26,9 +28,7 @@ def include_object(object, name, type_, reflected, compare_to):
     by migrations.
     """
     # object may be None for some autogenerate hooks; just include in that case
-    if type_ == "table" and name in ("spatial_ref_sys", "alembic_version", "changelog"):
-        return False
-    return True
+    return not (type_ == "table" and name in skip_tables)
 
 
 def get_url() -> str:

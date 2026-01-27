@@ -26,7 +26,7 @@ def db() -> Generator[Session, None, None]:
     """Get a database session. DO NOT call `db.commit()`."""
     with Session(get_engine()) as session:
         try:
-            # TODO: Should I set the "app.current_user" session variable for tests? What would I even set it to?
+            # TODO: Set "app.current_user" for tests? What would I even set it to?
             yield session
         finally:
             session.rollback()
@@ -34,8 +34,6 @@ def db() -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="function")
 def cli(db: Session) -> Generator[TestClient, None, None]:
-    # FIXME: Without dep overrides, the client uses actual dep sessions (test data is saved and changes made directly by the db in the test function are not available to the client)
-    # However, with these dep overrides, I am getting stale data error. One possibility is the session.close in CurrentUser (deps.py) might be closing the session since I override both with the same generator. Possible solution is to make a second geneator fixture for that purpose? or override the CurrentUser dep?
     def test_session_override():
         yield db
 
