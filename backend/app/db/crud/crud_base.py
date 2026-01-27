@@ -29,6 +29,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             db.refresh(obj)
             return obj
         except IntegrityError as e:
+            db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
             # TODO: Relying on msg contents to detect unique violation is unstable. However, I can't find the "pgcode" or similar to do this properly.
@@ -43,6 +44,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             db.flush()
             return obj
         except IntegrityError as e:
+            db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
             if getattr(e.orig, "pgcode", None) in ("23503",):  # FK constraint

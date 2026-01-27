@@ -91,12 +91,13 @@ CurrentSuperuser = Annotated[AppUser, Depends(get_current_superuser)]
 
 def write_session() -> Generator[Session, None, None]:
     with Session(get_engine()) as session:
-        session.exec(text('RESET "app.current_user"'))  # type: ignore
-        yield session
-        session.commit()
-
-        # TODO: Should I commit once here, or commit when I make a change?
-        # TODO: Should I catch exceptions and session.rollback() manually?
+        try:
+            session.exec(text('RESET "app.current_user"'))  # type: ignore
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
 
 WriteSession = Annotated[Session, Depends(write_session)]
