@@ -93,6 +93,20 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
         with self._use_model(table):
             return super().get_or_raise(db, key)
 
+    def get_paginated(
+        self,
+        db: Session,
+        skip,
+        limit,
+        *filters,
+        order_by=None,
+        table: RefTables | None = None,
+    ) -> models.Paginated[ModelType]:
+        if table is None:
+            raise RuntimeError("Reference table is not set. Provide `table` argument.")
+        with self._use_model(table):
+            return super().get_paginated(db, skip, limit, *filters, order_by=order_by)
+
     def update(
         self,
         db: Session,

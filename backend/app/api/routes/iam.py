@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import EmailStr
-from sqlmodel import func, select
+from sqlmodel import func
 
 from app.api.deps import (
     CurrentUser,
@@ -20,10 +20,10 @@ from app.core.security import create_access_token
 from app.db import crud
 from app.db.models import (
     AppUser,
+    Paginated,
     Token,
     UserPublic,
     UserRegister,
-    UsersPublic,
     UserUpdate,
     UserUpdateSelf,
 )
@@ -52,7 +52,9 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
         if crud.user.get_by_email(db, login_data.username):
             raise HTTPException(BAD_REQUEST, ExeMsg.BAD_PWD)
         else:
-            raise HTTPException(NOT_FOUND, ExeMsg.NF_EMAIL.format(login_data.username))
+            raise HTTPException(
+                NOT_FOUND, ExeMsg.NF.format("Email", login_data.username)
+            )
 
     expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(
@@ -109,7 +111,7 @@ def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
 # --------------------------------- Modify Other User ----------------------------------
 
 
-@router.get("/search", response_model=UsersPublic)
+@router.get("/search", response_model=Paginated[UserPublic])
 def search_for_users(
     db: ReadSession,
     email: EmailStr | None = None,
@@ -117,7 +119,7 @@ def search_for_users(
     name: str | None = None,
     skip: int = 0,
     limit: int = 10,
-) -> UsersPublic:
+) -> Paginated[AppUser]:
     """## Search for users.
     You can search with email/id (exact match only) or name (partial matches accepted).
 
@@ -140,9 +142,7 @@ def search_for_users(
     if name:
         filters.append(func.similarity(AppUser.full_name, name) > NAME_THRESHOLD)
 
-    count = db.exec(select(func.count()).select_from(AppUser).where(*filters)).one()
-    data = db.exec(select(AppUser).where(*filters).offset(skip).limit(limit)).all()
-    return UsersPublic(count=count, data=data)  # type: ignore
+    return crud.user.get_paginated(db, skip, limit, *filters)
 
 
 @router.patch("/{user_id}", response_model=UserPublic)
@@ -152,7 +152,7 @@ def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> A
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF_USER.format(user_id))
+        raise HTTPException(NOT_FOUND, ExeMsg.NF.format("AppUser", user_id))
     if edits.email and crud.user.get_by_email(db, edits.email):
         raise HTTPException(CONFLICT, ExeMsg.KEY_EXISTS.format("email", edits.email))
 
@@ -166,7 +166,7 @@ def delete_other_user(db: SuperuserSession, user_id: UUID) -> AppUser:
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF_USER.format(user_id))
+        raise HTTPException(NOT_FOUND, ExeMsg.NF.format("AppUser", user_id))
     if other_user.email == settings.FIRST_SUPERUSER:
         raise HTTPException(FORBIDDEN, ExeMsg.FBDN_REM_1SU)
     return crud.user.delete(db, other_user)

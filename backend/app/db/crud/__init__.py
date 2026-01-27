@@ -5,14 +5,11 @@ To use them, you can: `from app.db import crud`.
 
 Then, `crud.table.create()` (for example) to perform an operation.
 
-Some classes define convienience functions or custom logic, see their class in app/db/crud/ for more information.
+Some classes add functions or alter logic, see each class in app/db/crud/ for more info.
 """
 
-__all__ = ["farm", "ref", "user"]
+__all__ = ["farm", "field", "ref", "user"]
 
-from .crud_asset import farm
+from .crud_asset import farm, field
 from .crud_iam import user
 from .crud_ref import ref
-
-# TODO: Should I reduce them like this so have: `crud.farm`, `crud.unit`, `crud.user`, etc.
-#  or, should I just `import .crud_asset as asset` so I would have: `crud.asset.farm`, etc.

@@ -1,15 +1,9 @@
 from fastapi import APIRouter
-from sqlmodel import select
 
 from app.api.deps import ReadSession, SuperuserSession
 from app.db import crud
 from app.db.crud.crud_ref import RefTables, get_table_names
-from app.db.models import (
-    ReferenceCreate,
-    ReferencePublic,
-    ReferencesPublic,
-    ReferenceUpdate,
-)
+from app.db.models import Paginated, ReferenceCreate, ReferencePublic, ReferenceUpdate
 
 router = APIRouter(prefix="/ref")
 
@@ -19,10 +13,9 @@ def list_reference_tables():
     return get_table_names()
 
 
-@router.get("/{table}", response_model=ReferencesPublic)
-def list_reference_values(db: ReadSession, table: RefTables):
-    with crud.ref._use_model(table):
-        return db.exec(select(crud.ref.model)).all()
+@router.get("/{table}", response_model=Paginated[ReferencePublic])
+def list_reference_values(db: ReadSession, table: RefTables, skip=0, limit=10):
+    return crud.ref.get_paginated(db, skip, limit, table=table)
 
 
 @router.post("/{table}", response_model=ReferencePublic)

@@ -1,12 +1,14 @@
-from sqlmodel import Session, select
-
 from app.db.crud.crud_base import CRUDBase
-from app.db.models import Farm, FarmCreate, FarmUpdate
+from app.db.models import Farm, FarmCreate, FarmUpdate, Field, FieldUpdate
 
 
 class CRUDFarm(CRUDBase[Farm, FarmCreate, FarmUpdate]):
-    def get_by_name(self, db: Session, name: str):
-        return db.exec(select(Farm).where(Farm.name == name)).first()
+    pass
+
+
+class CRUDField(CRUDBase[Field, Field, FieldUpdate]):
+    pass
 
 
 farm = CRUDFarm(Farm)
+field = CRUDField(Field)

@@ -1,4 +1,5 @@
-from typing import ClassVar
+from collections.abc import Sequence
+from typing import ClassVar, TypeVar
 from uuid import UUID
 
 from geoalchemy2 import Geometry, WKTElement
@@ -21,6 +22,14 @@ class Token(SQLModel):
     expires_min: int
 
 
+T = TypeVar("T")
+
+
+class Paginated[T](SQLModel):
+    count: int
+    data: Sequence[T]
+
+
 # endregion
 # region -------------------------------- Schema: ref ----------------------------------
 
@@ -36,29 +45,29 @@ class TypeRefUpdate(SQLModel):
 
 
 class FieldType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "field_type" # type: ignore
+    __tablename__: ClassVar[str] = "field_type"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class BoundaryType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "boundary_type" # type: ignore
+    __tablename__: ClassVar[str] = "boundary_type"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class EquipmentType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "equipment_type" # type: ignore
+    __tablename__: ClassVar[str] = "equipment_type"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
 
 class ProductType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "product_type" # type: ignore
+    __tablename__: ClassVar[str] = "product_type"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     category: str | None = None
 
 
 class Unit(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "unit" # type: ignore
+    __tablename__: ClassVar[str] = "unit"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     category: str | None = None
@@ -102,7 +111,7 @@ class CropUpdate(SQLModel):
 
 # TODO: Make Crop.latin_name PK? Sstandardize the amount of detail (subsp, var, etc.)?
 class Crop(CropBase, table=True):
-    __tablename__: ClassVar[str] = "crop" # type: ignore
+    __tablename__: ClassVar[str] = "crop"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -113,9 +122,6 @@ ReferencePublic = TypeRef | ProductType | Unit | Crop
 ReferenceCreate = TypeRef | ProductType | Unit | CropBase
 ReferenceUpdate = TypeRefUpdate | ProductType | UnitUpdate | CropUpdate
 
-class ReferencesPublic(SQLModel):
-    count: int
-    data: list[ReferencePublic]
 
 # endregion
 # region -------------------------------- Schema: iam ----------------------------------
@@ -129,11 +135,6 @@ class UserBase(SQLModel):
 
 class UserPublic(UserBase):
     id: UUID
-
-
-class UsersPublic(SQLModel):
-    count: int
-    data: list[UserPublic]
 
 
 class UserCreate(UserBase):
@@ -165,7 +166,7 @@ class PasswordReset(SQLModel):
 
 
 class AppUser(UserBase, table=True):
-    __tablename__: ClassVar[str] = "app_user" # type: ignore
+    __tablename__: ClassVar[str] = "app_user"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "iam"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -193,15 +194,10 @@ class FarmUpdate(SQLModel):
 
 
 class Farm(FarmBase, table=True):
-    __tablename__: ClassVar[str] = "farm" # type: ignore
+    __tablename__: ClassVar[str] = "farm"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
-
-
-class FarmsPublic(SQLModel):
-    count: int
-    data: list[Farm]
 
 
 class FieldBase(SQLModel):
@@ -215,8 +211,21 @@ class FieldBase(SQLModel):
     farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
 
 
+class FieldCreate(SQLModel):
+    name: str = ColInfo(nullable=False, max_length=255)
+    type: str
+    notes: str | None = None
+
+
+class FieldUpdate(SQLModel):
+    name: str | None = ColInfo(default=None, max_length=255)
+    type: str | None = None
+    notes: str | None = None
+    farm_id: UUID | None = None  # TODO: Allow field transfer?
+
+
 class Field(FieldBase, table=True):
-    __tablename__: ClassVar[str] = "field" # type: ignore
+    __tablename__: ClassVar[str] = "field"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -245,7 +254,7 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
 
 
 class FieldBoundary(BoundaryBase, table=True):
-    __tablename__: ClassVar[str] = "field_boundary" # type: ignore
+    __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -268,7 +277,7 @@ class ProductBase(SQLModel):
 
 
 class Product(ProductBase, table=True):
-    __tablename__: ClassVar[str] = "product" # type: ignore
+    __tablename__: ClassVar[str] = "product"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -290,7 +299,7 @@ class EquipmentBase(SQLModel):
 
 
 class Equipment(EquipmentBase, table=True):
-    __tablename__: ClassVar[str] = "equipment" # type: ignore
+    __tablename__: ClassVar[str] = "equipment"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)

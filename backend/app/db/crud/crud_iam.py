@@ -12,8 +12,11 @@ from app.db.models import (
     UserUpdateSelf,
 )
 
+CreateType = UserCreate | UserRegister
+UpdateType = UserUpdate | UserUpdateSelf
 
-class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
+
+class CRUDUser(CRUDBase[AppUser, CreateType, UpdateType]):
     def get_by_email(self, db: Session, email: EmailStr) -> AppUser | None:
         """### Returns the user (or None) associated withe email.
         Convienience method since it is done often.
@@ -29,23 +32,21 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
             return user
         return None
 
-    def create(self, db: Session, new_user: UserCreate | UserRegister) -> AppUser:
+    def create(self, db: Session, new_record: CreateType) -> AppUser:
         record = AppUser.model_validate(
-            new_user,
-            update={"hashed_password": get_password_hash(new_user.password)},
+            new_record,
+            update={"hashed_password": get_password_hash(new_record.password)},
         )
-        self._safe_add(db, record)
+        self._safe_add(db, [record])
         return record
 
-    def update(
-        self, db: Session, user: AppUser, changes: UserUpdate | UserUpdateSelf
-    ) -> AppUser:
+    def update(self, db: Session, record: AppUser, changes: UpdateType) -> AppUser:
         update_dict = changes.model_dump(exclude_unset=True)
         if "password" in update_dict:
             update_dict["hashed_password"] = get_password_hash(update_dict["password"])
-        user.sqlmodel_update(update_dict)
-        self._safe_add(db, user)
-        return user
+        record.sqlmodel_update(update_dict)
+        self._safe_add(db, [record])
+        return record
 
     def reset_password(self, db: Session, reset: PasswordReset) -> AppUser | None:
         """Updates the password of the user whose id is contained in the `reset.token`.
@@ -54,7 +55,8 @@ class CRUDUser(CRUDBase[AppUser, UserCreate, UserUpdate]):
         user = db.get(AppUser, decode_token(reset.token))
         if user:
             user.hashed_password = get_password_hash(reset.new_password)
-            self._safe_add(db, user)
+            self._safe_add(db, [user])
         return user
+
 
 user = CRUDUser(AppUser)
