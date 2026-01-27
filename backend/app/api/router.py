@@ -30,7 +30,7 @@ api_router.include_router(ref.router, tags=[DocTags.REF])
 
 
 # ----------------------------------- Base Endpoints -----------------------------------
-# Remember, all of these endpoints start with the settings.API_PREFIX (set in app/main.py)
+# Remember, all these endpoints start with the settings.API_PREFIX (set in app/main.py)
 
 
 # Redirect people to the /docs page if it looks like they need help
@@ -67,7 +67,7 @@ def health_check(_: Request):
 async def data_dump(db: SuperuserSession, table: str, file: UploadFile):
     Model: SQLModel | None= getattr(models, table, None)
     if not (Model and Model.__tablename__):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_TABLE.format(table))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Table", table))
 
     try:
         raw = await file.read()

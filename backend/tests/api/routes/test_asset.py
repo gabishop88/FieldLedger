@@ -104,13 +104,13 @@ def test_get_farm(cli: TestClient, db: Session, seed) -> None:
     bad_id = str(uuid4())
     res = cli.get(f"{PFIX}/farm", params={"id": bad_id})
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_FARM.format(bad_id)
+    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)
 
     # Fail get by name
     bad_name = generate_str(seed + 2)
     res = cli.get(f"{PFIX}/farm", params={"name": bad_name})
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_FARM.format(bad_name)
+    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_name)
 
     # Fail get no params
     res = cli.get(f"{PFIX}/farm", params={})
@@ -146,7 +146,7 @@ def test_fail_update_nonexistant_farm(cli: TestClient, user_head) -> None:
     edits = FarmUpdate(name=generate_str()).model_dump(exclude_unset=True)
     res = cli.patch(f"{PFIX}/farm/{bad_id}", json=edits, headers=user_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_FARM.format(bad_id)
+    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)
 
 
 def test_delete_farm(cli: TestClient, db: Session, seed, user_head) -> None:
@@ -165,4 +165,4 @@ def test_fail_delete_nonexistant_farm(cli: TestClient, user_head) -> None:
     bad_id = str(uuid4())
     res = cli.delete(f"{PFIX}/farm/{bad_id}", headers=user_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_FARM.format(bad_id)
+    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)

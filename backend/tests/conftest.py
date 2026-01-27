@@ -45,7 +45,9 @@ def cli(db: Session) -> Generator[TestClient, None, None]:
             raise HTTPException(status.HTTP_403_FORBIDDEN, ExeMsg.FBDN_CRED)
         user = db.get(AppUser, key)
         if not user:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_USER.format(key))
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("AppUser", key)
+            )
         return user
 
     app.dependency_overrides[read_session] = test_session_override

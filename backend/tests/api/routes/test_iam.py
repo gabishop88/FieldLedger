@@ -18,6 +18,7 @@ PFIX = settings.API_PREFIX
 # Many use `seed + x` to update values, if you want different values, add an offset.
 # NOTE: Remember that using the user_headers fixture will create user with the seed.
 
+
 def test_superuser_login(cli: TestClient, db: Session) -> None:
     form = {
         "username": settings.FIRST_SUPERUSER,
@@ -36,7 +37,7 @@ def test_fail_superuser_login(cli: TestClient) -> None:
     form = {"username": "not@an.email", "password": "Incorrect"}
     res = cli.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_EMAIL.format("not@an.email")
+    assert res.json()["detail"] == ExeMsg.NF.format("Email", "not@an.email")
 
     form["username"] = settings.FIRST_SUPERUSER
     res = cli.post(f"{PFIX}/account/login/access-token", data=form)
@@ -89,6 +90,7 @@ def test_user_update(cli: TestClient, db: Session, seed, user_head) -> None:
         password=generate_str(seed + 1),
         full_name=generate_str(seed + 1),
     )
+    assert edits.password and user
 
     res = cli.patch(f"{PFIX}/account", json=edits.model_dump(), headers=user_head)
     assert res.status_code == 200
@@ -105,9 +107,10 @@ def test_fail_user_elevate_self(cli: TestClient, db: Session, seed, user_head) -
     """## Make sure a user can't bypass the superuser check and elevate themself."""
     user = crud.user.get_by_email(db, generate_email(seed))
     edits = UserUpdate(is_superuser=True).model_dump(exclude_unset=True)
+    assert user
 
     res = cli.patch(f"{PFIX}/account", json=edits, headers=user_head)
-    assert res.status_code == 200  # TODO: Should this have a validation error?
+    assert res.status_code != 200
     assert res.json()["is_superuser"] is False
 
     db.refresh(user)
@@ -123,6 +126,7 @@ def test_fail_update_email(cli: TestClient, user_head) -> None:
 
 def test_get_user(cli: TestClient, db: Session, seed, user_head) -> None:
     user = crud.user.get_by_email(db, generate_email(seed))
+    assert user
 
     res = cli.get(f"{PFIX}/account", headers=user_head)
     user_info = res.json()
@@ -140,6 +144,7 @@ def test_superuser_update_other(cli: TestClient, db: Session, seed, su_head) -> 
         full_name=generate_str(seed + 2),
         is_superuser=True,
     ).model_dump()
+    assert user
 
     res = cli.patch(f"{PFIX}/account/{user.id}", json=edits, headers=su_head)
     assert res.status_code == 200
@@ -167,12 +172,12 @@ def test_fail_update_nonexistant(cli: TestClient, su_head) -> None:
     id = uuid.uuid4()
     res = cli.patch(f"{PFIX}/account/{id}", json=edits, headers=su_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_USER.format(id)
+    assert res.json()["detail"] == ExeMsg.NF.format("AppUser", id)
 
 
 def test_fail_user_update_other(cli: TestClient, db: Session, seed, user_head) -> None:
     user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
-    assert crud.user.get_by_email(db, generate_email(seed)), "User should exist."
+    assert user and crud.user.get_by_email(db, generate_email(seed))
 
     edits = UserUpdate(full_name=generate_str(seed + 1)).model_dump(exclude_unset=True)
     res = cli.patch(f"{PFIX}/account/{user.id}", json=edits, headers=user_head)
@@ -182,6 +187,7 @@ def test_fail_user_update_other(cli: TestClient, db: Session, seed, user_head) -
 
 def test_search_users(cli: TestClient, db: Session, seed, user_head) -> None:
     user = crud.user.get_by_email(db, generate_email(seed))
+    assert user
 
     query: dict[str, str] = {}
     res = cli.get(f"{PFIX}/account/search", params=query, headers=user_head)
@@ -232,7 +238,7 @@ def test_search_users(cli: TestClient, db: Session, seed, user_head) -> None:
 
 def test_fail_user_delete_su(cli: TestClient, db: Session, seed, user_head) -> None:
     su = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
-    assert crud.user.get_by_email(db, generate_email(seed)) is not None
+    assert su and crud.user.get_by_email(db, generate_email(seed)) is not None
 
     res = cli.delete(f"{PFIX}/account/{su.id}", headers=user_head)
     assert res.status_code == 403
@@ -253,6 +259,7 @@ def test_user_delete_self(cli: TestClient, db: Session, seed, user_head) -> None
 
 def test_fail_first_superuser_delete_self(cli: TestClient, db: Session) -> None:
     user = crud.user.get_by_email(db, settings.FIRST_SUPERUSER)
+    assert user
     head = get_auth_headers(cli, user.email, settings.FIRST_SUPERUSER_PASSWORD)
 
     res = cli.delete(f"{PFIX}/account/{user.id}", headers=head)
@@ -281,4 +288,4 @@ def test_fail_superuser_delete_nonexist(cli: TestClient, su_head) -> None:
     id = uuid.uuid4()
     res = cli.delete(f"{PFIX}/account/{id}", headers=su_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF_USER.format(id)
+    assert res.json()["detail"] == ExeMsg.NF.format("AppUser", id)

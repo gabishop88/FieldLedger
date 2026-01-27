@@ -70,7 +70,9 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
         ```
         """
         if tbl not in RefTables:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF_TABLE.format(tbl))
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Table", tbl)
+            )
         try:
             self.model = getattr(models, tbl)
             yield
