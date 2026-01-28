@@ -1,5 +1,13 @@
 from app.db.crud.crud_base import CRUDBase
-from app.db.models import Farm, FarmCreate, FarmUpdate, Field, FieldUpdate
+from app.db.models import (
+    BoundaryUpdate,
+    Farm,
+    FarmCreate,
+    FarmUpdate,
+    Field,
+    FieldBoundary,
+    FieldUpdate,
+)
 
 
 class CRUDFarm(CRUDBase[Farm, FarmCreate, FarmUpdate]):
@@ -10,5 +18,10 @@ class CRUDField(CRUDBase[Field, Field, FieldUpdate]):
     pass
 
 
+class CRUDFieldBoundary(CRUDBase[FieldBoundary, FieldBoundary, BoundaryUpdate]):
+    pass
+
+
 farm = CRUDFarm(Farm)
 field = CRUDField(Field)
+boundary = CRUDFieldBoundary(FieldBoundary)

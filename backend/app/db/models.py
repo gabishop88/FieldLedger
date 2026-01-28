@@ -2,12 +2,16 @@ from collections.abc import Sequence
 from typing import Annotated, ClassVar, TypeVar
 from uuid import UUID
 
-from geoalchemy2 import Geometry, WKTElement
-from pydantic import EmailStr
+from geoalchemy2 import Geometry, WKBElement, WKTElement
+from geoalchemy2.shape import to_shape
+from pydantic import EmailStr, field_serializer, field_validator
+from shapely import wkt
 from sqlmodel import Column, ForeignKey, Relationship, SQLModel
 from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
+
+from app.api.messages import ExeMsg
 
 # NOTE: I had to import `Field as ColInfo` since it conflicts with the `Field` table
 # TODO: Should I separate the table models from the API models?
@@ -249,14 +253,45 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
             Geometry("MULTIPOLYGON", 4326, spatial_index=True, nullable=False)
         )
     )
-    field_id: UUID = ColInfo(foreign_key="asset.field.id", ondelete="CASCADE")
+
+    @field_validator("geom")
+    @classmethod
+    def validate_wkt(cls, value):
+        try:
+            shapely_geom = wkt.loads(value)
+            if shapely_geom.is_empty or not shapely_geom.is_valid:
+                raise ValueError(ExeMsg.INVALID_TOPO)
+        except Exception:
+            raise ValueError(ExeMsg.INVALID_WKT)
+
+        return value
+
+    @field_serializer("geom")
+    def serialize_geom(self, value) -> str | None:
+        if isinstance(value, WKBElement):
+            return to_shape(value).wkt
+        return value
 
 
 class FieldBoundary(BoundaryBase, table=True):
     __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "asset"}
 
+    field_id: UUID = ColInfo(foreign_key="asset.field.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+class BoundaryCreate(BoundaryBase):
+    pass
+
+
+class BoundaryUpdate(SQLModel):
+    type: str | None = None
+    active: bool | None = None
+    covered: bool | None = None
+    notes: str | None = None
+    geom: Annotated[str, WKTElement] | None = None
+    field_id: UUID | None = None
 
 
 class ProductBase(SQLModel):

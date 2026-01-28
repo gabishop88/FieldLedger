@@ -9,17 +9,14 @@ dependencies = [
     # FastAPI
     "fastapi[standard]>=0.118.0",
     "uvicorn[standard]>=0.37.0",
-
     # PostGIS Database
     "psycopg[binary]>=3.2.10",
-    "geoalchemy2>=0.18.0",
+    "geoalchemy2[shapely]>=0.18.1",
     "sqlmodel>=0.0.25",
     "alembic>=1.16.5",
-
     # Security
     "passlib[argon2]>=1.7.4",
     "python-jose[cryptography]>=3.5.0",
-
     # Utilities
     "pydantic-settings>=2.11.0",
     "tenacity>=9.1.2",

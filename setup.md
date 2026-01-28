@@ -329,3 +329,6 @@ Things I am putting off for now that may need to be revisited:
 * Is it okay to use the AutoString for everything in models.py (by just using str annotation)? Should I remove the max_length=255 constraints?
 * Should I add a superuser endpoint that executes a data backup?
 * I am thinking about allowing uuid searching in places where it is less important (like you can give a partial uuid and it will match it if it is the only uuid that starts with that sequence? kind of like the alembic revision searching).
+* I could generate enum types that have the reference table values and then use those as the type annotation (instead of str) in the models with FKs to those reference tables. This would tell the fastapi schema what values are allowed.
+* Should I change the 'farm' uri prefix to 'farms'?
+* Should I add tests for `app/api/deps.py`, `app/api/router.py`, `app/core/settings.py`, `app/core/security.py`, `app/db/crud/*.py`, `app/main.py`?

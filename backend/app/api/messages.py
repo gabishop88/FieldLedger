@@ -26,3 +26,7 @@ class ExeMsg(StrEnum):
 
     # HTTP_409_CONFLICT (Matches the detail sent by the DB when violating constraints)
     KEY_EXISTS = "Key ({0})=({1}) already exists."
+
+    # HTTP_422_UNPROCESSABLE_ENTITY
+    INVALID_WKT = "'geom' is not valid WKT."
+    INVALID_TOPO = "'geom' has invalid topology."

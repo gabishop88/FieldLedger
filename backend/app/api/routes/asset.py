@@ -8,10 +8,13 @@ from app.api.deps import ReadSession, UserSession
 from app.api.messages import ExeMsg
 from app.db import crud
 from app.db.models import (
+    BoundaryCreate,
+    BoundaryUpdate,
     Farm,
     FarmCreate,
     FarmUpdate,
     Field,
+    FieldBoundary,
     FieldCreate,
     FieldUpdate,
     Paginated,
@@ -91,9 +94,7 @@ def delete_farm(db: UserSession, farm: str) -> Farm:
 
 
 @router.get("/{farm}/fields", response_model=Paginated[Field])
-def get_farm_fields(
-    db: ReadSession, farm: str, skip=0, limit=10
-) -> Paginated[Field]:
+def get_farm_fields(db: ReadSession, farm: str, skip=0, limit=10) -> Paginated[Field]:
     """## Get all fields for a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
     return crud.field.get_paginated(db, skip, limit, Field.farm_id == farm_rec.id)
@@ -128,18 +129,13 @@ def add_fields(
 ) -> Sequence[Field]:
     """## Add one or more fields to a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
-    fields_in_farm = [
-        Field.model_validate(field, update={"farm_id": farm_rec.id})
-        for field in new_fields
-    ]
+    fields_in = [Field(farm_id=farm_rec.id, **f.model_dump()) for f in new_fields]
 
-    return crud.field.create_multiple(db, fields_in_farm)
+    return crud.field.create_multiple(db, fields_in)
 
 
 @router.patch("/{farm}/fields/{field}", response_model=Field)
-def update_field(
-    db: UserSession, farm: str, field: str, edits: FieldUpdate
-) -> Field:
+def update_field(db: UserSession, farm: str, field: str, edits: FieldUpdate) -> Field:
     """## Update a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
     return crud.field.update(db, field_rec, edits)
@@ -150,6 +146,45 @@ def delete_field(db: UserSession, farm: str, field: str) -> Field:
     """## Delete a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
     return crud.field.delete(db, field_rec)
+
+
+# endregion
+# region ------------------------------ Field Boundaries ------------------------------
+
+
+@router.get(
+    "/{farm}/fields/{field}/boundaries", response_model=Paginated[FieldBoundary]
+)
+def get_field_boundaries(
+    db: ReadSession, farm: str, field: str, skip=0, limit=10
+) -> Paginated[FieldBoundary]:
+    field_rec = get_farm_field(db, farm, field)
+    return crud.boundary.get_paginated(
+        db, skip, limit, FieldBoundary.field_id == field_rec.id
+    )
+
+
+@router.post("/{farm}/fields/{field}/boundaries", response_model=FieldBoundary)
+def add_field_boundary(
+    db: UserSession, farm: str, field: str, new_boundary: BoundaryCreate
+) -> FieldBoundary:
+    field_rec = get_farm_field(db, farm, field)
+    boundary_in = FieldBoundary(field_id=field_rec.id, **new_boundary.model_dump())
+    return crud.boundary.create(db, boundary_in)
+
+
+@router.patch("/boundaries/{id}", response_model=FieldBoundary)
+def edit_field_boundary(
+    db: UserSession, id: UUID, edits: BoundaryUpdate
+) -> FieldBoundary:
+    boundary_rec = crud.boundary.get_or_raise(db, id)
+    return crud.boundary.update(db, boundary_rec, edits)
+
+
+@router.delete("/boundaries/{id}", response_model=FieldBoundary)
+def delete_field_boundary(db: UserSession, id: UUID) -> FieldBoundary:
+    boundary_rec = crud.boundary.get_or_raise(db, id)
+    return crud.boundary.delete(db, boundary_rec)
 
 
 # endregion

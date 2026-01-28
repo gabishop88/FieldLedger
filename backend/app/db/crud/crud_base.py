@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, InternalError
 from sqlmodel import Session, SQLModel, func, select
 
 from app.api.messages import ExeMsg
@@ -34,7 +34,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
                 for obj in objs:
                     db.refresh(obj)
             return objs
-        except IntegrityError as e:
+        except (IntegrityError, InternalError) as e:
             db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
@@ -50,7 +50,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             db.delete(obj)
             db.flush()
             return obj
-        except IntegrityError as e:
+        except (IntegrityError, InternalError) as e:
             db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
