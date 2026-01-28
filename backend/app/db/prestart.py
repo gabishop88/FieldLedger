@@ -17,16 +17,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.db.prestart")
 
 
-def restore_backup(backup_fp: Path) -> None:
-    db_uri = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
-    cmd = ["pg_restore", "-va", "-d", db_uri, "-N", "public", backup_fp]
-    logger.info(f"Applying backup file: {backup_fp}")
+def restore_backup(fp: Path) -> None:
+    uri = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
+    # https://www.postgresql.org/docs/current/app-pgrestore.html for info on parameters
+    cmd = ["pg_restore", "-avOx", "--disable-triggers", "-d", uri, "-N", "public", fp]
+    logger.info(f"Applying backup file: {fp}")
 
     env = os.environ.copy()
+    # TODO: I think I can remove thsi with --disable-triggers there.
     env["PGOPTIONS"] = "-c audit.skip_changelog=on"
     subprocess.check_call(cmd, env=env)
 
 
+# TODO: Reorganize the backup name so that the timestamp is first, sorts by time?
 def find_backup() -> Path | None:
     if settings.POSTGRES_BACKUP_DIR is None:
         logger.warning("Cannot restore backup data: No backup dir in .env")

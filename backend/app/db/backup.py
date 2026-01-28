@@ -28,7 +28,7 @@ def get_timestamp() -> str:
 def make_backup(dir: Path) -> None:
     fp = dir.joinpath(f"{get_revision()}_{get_timestamp()}_{settings.POSTGRES_DB}.dump")
     db_url = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
-    cmd = ["pg_dump", "-Fc", db_url, "-f", fp]
+    cmd = ["pg_dump", "-Fc", "--data-only", db_url, "-f", fp]
     subprocess.check_call(cmd)
 
 

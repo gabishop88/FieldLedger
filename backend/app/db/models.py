@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import ClassVar, TypeVar
+from typing import Annotated, ClassVar, TypeVar
 from uuid import UUID
 
 from geoalchemy2 import Geometry, WKTElement
@@ -234,7 +234,6 @@ class Field(FieldBase, table=True):
 class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
     model_config = SQLModelConfig(arbitrary_types_allowed=True)  # type: ignore
 
-    name: str | None = ColInfo(default=None, max_length=255)
     type: str = ColInfo(
         sa_column=Column(
             ForeignKey(
@@ -245,7 +244,7 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
     active: bool = True
     covered: bool = False
     notes: str | None = None
-    geom: WKTElement = ColInfo(
+    geom: Annotated[str, WKTElement] = ColInfo(
         sa_column=Column(
             Geometry("MULTIPOLYGON", 4326, spatial_index=True, nullable=False)
         )
