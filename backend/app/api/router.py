@@ -48,7 +48,7 @@ def docs_page():
     return get_swagger_ui_html(
         openapi_url=f"{settings.API_PREFIX}/openapi.json",
         title=f"{settings.PROJECT_NAME} API",
-        swagger_favicon_url="https://illinois.edu/favicon.ico",
+        swagger_favicon_url="https://cdn.brand.illinois.edu/favicon.ico",
         swagger_ui_parameters={
             "useUnsafeMarkdown": True,
             "docExpansion": "none",
