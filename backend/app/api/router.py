@@ -1,10 +1,11 @@
 import csv
 from enum import StrEnum
 from io import StringIO
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from pydantic import ValidationError
 from sqlmodel import SQLModel
 
@@ -43,18 +44,28 @@ async def redirect_to_docs():
 
 
 # Customizable /docs page
-@api_router.get("/docs", include_in_schema=False)
-def docs_page():
-    return get_swagger_ui_html(
+@api_router.get("/docs", tags=[DocTags.MISC])
+def docs_page(theme: Literal["light", "dark"] = "dark"):
+    """### Swagger UI docs page.
+    `/`, `/help`, `api/v1/`, `/api/v1/help` all redirect here.
+    """
+    html = get_swagger_ui_html(
         openapi_url=f"{settings.API_PREFIX}/openapi.json",
         title=f"{settings.PROJECT_NAME} API",
         swagger_favicon_url="https://cdn.brand.illinois.edu/favicon.ico",
         swagger_ui_parameters={
-            "useUnsafeMarkdown": True,
-            "docExpansion": "none",
+            # "useUnsafeMarkdown": True,
             "persistAuthorization": True,
+            "docExpansion": "none",
         },
     )
+
+    if theme == "dark":
+        cont = bytes(html.body).decode()
+        cont += '<script>document.documentElement.classList.add("dark-mode");</script>'
+        html = HTMLResponse(content=cont)
+
+    return html
 
 
 @api_router.get("/health-check", tags=[DocTags.MISC])
@@ -65,7 +76,7 @@ def health_check(_: Request):
 
 @api_router.post("/dump-csv/{table}", tags=[DocTags.MISC])
 async def data_dump(db: SuperuserSession, table: str, file: UploadFile):
-    Model: SQLModel | None= getattr(models, table, None)
+    Model: SQLModel | None = getattr(models, table, None)
     if not (Model and Model.__tablename__):
         raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Table", table))
 

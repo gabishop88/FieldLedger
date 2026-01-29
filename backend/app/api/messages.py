@@ -2,7 +2,7 @@ from enum import StrEnum
 
 
 class ExeMsg(StrEnum):
-    """## Provides literals to maintain consistent error messages.
+    """### Provides literals to maintain consistent error messages.
     Use `.format()` to replace placeholers (like the `{0}` in `ExeMsg.NF`):
     > `ExeMsg.NF.format("User", missing_user_id)`
 

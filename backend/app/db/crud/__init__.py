@@ -1,4 +1,4 @@
-"""## This is a collection of classes to simplify CRUD Operations.
+"""### This is a collection of classes to simplify CRUD Operations.
 *CRUD stands for Create, Read, Update, Delete*
 
 To use them, you can: `from app.db import crud`.

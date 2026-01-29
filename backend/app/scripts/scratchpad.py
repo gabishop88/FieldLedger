@@ -99,7 +99,7 @@ def log_model(model) -> None:
 
 
 def change_boundary_notes(message: str) -> None:
-    """## Changes the notes column in ALL field boundaries to the given message.
+    """### Changes the notes column in ALL field boundaries to the given message.
     Probably could have just emitted an update via db session?
     """
     boundary_update = BoundaryUpdate(notes=message)

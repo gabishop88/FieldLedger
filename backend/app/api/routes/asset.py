@@ -39,7 +39,7 @@ def farm_search(
     skip=0,
     limit=10,
 ) -> Paginated[Farm]:
-    """## Search for one or more farms.
+    """### Search for one or more farms.
     You may search by name, which will have to be close to the full name,
     or by description to match farm descriptions that approximately contain the search.
     """
@@ -54,7 +54,7 @@ def farm_search(
 
 @router.get("/{farm}", response_model=Farm)
 def get_one_farm(db: ReadSession, farm: str) -> Farm:
-    """## Find a single farm based on either its id or name.
+    """### Find a single farm based on either its id or name.
     Matches name using similarity search.
     """
     try:
@@ -95,14 +95,14 @@ def delete_farm(db: UserSession, farm: str) -> Farm:
 
 @router.get("/{farm}/fields", response_model=Paginated[Field])
 def get_farm_fields(db: ReadSession, farm: str, skip=0, limit=10) -> Paginated[Field]:
-    """## Get all fields for a given farm by its ID or name."""
+    """### Get all fields for a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
     return crud.field.get_paginated(db, skip, limit, Field.farm_id == farm_rec.id)
 
 
 @router.get("/{farm}/fields/{field}", response_model=Field)
 def get_farm_field(db: ReadSession, farm: str, field: str) -> Field:
-    """## Get a single field by its ID or name within a given farm by its ID or name."""
+    """### Get a single field by its ID or name within a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
 
     try:
@@ -127,7 +127,7 @@ def get_farm_field(db: ReadSession, farm: str, field: str) -> Field:
 def add_fields(
     db: UserSession, farm: str, new_fields: list[FieldCreate]
 ) -> Sequence[Field]:
-    """## Add one or more fields to a given farm by its ID or name."""
+    """### Add one or more fields to a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
     fields_in = [Field(farm_id=farm_rec.id, **f.model_dump()) for f in new_fields]
 
@@ -136,14 +136,14 @@ def add_fields(
 
 @router.patch("/{farm}/fields/{field}", response_model=Field)
 def update_field(db: UserSession, farm: str, field: str, edits: FieldUpdate) -> Field:
-    """## Update a field within a given farm by their IDs or names."""
+    """### Update a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
     return crud.field.update(db, field_rec, edits)
 
 
 @router.delete("/{farm}/fields/{field}", response_model=Field)
 def delete_field(db: UserSession, farm: str, field: str) -> Field:
-    """## Delete a field within a given farm by their IDs or names."""
+    """### Delete a field within a given farm by their IDs or names."""
     field_rec = get_farm_field(db, farm, field)
     return crud.field.delete(db, field_rec)
 

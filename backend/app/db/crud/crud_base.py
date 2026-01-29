@@ -78,7 +78,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     # ----------------- READ -----------------
 
     def get_or_raise(self, db: Session, key: Any) -> ModelType:
-        """## Get one record or raise HTTPException(404) if not found."""
+        """### Get one record or raise HTTPException(404) if not found."""
         assert self.model is not None, "Cannot get record: model is not set."
         record = db.get(self.model, key)
         if not record:
@@ -106,7 +106,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     # ---------------- UPDATE ----------------
 
     def update(self, db: Session, record: ModelType, changes: UpdateType) -> ModelType:
-        """## Modify the selected `record` with the provided `changes`."""
+        """### Modify the selected `record` with the provided `changes`."""
         update_dict = changes.model_dump(exclude_unset=True)
         record.sqlmodel_update(update_dict)
         self._safe_add(db, [record], refresh=True)
@@ -115,5 +115,5 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     # ---------------- DELETE ----------------
 
     def delete(self, db: Session, record: ModelType) -> ModelType:
-        """## Deletes the given `record` and returns it (as it was before deletion)."""
+        """### Deletes the given `record` and returns it (as it was before deletion)."""
         return self._safe_delete(db, record)

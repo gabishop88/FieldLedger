@@ -33,7 +33,7 @@ def get_table_names(schema: str = "ref") -> list[str]:
 
 
 class DynamicStrEnumMeta(EnumMeta):
-    """## StrEnum metaclass dynamically filled at runtime."""
+    """### StrEnum metaclass dynamically filled at runtime."""
 
     def __new__(mcls, name, bases, dct: _EnumDict, vals: list[str]):
         if vals:
@@ -45,7 +45,7 @@ class RefTables(StrEnum, metaclass=DynamicStrEnumMeta, vals=get_table_names()): 
 
 
 class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
-    """## One CRUD object for all reference tables.
+    """### One CRUD object for all reference tables.
     To edit a reference table, provide table argument: `crud.ref.create(..., table)`
 
     Any value in the Enum `RefTables` is a valid value for `table` in any CRUD function.
@@ -56,7 +56,7 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
 
     @contextmanager
     def _use_model(self, tbl: RefTables) -> Generator[None, None, None]:
-        """## Operations performed by `crud.ref` in this context apply to `table`.
+        """### Operations performed by `crud.ref` in this context apply to `table`.
         > Note: `all functions` use this internally when you provide `table`.
 
         e.g.

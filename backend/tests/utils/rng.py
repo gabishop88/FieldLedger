@@ -6,7 +6,7 @@ from pydantic import EmailStr
 
 
 def generate_str(seed: int | None = None, k: int = 16) -> str:
-    """## Generate random lowercase string of length `k`
+    """### Generate random lowercase string of length `k`
     Using the same `seed` gives the same random string.
     """
     rng = random.Random(seed)
@@ -14,7 +14,7 @@ def generate_str(seed: int | None = None, k: int = 16) -> str:
 
 
 def generate_email(seed: int | None = None, domain="com") -> EmailStr:
-    """## Generate a random email-formatted string.
+    """### Generate a random email-formatted string.
     Using the same `seed` gives the same random email.
     """
     return f"{generate_str(seed)}@{generate_str(seed)}.{domain}"
@@ -23,7 +23,7 @@ def generate_email(seed: int | None = None, domain="com") -> EmailStr:
 def generate_geom(
     seed: int | None = None, lat=40.045818, lon=-88.223950, r_min=0.01, r_max=0.02
 ) -> str:
-    """## Generate a random convex polygon around the given center.
+    """### Generate a random convex polygon around the given center.
     It is deterministic based on seed, and contains the area defined by r_min.
     """
     rng = random.Random(seed)

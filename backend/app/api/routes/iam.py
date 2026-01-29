@@ -46,7 +46,7 @@ router = APIRouter(prefix="/account")
 
 @router.post("/login/access-token")
 def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
-    """## Provide an email (username) and password to get an auth token."""
+    """### Provide an email (username) and password to get an auth token."""
     user = crud.user.authenticate(db, login_data.username, login_data.password)
     if not user:
         if crud.user.get_by_email(db, login_data.username):
@@ -68,7 +68,7 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
 
 @router.get("/", response_model=UserPublic)
 def get_your_user_info(user: CurrentUser) -> AppUser:
-    """## See the account information for the user that is currently authenticated.
+    """### See the account information for the user that is currently authenticated.
     To be 'authenticated', send the auth token in request "Auth" headers.
 
     If using /docs page, log in with the green 'Authorize' button.
@@ -80,7 +80,7 @@ def get_your_user_info(user: CurrentUser) -> AppUser:
 
 @router.post("/", response_model=UserPublic)
 def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
-    """## Register a new user account."""
+    """### Register a new user account."""
     # TODO: Send a 'New Account' email? Add email verification? Use email-validator lib?
     return crud.user.create(db, user_in)
 
@@ -90,7 +90,7 @@ def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
 def edit_your_user_info(
     db: UserSession, user: CurrentUser, edits: UserUpdateSelf
 ) -> AppUser:
-    """## Edit the currently authorized user.
+    """### Edit the currently authorized user.
     Allows partial edits.
 
     Returns the updated user info.
@@ -100,7 +100,7 @@ def edit_your_user_info(
 
 @router.delete("/", response_model=UserPublic)
 def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
-    """## Delete the currently authorized user.
+    """### Delete the currently authorized user.
     Returns user info as it was before deletion, it will not exist after calling.
     """
     if user.email == settings.FIRST_SUPERUSER:
@@ -120,7 +120,7 @@ def search_for_users(
     skip: int = 0,
     limit: int = 10,
 ) -> Paginated[AppUser]:
-    """## Search for users.
+    """### Search for users.
     You can search with email/id (exact match only) or name (partial matches accepted).
 
     To prevent a huge dump of all users, provide at least one of these search options.
@@ -147,7 +147,7 @@ def search_for_users(
 
 @router.patch("/{user_id}", response_model=UserPublic)
 def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> AppUser:
-    """## Edit the data of another user.
+    """### Edit the data of another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
     other_user = db.get(AppUser, user_id)
@@ -161,7 +161,7 @@ def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> A
 
 @router.delete("/{user_id}", response_model=UserPublic)
 def delete_other_user(db: SuperuserSession, user_id: UUID) -> AppUser:
-    """## Delete another user.
+    """### Delete another user.
     *MUST BE LOGGED IN AS A SUPERUSER*
     """
     other_user = db.get(AppUser, user_id)

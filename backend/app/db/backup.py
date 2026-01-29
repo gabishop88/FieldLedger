@@ -1,4 +1,4 @@
-"""## Tools to create a backup of the database
+"""### Tools to create a backup of the database
 You can call `make_backup(backup_dir)` to make a backup, or run one of the following:
 
 ```sh

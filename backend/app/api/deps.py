@@ -1,4 +1,4 @@
-"""## Available FastAPI Dependencies
+"""### Available FastAPI Dependencies
 See: https://fastapi.tiangolo.com/tutorial/dependencies/ for additional information.
 
 To use one of the dependencies defined here:

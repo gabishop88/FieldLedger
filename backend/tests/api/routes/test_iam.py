@@ -104,7 +104,7 @@ def test_user_update(cli: TestClient, db: Session, seed, user_head) -> None:
 
 
 def test_fail_user_elevate_self(cli: TestClient, db: Session, seed, user_head) -> None:
-    """## Make sure a user can't bypass the superuser check and elevate themself."""
+    """### Make sure a user can't bypass the superuser check and elevate themself."""
     user = crud.user.get_by_email(db, generate_email(seed))
     edits = UserUpdate(is_superuser=True).model_dump(exclude_unset=True)
     assert user
