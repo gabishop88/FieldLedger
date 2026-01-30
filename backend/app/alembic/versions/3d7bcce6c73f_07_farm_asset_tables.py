@@ -96,6 +96,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("common_name", sm.AutoString(), nullable=False),
         sa.Column("latin_name", sm.AutoString(), nullable=False),
+        sa.Column("family", sm.AutoString(), nullable=False),
         sa.Column("description", sm.AutoString(), nullable=True),
         sa.Column("density", sa.Float(), nullable=True),
         sa.Column("density_unit_name", sm.AutoString(length=32), nullable=True),

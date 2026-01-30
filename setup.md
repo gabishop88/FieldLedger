@@ -296,6 +296,8 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
   38. I feel like I am ready to add new tables. For this round, I want to add `ref.boundary_type`, `ref.product_type`, `ref.equipment_type`, `ref.unit`, `ref.crop`, `asset.field`, `asset.field_boundary`, `asset.product`, `asset.equipment`. That's quite a few tables, but they are generally related. Part of adding all of these is including the important API endpoints and tests.
   39. Here, I went back and fixed a series of issues that were caught by both tests and manual testing. This was a long process, but at the end I am prepared to start adding the above tables and data.
   40. After adding the tables via app/db/models.py, using alembic and manually validating the alembic revision script, I added some initial values for `ref.boundary_type`, `ref.field_type`, `ref.product_type`, and `ref.unit`. I added crud methods for ref tables and the field table, as well as basic tests for everything so far. I also added data into `asset.field` and `asset.field_boundary`, but I still need crud, endpoints, and tests for field_boundary.
+  41. Finished basic crud, endpoints and tests for `asset.field_boundary` added inital values from MDJ data and added a note that they are from MJD.
+  42. Before moving on, I took a look at the tables I have to see which have data, which still need it, and whether I could address them at this time. The existing tables that were still empty are `ref.crop`, `ref.equipment_type`, `asset.equipment`, `asset.product`. I need access to the Operations Center - Equipment API in MyJD before I can fill out `ref.equipment_type` and `asset.equipment`, so I added 53 reasonable crops for now, with more to come later if necessary.
 
 Things that often need changed when autogenerating revisions:
 
@@ -332,3 +334,13 @@ Things I am putting off for now that may need to be revisited:
 * I could generate enum types that have the reference table values and then use those as the type annotation (instead of str) in the models with FKs to those reference tables. This would tell the fastapi schema what values are allowed.
 * Should I change the 'farm' uri prefix to 'farms'?
 * Should I add tests for `app/api/deps.py`, `app/api/router.py`, `app/core/settings.py`, `app/core/security.py`, `app/db/crud/*.py`, `app/main.py`?
+* Should I add `standard_payable_moisture` to `ref.crop`?
+* Should I add `bale` and `lb1bale-1` to `ref.unit` (and fill in relevant `ref.crop.density` values)?
+
+### Ideas for syncing with MyJD
+
+The most basic idea is to have a script that makes a request for every object that lines up with this database's needs. Then, process it as needed and add that record to a big table of synced objects. Then, if you perform another sync later, you can check for the object's id in the sync'd table, see if the object has changed since last sync and choose to update or skip. The table probably should have something like: endpoint used to get it, id of record, whole record, timestamp of last sync that actually updated using that model. Hypothetically, I could use the actual MyJD id in this db since they are both UUID, but I don't know the UUID version used in JDs API, and I don't want to deal with conflicts if one record in corresponds with data in multiple tables or anything like that. It may also be useful to keep track of which table records a specific sync'd record affected, but that's probably not necessary. As long as the sync process remains consistent, it wouldn't be hard to figure that out, and even if it doesn't then that information becomes useless anyway (I think).
+
+I will definitely have to come back and write up a proper sync procedure, but for now I will keep incorporating data manually, and leave this for later or someone else in the future.
+
+Also, it is worth mentioning that MyJD APIs have a x-deere-signature field in the response json. It will be the same every time you call an endpoint unless the data has changed since the last call to that endpoint. This could also be very useful to check whether you have synced a resource. Instead of storing the whole response from the endpoint, just store that and you can use it to determine whether you need to try to update the sync'd resources using the data from that call.

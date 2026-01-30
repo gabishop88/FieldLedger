@@ -95,6 +95,7 @@ class UnitUpdate(SQLModel):
 class CropBase(SQLModel):
     common_name: str
     latin_name: str
+    family: str
     description: str | None = None
     density: float | None = None
     density_unit_name: str | None = ColInfo(
