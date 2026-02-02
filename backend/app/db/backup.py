@@ -13,7 +13,17 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.core.config import settings
+from pydantic import ValidationError
+
+# Import settings. If .env isn't loaded (not run through docker), load it manually.
+try:
+    from app.core.config import settings
+except ValidationError:
+    from dotenv import load_dotenv
+
+    env_path = Path(__file__).parents[3] / ".env"
+    load_dotenv(env_path)
+    from app.core.config import settings
 
 
 def get_revision() -> str:
@@ -28,7 +38,7 @@ def get_timestamp() -> str:
 def make_backup(dir: Path) -> None:
     fp = dir.joinpath(f"{get_revision()}_{get_timestamp()}_{settings.POSTGRES_DB}.dump")
     db_url = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")
-    cmd = ["pg_dump", "-Fc", "--data-only", db_url, "-f", fp]
+    cmd = ["/usr/lib/postgresql/18/bin/pg_dump", "-Fc", "--data-only", db_url, "-f", fp]
     subprocess.check_call(cmd)
 
 
