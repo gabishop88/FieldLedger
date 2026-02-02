@@ -13,8 +13,8 @@ from app.api.deps import (
     read_session,
     write_session,
 )
-from app.api.messages import ExeMsg
 from app.core import security
+from app.core.enums import ErrMsg
 from app.db.connection import get_engine
 from app.db.models import AppUser
 from app.main import app
@@ -40,11 +40,11 @@ def cli(db: Session) -> Generator[TestClient, None, None]:
     def current_user_override(db: ReadSession, token: AccessToken) -> AppUser:
         key = security.decode_token(token)
         if key is None:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, ExeMsg.FBDN_CRED)
+            raise HTTPException(status.HTTP_403_FORBIDDEN, ErrMsg.FBDN_CRED)
         user = db.get(AppUser, key)
         if not user:
             raise HTTPException(
-                status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("AppUser", key)
+                status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("AppUser", key)
             )
         return user
 

@@ -5,8 +5,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
-from app.api.router import DocTags, api_router
+from app.api.router import api_router
 from app.core.config import settings
+from app.core.enums import DocTag
 
 SNAKIFIER = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
@@ -22,7 +23,7 @@ app = FastAPI(
     title=f"{settings.PROJECT_NAME} API",
     contact={"role": "Developer", "email": settings.FIRST_SUPERUSER},
     generate_unique_id_function=custom_route_id,
-    openapi_tags=[{"name": str(tag)} for tag in DocTags],
+    openapi_tags=[{"name": str(tag)} for tag in DocTag],
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     swagger_ui_oauth2_redirect_url=f"{settings.API_PREFIX}/docs/oauth2-redirect",
     docs_url=None,  # I registered a custom docs page in `app/api/router.py`

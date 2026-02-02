@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlmodel import func, select
 
 from app.api.deps import ReadSession, UserSession
-from app.api.messages import ExeMsg
+from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import (
     BoundaryCreate,
@@ -26,6 +26,37 @@ DESC_THRESH = 0.2
 
 
 router = APIRouter(prefix="/farm")
+
+# Asset routes
+# GET       api/v1/orgs/{org}/farms
+# POST      api/v1/orgs/{org}/farms
+# GET       api/v1/farms/{farm}
+# PATCH     api/v1/farms/{farm}
+# DELETE    api/v1/farms/{farm}
+
+# GET       api/v1/orgs/{org}/products
+# POST      api/v1/orgs/{org}/products
+# GET       api/v1/products/{product}
+# PATCH     api/v1/products/{product}
+# DELETE    api/v1/products/{product}
+
+# GET       api/v1/orgs/{org}/equipment
+# POST      api/v1/orgs/{org}/equipment
+# GET       api/v1/equipment/{equipment}
+# PATCH     api/v1/equipment/{equipment}
+# DELETE    api/v1/equipment/{equipment}
+
+# GET       api/v1/farms/{farm}/fields
+# POST      api/v1/farms/{farm}/fields
+# GET       api/v1/fields/{field}
+# PATCH     api/v1/fields/{field}
+# DELETE    api/v1/fields/{field}
+
+# GET       api/v1/fields/{field}/boundaries
+# POST      api/v1/fields/{field}/boundaries
+# GET       api/v1/boundaries/{boundary}
+# PATCH     api/v1/boundaries/{boundary}
+# DELETE    api/v1/boundaries/{boundary}
 
 
 # region ------------------------------- Farm Endpoints -------------------------------
@@ -68,7 +99,7 @@ def get_one_farm(db: ReadSession, farm: str) -> Farm:
         ).first()
 
     if rec is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Farm", farm))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Farm", farm))
     return rec
 
 
@@ -102,7 +133,7 @@ def get_farm_fields(db: ReadSession, farm: str, skip=0, limit=10) -> Paginated[F
 
 @router.get("/{farm}/fields/{field}", response_model=Field)
 def get_farm_field(db: ReadSession, farm: str, field: str) -> Field:
-    """### Get a single field by its ID or name within a given farm by its ID or name."""
+    """### Get a single field by ID or name within a given farm by its ID or name."""
     farm_rec = get_one_farm(db, farm)
 
     try:
@@ -119,7 +150,7 @@ def get_farm_field(db: ReadSession, farm: str, field: str) -> Field:
         ).first()
 
     if field_rec is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Field", field))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Field", field))
     return field_rec
 
 

@@ -3,9 +3,9 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.api.messages import ExeMsg
 from app.core import security
 from app.core.config import settings
+from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import AppUser, UserCreate, UserUpdate
 from tests.utils.auth import get_auth_headers
@@ -37,12 +37,12 @@ def test_fail_superuser_login(cli: TestClient) -> None:
     form = {"username": "not@an.email", "password": "Incorrect"}
     res = cli.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("Email", "not@an.email")
+    assert res.json()["detail"] == ErrMsg.NF.format("Email", "not@an.email")
 
     form["username"] = settings.FIRST_SUPERUSER
     res = cli.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 400
-    assert res.json()["detail"] == ExeMsg.BAD_PWD
+    assert res.json()["detail"] == ErrMsg.BAD_PWD
 
 
 def test_register_user(cli: TestClient, db: Session, seed) -> None:
@@ -69,7 +69,7 @@ def test_fail_register_duplicate_user(cli: TestClient, db: Session, seed) -> Non
 
     res = cli.post(f"{PFIX}/account", json=user_in.model_dump())
     assert res.status_code == 409
-    assert res.json()["detail"] == ExeMsg.KEY_EXISTS.format("email", user_in.email)
+    assert res.json()["detail"] == ErrMsg.KEY_EXISTS.format("email", user_in.email)
 
 
 def test_user_login(cli: TestClient, db: Session, seed) -> None:
@@ -121,7 +121,7 @@ def test_fail_update_email(cli: TestClient, user_head) -> None:
     edits = UserUpdate(email=settings.FIRST_SUPERUSER).model_dump(exclude_unset=True)
     res = cli.patch(f"{PFIX}/account", json=edits, headers=user_head)
     assert res.status_code == 409
-    assert res.json()["detail"] == ExeMsg.KEY_EXISTS.format("email", edits["email"])
+    assert res.json()["detail"] == ErrMsg.KEY_EXISTS.format("email", edits["email"])
 
 
 def test_get_user(cli: TestClient, db: Session, seed, user_head) -> None:
@@ -172,7 +172,7 @@ def test_fail_update_nonexistant(cli: TestClient, su_head) -> None:
     id = uuid.uuid4()
     res = cli.patch(f"{PFIX}/account/{id}", json=edits, headers=su_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("AppUser", id)
+    assert res.json()["detail"] == ErrMsg.NF.format("AppUser", id)
 
 
 def test_fail_user_update_other(cli: TestClient, db: Session, seed, user_head) -> None:
@@ -182,7 +182,7 @@ def test_fail_user_update_other(cli: TestClient, db: Session, seed, user_head) -
     edits = UserUpdate(full_name=generate_str(seed + 1)).model_dump(exclude_unset=True)
     res = cli.patch(f"{PFIX}/account/{user.id}", json=edits, headers=user_head)
     assert res.status_code == 403
-    assert res.json()["detail"] == ExeMsg.FBDN_PRIV
+    assert res.json()["detail"] == ErrMsg.FBDN_PRIV
 
 
 def test_search_users(cli: TestClient, db: Session, seed, user_head) -> None:
@@ -192,7 +192,7 @@ def test_search_users(cli: TestClient, db: Session, seed, user_head) -> None:
     query: dict[str, str] = {}
     res = cli.get(f"{PFIX}/account/search", params=query, headers=user_head)
     assert res.status_code == 400
-    assert res.json()["detail"] == ExeMsg.BAD_EMPTY_SEARCH
+    assert res.json()["detail"] == ErrMsg.BAD_EMPTY_SEARCH
 
     # Search for id
     query = {"id": str(user.id)}
@@ -242,7 +242,7 @@ def test_fail_user_delete_su(cli: TestClient, db: Session, seed, user_head) -> N
 
     res = cli.delete(f"{PFIX}/account/{su.id}", headers=user_head)
     assert res.status_code == 403
-    assert res.json()["detail"] == ExeMsg.FBDN_PRIV
+    assert res.json()["detail"] == ErrMsg.FBDN_PRIV
 
 
 def test_user_delete_self(cli: TestClient, db: Session, seed, user_head) -> None:
@@ -264,11 +264,11 @@ def test_fail_first_superuser_delete_self(cli: TestClient, db: Session) -> None:
 
     res = cli.delete(f"{PFIX}/account/{user.id}", headers=head)
     assert res.status_code == 403
-    assert res.json()["detail"] == ExeMsg.FBDN_REM_1SU
+    assert res.json()["detail"] == ErrMsg.FBDN_REM_1SU
 
     res = cli.delete(f"{PFIX}/account", headers=head)
     assert res.status_code == 403
-    assert res.json()["detail"] == ExeMsg.FBDN_DEL_1SU
+    assert res.json()["detail"] == ErrMsg.FBDN_DEL_1SU
 
     # TODO: Test other superuser deletes another, fails to delete FIRST, deletes self.
 
@@ -288,4 +288,4 @@ def test_fail_superuser_delete_nonexist(cli: TestClient, su_head) -> None:
     id = uuid.uuid4()
     res = cli.delete(f"{PFIX}/account/{id}", headers=su_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("AppUser", id)
+    assert res.json()["detail"] == ErrMsg.NF.format("AppUser", id)

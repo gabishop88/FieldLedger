@@ -1,5 +1,4 @@
 import csv
-from enum import StrEnum
 from io import StringIO
 from typing import Literal
 
@@ -10,24 +9,15 @@ from pydantic import ValidationError
 from sqlmodel import SQLModel
 
 from app.api.deps import SuperuserSession
-from app.api.messages import ExeMsg
 from app.api.routes import asset, iam, ref
 from app.core.config import settings
+from app.core.enums import DocTag, ErrMsg
 from app.db import models
 
-
-class DocTags(StrEnum):
-    ASSET = "Farm Assets"
-    USER = "User Information and Authentication"
-    OP = "Field Operations"
-    REF = "Reference Tables"
-    MISC = "Miscellaneous"
-
-
 api_router = APIRouter()
-api_router.include_router(asset.router, tags=[DocTags.ASSET])
-api_router.include_router(iam.router, tags=[DocTags.USER])
-api_router.include_router(ref.router, tags=[DocTags.REF])
+api_router.include_router(asset.router, tags=[DocTag.ASSET])
+api_router.include_router(iam.router, tags=[DocTag.USER])
+api_router.include_router(ref.router, tags=[DocTag.REF])
 
 
 # ----------------------------------- Base Endpoints -----------------------------------
@@ -44,7 +34,7 @@ async def redirect_to_docs():
 
 
 # Customizable /docs page
-@api_router.get("/docs", tags=[DocTags.MISC])
+@api_router.get("/docs", tags=[DocTag.MISC])
 def docs_page(theme: Literal["light", "dark"] = "dark"):
     """### Swagger UI docs page.
     `/`, `/help`, `api/v1/`, `/api/v1/help` all redirect here.
@@ -68,17 +58,17 @@ def docs_page(theme: Literal["light", "dark"] = "dark"):
     return html
 
 
-@api_router.get("/health-check", tags=[DocTags.MISC])
+@api_router.get("/health-check", tags=[DocTag.MISC])
 @api_router.head("/health-check", include_in_schema=False)
 def health_check(_: Request):
     return PlainTextResponse("<3", status_code=status.HTTP_200_OK)
 
 
-@api_router.post("/dump-csv/{table}", tags=[DocTags.MISC])
+@api_router.post("/dump-csv/{table}", tags=[DocTag.MISC])
 async def data_dump(db: SuperuserSession, table: str, file: UploadFile):
     Model: SQLModel | None = getattr(models, table, None)
     if not (Model and Model.__tablename__):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Table", table))
+        raise HTTPException(status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Table", table))
 
     try:
         raw = await file.read()

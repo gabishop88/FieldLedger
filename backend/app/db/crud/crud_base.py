@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, InternalError
 from sqlmodel import Session, SQLModel, func, select
 
-from app.api.messages import ExeMsg
+from app.core.enums import ErrMsg
 from app.db.models import Paginated
 
 
@@ -84,7 +84,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         if not record:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND,
-                ExeMsg.NF.format(self.model.__name__, key),
+                ErrMsg.NF.format(self.model.__name__, key),
             )
         return record
 

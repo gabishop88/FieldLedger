@@ -7,8 +7,8 @@ from typing import Any, TypeVar
 from fastapi import HTTPException, status
 from sqlmodel import Session, SQLModel, inspect
 
-from app.api.messages import ExeMsg
 from app.core.config import settings
+from app.core.enums import ErrMsg
 from app.db import models
 from app.db.connection import get_engine
 from app.db.crud.crud_base import CRUDBase
@@ -71,7 +71,7 @@ class CRUDRef(CRUDBase[ModelType, ReferenceCreate, ReferenceUpdate]):
         """
         if tbl not in RefTables:
             raise HTTPException(
-                status.HTTP_404_NOT_FOUND, ExeMsg.NF.format("Table", tbl)
+                status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Table", tbl)
             )
         try:
             self.model = getattr(models, tbl)

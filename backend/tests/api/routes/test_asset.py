@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 from shapely import wkt
 from sqlmodel import Session
 
-from app.api.messages import ExeMsg
 from app.core.config import settings
+from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import (
     Farm,
@@ -119,13 +119,13 @@ def test_get_farm(cli: TestClient, db: Session, seed: int) -> None:
     bad_id = str(uuid4())
     res = cli.get(f"{PFIX}/farm/{bad_id}")
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)
+    assert res.json()["detail"] == ErrMsg.NF.format("Farm", bad_id)
 
     # Fail get by name
     bad_name = generate_str(seed + 2)
     res = cli.get(f"{PFIX}/farm/{bad_name}")
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_name)
+    assert res.json()["detail"] == ErrMsg.NF.format("Farm", bad_name)
 
 
 def test_update_farm(
@@ -160,7 +160,7 @@ def test_fail_update_nonexistant_farm(
     edits = FarmUpdate(name=generate_str()).model_dump(exclude_unset=True)
     res = cli.patch(f"{PFIX}/farm/{bad_id}", json=edits, headers=user_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)
+    assert res.json()["detail"] == ErrMsg.NF.format("Farm", bad_id)
 
 
 def test_delete_farm(
@@ -183,7 +183,7 @@ def test_fail_delete_nonexistant_farm(
     bad_id = str(uuid4())
     res = cli.delete(f"{PFIX}/farm/{bad_id}", headers=user_head)
     assert res.status_code == 404
-    assert res.json()["detail"] == ExeMsg.NF.format("Farm", bad_id)
+    assert res.json()["detail"] == ErrMsg.NF.format("Farm", bad_id)
 
 
 # endregion
@@ -463,7 +463,7 @@ def test_fail_invalid_geom(cli: TestClient, db: Session, seed, user_head) -> Non
         headers=user_head,
     )
     assert res.status_code == 422
-    assert res.json()["detail"][0]["msg"] == f"Value error, {ExeMsg.INVALID_WKT}"
+    assert res.json()["detail"][0]["msg"] == f"Value error, {ErrMsg.INVALID_WKT}"
 
 
 # endregion

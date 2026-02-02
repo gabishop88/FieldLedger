@@ -11,7 +11,7 @@ from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
 
-from app.api.messages import ExeMsg
+from app.core.enums import ErrMsg
 
 # NOTE: I had to import `Field as ColInfo` since it conflicts with the `Field` table
 # TODO: Should I separate the table models from the API models?
@@ -261,9 +261,9 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
         try:
             shapely_geom = wkt.loads(value)
             if shapely_geom.is_empty or not shapely_geom.is_valid:
-                raise ValueError(ExeMsg.INVALID_TOPO)
+                raise ValueError(ErrMsg.INVALID_TOPO)
         except Exception:
-            raise ValueError(ExeMsg.INVALID_WKT)
+            raise ValueError(ErrMsg.INVALID_WKT)
 
         return value
 

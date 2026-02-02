@@ -1,7 +1,22 @@
 from enum import StrEnum
 
 
-class ExeMsg(StrEnum):
+class DocTag(StrEnum):
+    # Asset Tags
+    ASSET = "Available Assets"
+    ASSET_FARM = "Assets · Farms"
+    ASSET_FIELD = "Assets · Fields"
+    ASSET_BOUND = "Assets · Boundaries"
+    ASSET_PROD = "Assets · Products"
+    ASSET_EQUIP = "Assets · Equipment"
+
+    USER = "User Information and Authentication"
+    OP = "Field Operations"
+    REF = "Reference Tables"
+    MISC = "Miscellaneous"
+
+
+class ErrMsg(StrEnum):
     """### Provides literals to maintain consistent error messages.
     Use `.format()` to replace placeholers (like the `{0}` in `ExeMsg.NF`):
     > `ExeMsg.NF.format("User", missing_user_id)`

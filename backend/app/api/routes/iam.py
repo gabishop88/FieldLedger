@@ -14,8 +14,8 @@ from app.api.deps import (
     UserSession,
     WriteSession,
 )
-from app.api.messages import ExeMsg
 from app.core.config import settings
+from app.core.enums import ErrMsg
 from app.core.security import create_access_token
 from app.db import crud
 from app.db.models import (
@@ -50,10 +50,10 @@ def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
     user = crud.user.authenticate(db, login_data.username, login_data.password)
     if not user:
         if crud.user.get_by_email(db, login_data.username):
-            raise HTTPException(BAD_REQUEST, ExeMsg.BAD_PWD)
+            raise HTTPException(BAD_REQUEST, ErrMsg.BAD_PWD)
         else:
             raise HTTPException(
-                NOT_FOUND, ExeMsg.NF.format("Email", login_data.username)
+                NOT_FOUND, ErrMsg.NF.format("Email", login_data.username)
             )
 
     expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -104,7 +104,7 @@ def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
     Returns user info as it was before deletion, it will not exist after calling.
     """
     if user.email == settings.FIRST_SUPERUSER:
-        raise HTTPException(FORBIDDEN, ExeMsg.FBDN_DEL_1SU)
+        raise HTTPException(FORBIDDEN, ErrMsg.FBDN_DEL_1SU)
     return crud.user.delete(db, user)
 
 
@@ -130,7 +130,7 @@ def search_for_users(
     than the `count` would suggest, then there are additional pages of results.
     """
     if not any((email, id, name)):
-        raise HTTPException(BAD_REQUEST, ExeMsg.BAD_EMPTY_SEARCH)
+        raise HTTPException(BAD_REQUEST, ErrMsg.BAD_EMPTY_SEARCH)
     # TODO: Should I restrict this to being able to be used by superusers only?
     # On one hand, privacy. On the other, looking up accts to give them permissions?
 
@@ -152,9 +152,9 @@ def edit_other_user(db: SuperuserSession, user_id: UUID, edits: UserUpdate) -> A
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF.format("AppUser", user_id))
+        raise HTTPException(NOT_FOUND, ErrMsg.NF.format("AppUser", user_id))
     if edits.email and crud.user.get_by_email(db, edits.email):
-        raise HTTPException(CONFLICT, ExeMsg.KEY_EXISTS.format("email", edits.email))
+        raise HTTPException(CONFLICT, ErrMsg.KEY_EXISTS.format("email", edits.email))
 
     return crud.user.update(db, other_user, edits)
 
@@ -166,7 +166,7 @@ def delete_other_user(db: SuperuserSession, user_id: UUID) -> AppUser:
     """
     other_user = db.get(AppUser, user_id)
     if not other_user:
-        raise HTTPException(NOT_FOUND, ExeMsg.NF.format("AppUser", user_id))
+        raise HTTPException(NOT_FOUND, ErrMsg.NF.format("AppUser", user_id))
     if other_user.email == settings.FIRST_SUPERUSER:
-        raise HTTPException(FORBIDDEN, ExeMsg.FBDN_REM_1SU)
+        raise HTTPException(FORBIDDEN, ErrMsg.FBDN_REM_1SU)
     return crud.user.delete(db, other_user)
