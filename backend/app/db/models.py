@@ -6,24 +6,18 @@ from geoalchemy2 import Geometry, WKBElement, WKTElement
 from geoalchemy2.shape import to_shape
 from pydantic import EmailStr, field_serializer, field_validator
 from shapely import wkt
-from sqlmodel import Column, ForeignKey, Relationship, SQLModel
+from sqlmodel import Column, ForeignKey, Relationship, SQLModel, String
 from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
 
-from app.core.enums import ErrMsg
+from app.core.enums import BoundaryType, EquipmentType, ErrMsg, FieldType, ProductType
 
 # NOTE: I had to import `Field as ColInfo` since it conflicts with the `Field` table
 # TODO: Should I separate the table models from the API models?
 # TODO: Should I divide this into multiple files, possibly by schema?
 
 # region ------------------------------- Miscellaneous ---------------------------------
-
-
-class Token(SQLModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_min: int
 
 
 T = TypeVar("T")
@@ -34,46 +28,27 @@ class Paginated[T](SQLModel):
     data: Sequence[T]
 
 
+class Token(SQLModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_min: int
+
+
+class TypeEnumPublic(SQLModel):
+    name: str
+    description: str | None
+
+
 # endregion
 # region -------------------------------- Schema: ref ----------------------------------
 
 
-class TypeRef(SQLModel):
-    name: str = ColInfo(primary_key=True, max_length=32)
-    description: str | None = None
-
-
-class TypeRefUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-
-
-class FieldType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "field_type"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-
-class BoundaryType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "boundary_type"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-
-class EquipmentType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "equipment_type"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-
-class ProductType(TypeRef, table=True):
-    __tablename__: ClassVar[str] = "product_type"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-    category: str | None = None
-
-
-class Unit(TypeRef, table=True):
+class Unit(SQLModel, table=True):
     __tablename__: ClassVar[str] = "unit"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
 
+    name: str = ColInfo(primary_key=True, max_length=32)
+    description: str | None = None
     category: str | None = None
     si_unit_name: str = ColInfo(
         sa_column=Column(
@@ -99,6 +74,7 @@ class CropBase(SQLModel):
     description: str | None = None
     density: float | None = None
     density_unit_name: str | None = ColInfo(
+        default=None,
         sa_column=Column(
             ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
             nullable=True,
@@ -114,7 +90,7 @@ class CropUpdate(SQLModel):
     density_unit_name: str | None = None
 
 
-# TODO: Make Crop.latin_name PK? Sstandardize the amount of detail (subsp, var, etc.)?
+# TODO: Fix so that I choose between density_unit and density_unit_name? This has both?
 class Crop(CropBase, table=True):
     __tablename__: ClassVar[str] = "crop"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
@@ -123,10 +99,7 @@ class Crop(CropBase, table=True):
     density_unit: Unit = Relationship()
 
 
-ReferencePublic = TypeRef | ProductType | Unit | Crop
-ReferenceCreate = TypeRef | ProductType | Unit | CropBase
-ReferenceUpdate = TypeRefUpdate | ProductType | UnitUpdate | CropUpdate
-
+AnyReferencePublic = TypeEnumPublic | Crop | Unit
 
 # endregion
 # region -------------------------------- Schema: iam ----------------------------------
@@ -178,6 +151,26 @@ class AppUser(UserBase, table=True):
     hashed_password: str
 
 
+# class OrgBase(SQLModel):
+#     name: str
+
+
+# class Org(OrgBase, table=True):
+#     __tablename__: ClassVar[str] = "org"  # type: ignore
+#     __table_args__: ClassVar[dict] = {"schema": "iam"}
+
+#     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+# class OrgFarmRelation(SQLModel, table=True):
+#     __tablename__: ClassVar[str] = "org_farm_relation"  # type: ignore
+#     __table_args__: ClassVar[dict] = {"schema": "iam"}
+
+#     org_id: UUID
+#     farm_id: UUID
+#     type: str
+
+
 # endregion
 # region ------------------------------- Schema: asset ---------------------------------
 
@@ -207,24 +200,20 @@ class Farm(FarmBase, table=True):
 
 class FieldBase(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
-    type: str = ColInfo(
-        sa_column=Column(
-            ForeignKey("ref.field_type.name", onupdate="CASCADE", ondelete="RESTRICT")
-        )
-    )
+    type: FieldType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     notes: str | None = None
     farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
 
 
 class FieldCreate(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
-    type: str
+    type: FieldType
     notes: str | None = None
 
 
 class FieldUpdate(SQLModel):
     name: str | None = ColInfo(default=None, max_length=255)
-    type: str | None = None
+    type: FieldType | None = None
     notes: str | None = None
     farm_id: UUID | None = None  # TODO: Allow field transfer?
 
@@ -239,13 +228,7 @@ class Field(FieldBase, table=True):
 class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
     model_config = SQLModelConfig(arbitrary_types_allowed=True)  # type: ignore
 
-    type: str = ColInfo(
-        sa_column=Column(
-            ForeignKey(
-                "ref.boundary_type.name", onupdate="CASCADE", ondelete="RESTRICT"
-            )
-        )
-    )
+    type: BoundaryType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     active: bool = True
     covered: bool = False
     notes: str | None = None
@@ -287,7 +270,7 @@ class BoundaryCreate(BoundaryBase):
 
 
 class BoundaryUpdate(SQLModel):
-    type: str | None = None
+    type: BoundaryType | None = None
     active: bool | None = None
     covered: bool | None = None
     notes: str | None = None
@@ -297,14 +280,7 @@ class BoundaryUpdate(SQLModel):
 
 class ProductBase(SQLModel):
     name: str = ColInfo(max_length=255)
-    type: str = ColInfo(
-        sa_column=Column(
-            ForeignKey(
-                "ref.product_type.name", onupdate="CASCADE", ondelete="RESTRICT"
-            ),
-            nullable=False,
-        )
-    )
+    type: ProductType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     company_name: str | None = None
     notes: str | None = None
     farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
@@ -320,13 +296,7 @@ class Product(ProductBase, table=True):
 
 class EquipmentBase(SQLModel):
     name: str = ColInfo(max_length=255)
-    type: str = ColInfo(
-        sa_column=Column(
-            ForeignKey(
-                "ref.equipment_type.name", onupdate="CASCADE", ondelete="RESTRICT"
-            )
-        )
-    )
+    type: EquipmentType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     make: str | None = None
     model: str | None = None
     notes: str | None = None

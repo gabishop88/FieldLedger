@@ -61,4 +61,5 @@ keep-runtime-typing = true
 filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning:passlib",
     "ignore:Accessing argon2.__version__:DeprecationWarning:passlib",
+    "ignore:Pydantic serializer warnings:UserWarning",
 ]

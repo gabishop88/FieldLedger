@@ -8,8 +8,8 @@ Then, `crud.table.create()` (for example) to perform an operation.
 Some classes add functions or alter logic, see each class in app/db/crud/ for more info.
 """
 
-__all__ = ["farm", "field", "boundary", "ref", "user"]
+__all__ = ["farm", "field", "boundary", "user", "crop", "unit"]
 
 from .crud_asset import boundary, farm, field
 from .crud_iam import user
-from .crud_ref import ref
+from .crud_ref import crop, unit

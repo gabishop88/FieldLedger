@@ -5,7 +5,7 @@ from shapely import wkt
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.core.enums import ErrMsg
+from app.core.enums import BoundaryType, ErrMsg, FieldType
 from app.db import crud
 from app.db.models import (
     Farm,
@@ -195,7 +195,7 @@ def test_create_field(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
 
-    field_in = FieldCreate(name=generate_str(seed + 1), type="Field Crops")
+    field_in = FieldCreate(name=generate_str(seed + 1), type=FieldType.FieldCrops)
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields",
         json=[field_in.model_dump()],
@@ -204,8 +204,8 @@ def test_create_field(
     assert res.status_code == 200
     assert res.json()[0]["name"] == field_in.name
 
-    field_2 = FieldCreate(name=generate_str(seed + 2), type="Mixed Use", notes="Test")
-    field_3 = FieldCreate(name=generate_str(seed + 3), type="Agroforestry")
+    field_2 = FieldCreate(name=generate_str(seed + 2), type=FieldType.Mixed, notes="A")
+    field_3 = FieldCreate(name=generate_str(seed + 3), type=FieldType.Forest)
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields",
         json=[field_2.model_dump(), field_3.model_dump()],
@@ -222,7 +222,7 @@ def test_fail_create_field(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
 
-    field_in = FieldCreate(name=generate_str(seed + 1), type="Field Crops")
+    field_in = FieldCreate(name=generate_str(seed + 1), type=FieldType.FieldCrops)
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields",
         json=[field_in.model_dump()],
@@ -240,18 +240,14 @@ def test_fail_create_field(
     assert res.json()[0]["name"] == field_in.name
     # TODO: Add Unique constraing to Field (farm_id, name)?
 
-    field_bad = FieldCreate(name=generate_str(seed + 2), type="Invalid Type")
+    field_bad = {"name": generate_str(seed + 2), "type": "Invalid Type"}
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields",
-        json=[field_bad.model_dump()],
+        json=[field_bad],
         headers=user_head,
     )
     assert res.status_code == 422
-    assert (
-        res.json()["detail"]
-        == 'Key (type)=(Invalid Type) is not present in table "field_type".'
-    )  # noqa: E501
-    # invalid field_type
+    assert "type" in res.json()["detail"][0]["loc"]
     pass
 
 
@@ -260,7 +256,9 @@ def test_list_fields(cli: TestClient, db: Session, seed: int) -> None:
     fields = crud.field.create_multiple(
         db,
         [
-            Field(name=generate_str(seed + i), type="Field Crops", farm_id=farm.id)
+            Field(
+                name=generate_str(seed + i), type=FieldType.FieldCrops, farm_id=farm.id
+            )
             for i in range(5)
         ],
     )
@@ -275,7 +273,8 @@ def test_list_fields(cli: TestClient, db: Session, seed: int) -> None:
 def test_get_field(cli: TestClient, db: Session, seed: int) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
 
     # Get by id
@@ -294,7 +293,8 @@ def test_update_field(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
 
     edits = {"name": generate_str(seed + 2), "notes": "Updated notes"}
@@ -314,8 +314,10 @@ def test_delete_field(
     fields = crud.field.create_multiple(
         db,
         [
-            Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id),
-            Field(name=generate_str(seed + 2), type="Agroforestry", farm_id=farm.id),
+            Field(
+                name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id
+            ),
+            Field(name=generate_str(seed + 2), type=FieldType.Forest, farm_id=farm.id),
         ],
     )
 
@@ -338,9 +340,10 @@ def test_add_boundary(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
-    data = {"geom": generate_geom(seed), "type": "Primary Boundary"}
+    data = {"geom": generate_geom(seed), "type": BoundaryType.Primary}
 
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields/{field.id}/boundaries",
@@ -355,7 +358,8 @@ def test_add_boundary(
 def test_list_boundaries(cli: TestClient, db: Session, seed: int) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     for i in range(3):
         crud.boundary.create(
@@ -363,7 +367,7 @@ def test_list_boundaries(cli: TestClient, db: Session, seed: int) -> None:
             FieldBoundary(
                 field_id=field.id,
                 geom=generate_geom(seed + i),
-                type="Subfield" if i else "Primary Boundary",
+                type=BoundaryType.Subfield if i else BoundaryType.Primary,
             ),
         )
 
@@ -377,15 +381,17 @@ def test_list_boundaries(cli: TestClient, db: Session, seed: int) -> None:
 def test_boundary_scope(cli: TestClient, db: Session, seed: int):
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field1 = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     field2 = crud.field.create(
-        db, Field(name=generate_str(seed + 2), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 2), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     boundary = crud.boundary.create(
         db,
         FieldBoundary(
-            field_id=field1.id, geom=generate_geom(seed), type="Primary Boundary"
+            field_id=field1.id, geom=generate_geom(seed), type=BoundaryType.Primary
         ),
     )
 
@@ -405,12 +411,13 @@ def test_update_boundary(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     boundary = crud.boundary.create(
         db,
         FieldBoundary(
-            field_id=field.id, geom=generate_geom(seed), type="Primary Boundary"
+            field_id=field.id, geom=generate_geom(seed), type=BoundaryType.Primary
         ),
     )
     edits = {"type": "Subfield", "active": False, "geom": generate_geom(seed + 2)}
@@ -431,12 +438,13 @@ def test_delete_boundary(
 ) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     boundary = crud.boundary.create(
         db,
         FieldBoundary(
-            field_id=field.id, geom=generate_geom(seed), type="Primary Boundary"
+            field_id=field.id, geom=generate_geom(seed), type=BoundaryType.Primary
         ),
     )
 
@@ -452,10 +460,11 @@ def test_delete_boundary(
 def test_fail_invalid_geom(cli: TestClient, db: Session, seed, user_head) -> None:
     farm = crud.farm.create(db, FarmCreate(name=generate_str(seed)))
     field = crud.field.create(
-        db, Field(name=generate_str(seed + 1), type="Field Crops", farm_id=farm.id)
+        db,
+        Field(name=generate_str(seed + 1), type=FieldType.FieldCrops, farm_id=farm.id),
     )
     # Polygon is not closed
-    data = {"geom": "MULTIPOLYGON(((0 0, 1 1, 1 0)))", "type": "Primary Boundary"}
+    data = {"geom": "MULTIPOLYGON(((0 0, 1 1, 1 0)))", "type": BoundaryType.Primary}
 
     res = cli.post(
         f"{PFIX}/farm/{farm.id}/fields/{field.id}/boundaries",
