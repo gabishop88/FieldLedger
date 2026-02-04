@@ -1,3 +1,27 @@
+"""
+### IMPORTANT
+The enums below that subclass TypeEnum are used as model constraints in `models.py`.
+If you want to change a value in any of these enums, you will have to update all records
+in the database that have the value you changed. This is an unfortunate side effect of
+using enums at the pydantic level and not a dedicated table with FK constraints.
+
+However, it is not difficult, just run this query in the database:
+```
+# For example, if I changed FieldType.FieldCrops from "Field Crops" to "Row Crops"
+UPDATE asset.field SET type='Row Crops' WHERE type='Field Crops';
+```
+
+This is only necessary when changing the actual value that shows up in the database.
+For an enum entry that looks like `FieldType = ("Field Type", "Field Type Description"),
+you would have to run the `UPDATE` query only for changing `"Field Type"`.
+either `FieldType` or `"Field Type Description"` can be changed with no updates to the
+database.
+
+For adding new entries, no changes need to be made to the database unless you want to
+manually change any previously existing records to use the new type. For deleting an
+enum value, you will have to run the same `UPDATE` query prior to deleting the enum
+value in order to change them to another enum value so they remain as valid records.
+"""
 from enum import EnumMeta, StrEnum, _EnumDict
 
 
@@ -102,7 +126,7 @@ class FieldType(TypeEnum):
     FieldCrops = ("Field Crops", "Row Crops, Specialty Crops, Hay or Forage, etc.")
     Forest = ("Agroforestry", "Perennials; Orchard, Alley Cropping, Silvopasture, etc.")
     Pasture = ("Pasture", "Permanent Pasture or Grazed Area, but not Silvopasture.")
-    Indoor = ("Covered", "Sheltered Production; Greenhouse, High/Low tunnels, etc.")
+    Covered = ("Covered", "Sheltered Production; Greenhouse, High/Low tunnels, etc.")
     Reserve = ("Reserved", "Minimal disturbance from ag; Habitat, Hunting, Bees, etc.")
     Mixed = ("Mixed Use", "Inseparable mix of field types in one area or over time.")
     Misc = ("Miscellaneous", "Last resort for a field that does not fit another type.")
