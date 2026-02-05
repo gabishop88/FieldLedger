@@ -158,7 +158,7 @@ class ProductType(TypeEnum):
     Insecticide = ("Insecticide", "Kills insects, organic or not.")
     Fungicide = ("Fungicide", "Suppresses fungal pathogens, organic or not.")
     OtherPesticide = ("Other Pesticide", "Suppresses pests/pathogens, not listed.")
-    Adjuvant = "Tank Mix Additives; surfactants, spreaders, drift reducers, etc."
+    Adjuvant = ("Adjuvant", "Tank Mix Additives; surfactants, drift reducers, etc.")
     Regulator = ("Growth Regulator", "Any product that modifies plant growth.")
     Misc = ("Miscellaneous", "Last resort for products that do not fit another type.")
 
