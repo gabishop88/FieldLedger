@@ -167,6 +167,15 @@ class OrgBase(SQLModel):
     description: str | None = None
 
 
+class OrgCreate(OrgBase):
+    pass
+
+
+class OrgUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+
+
 class Org(OrgBase, table=True):
     __tablename__: ClassVar[str] = "org"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
@@ -197,6 +206,16 @@ class Farm(FarmBase, table=True):
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
+class OrgFarmUpsert(SQLModel):
+    type: OrgFarmType
+
+
+class OrgFarmPublic(SQLModel):
+    org_id: UUID
+    farm_id: UUID
+    type: OrgFarmType | None = None
+
+
 class OrgFarm(SQLModel, table=True):
     __tablename__: ClassVar[str] = "org_farm"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
@@ -223,10 +242,8 @@ class FieldBase(SQLModel):
     farm_id: UUID = ColInfo(foreign_key="structure.farm.id", ondelete="CASCADE")
 
 
-class FieldCreate(SQLModel):
-    name: str = ColInfo(nullable=False, max_length=255)
-    type: FieldType
-    description: str | None = None
+class FieldCreate(FieldBase):
+    pass
 
 
 class FieldUpdate(SQLModel):
@@ -255,6 +272,7 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
             Geometry("MULTIPOLYGON", 4326, spatial_index=True, nullable=False)
         )
     )
+    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
 
     @field_validator("geom")
     @classmethod
@@ -275,14 +293,6 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
         return value
 
 
-class FieldBoundary(BoundaryBase, table=True):
-    __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "structure"}
-
-    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
-    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
-
-
 class BoundaryCreate(BoundaryBase):
     pass
 
@@ -296,6 +306,13 @@ class BoundaryUpdate(SQLModel):
     field_id: UUID | None = None
 
 
+class FieldBoundary(BoundaryBase, table=True):
+    __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
+
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
 # endregion
 # region ------------------------------ Schema: resource ------------------------------
 
@@ -306,7 +323,13 @@ class ProductBase(SQLModel):
     company_name: str | None = None
     notes: str | None = None
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
-    crop_id: UUID | None = ColInfo(foreign_key="ref.crop.id", ondelete="RESTRICT")
+    crop_id: UUID | None = ColInfo(
+        default=None, foreign_key="ref.crop.id", ondelete="RESTRICT"
+    )
+
+
+class ProductCreate(ProductBase):
+    pass
 
 
 class ProductUpdate(SQLModel):
@@ -332,6 +355,10 @@ class EquipmentBase(SQLModel):
     model: str | None = None
     notes: str | None = None
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
+
+
+class EquipmentCreate(EquipmentBase):
+    pass
 
 
 class EquipmentUpdate(SQLModel):

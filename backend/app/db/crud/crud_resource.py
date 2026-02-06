@@ -1,19 +1,19 @@
 from app.db.crud.crud_base import CRUDBase
 from app.db.models import (
     Equipment,
-    EquipmentBase,
+    EquipmentCreate,
     EquipmentUpdate,
     Product,
-    ProductBase,
+    ProductCreate,
     ProductUpdate,
 )
 
 
-class CRUDEquipment(CRUDBase[Equipment, EquipmentBase, EquipmentUpdate]):
+class CRUDEquipment(CRUDBase[Equipment, EquipmentCreate, EquipmentUpdate]):
     pass
 
 
-class CRUDProduct(CRUDBase[Product, ProductBase, ProductUpdate]):
+class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
     pass
 
 
