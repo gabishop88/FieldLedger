@@ -7,7 +7,13 @@ from app.db.models import (
     Field,
     FieldBoundary,
     FieldUpdate,
+    Org,
+    OrgBase,
 )
+
+
+class CRUDOrg(CRUDBase[Org, OrgBase, OrgBase]):
+    pass
 
 
 class CRUDFarm(CRUDBase[Farm, FarmCreate, FarmUpdate]):
@@ -22,6 +28,7 @@ class CRUDFieldBoundary(CRUDBase[FieldBoundary, FieldBoundary, BoundaryUpdate]):
     pass
 
 
+org = CRUDOrg(Org)
 farm = CRUDFarm(Farm)
 field = CRUDField(Field)
 boundary = CRUDFieldBoundary(FieldBoundary)

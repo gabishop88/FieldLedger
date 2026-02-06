@@ -11,7 +11,14 @@ from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
 
-from app.core.enums import BoundaryType, EquipmentType, ErrMsg, FieldType, ProductType
+from app.core.enums import (
+    BoundaryType,
+    EquipmentType,
+    ErrMsg,
+    FieldType,
+    OrgFarmType,
+    ProductType,
+)
 
 # NOTE: I had to import `Field as ColInfo` since it conflicts with the `Field` table
 # TODO: Should I separate the table models from the API models?
@@ -78,7 +85,7 @@ class CropBase(SQLModel):
         sa_column=Column(
             ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
             nullable=True,
-        )
+        ),
     )
 
 
@@ -147,32 +154,24 @@ class AppUser(UserBase, table=True):
     __tablename__: ClassVar[str] = "app_user"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "iam"}
 
-    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
     hashed_password: str
-
-
-# class OrgBase(SQLModel):
-#     name: str
-
-
-# class Org(OrgBase, table=True):
-#     __tablename__: ClassVar[str] = "org"  # type: ignore
-#     __table_args__: ClassVar[dict] = {"schema": "iam"}
-
-#     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
-
-
-# class OrgFarmRelation(SQLModel, table=True):
-#     __tablename__: ClassVar[str] = "org_farm_relation"  # type: ignore
-#     __table_args__: ClassVar[dict] = {"schema": "iam"}
-
-#     org_id: UUID
-#     farm_id: UUID
-#     type: str
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
 # endregion
-# region ------------------------------- Schema: asset ---------------------------------
+# region ----------------------------- Schema: structure ------------------------------
+
+
+class OrgBase(SQLModel):
+    name: str = ColInfo(max_length=255, unique=True)
+    description: str | None = None
+
+
+class Org(OrgBase, table=True):
+    __tablename__: ClassVar[str] = "org"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
+
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
 class FarmBase(SQLModel):
@@ -193,34 +192,53 @@ class FarmUpdate(SQLModel):
 
 class Farm(FarmBase, table=True):
     __tablename__: ClassVar[str] = "farm"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "asset"}
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+class OrgFarm(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "org_farm"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
+
+    org_id: UUID = ColInfo(
+        primary_key=True,
+        foreign_key="structure.org.id",
+        ondelete="CASCADE",
+        nullable=False,
+    )
+    farm_id: UUID = ColInfo(
+        primary_key=True,
+        foreign_key="structure.farm.id",
+        ondelete="CASCADE",
+        nullable=False,
+    )
+    type: OrgFarmType = ColInfo(sa_column=Column("type", String(32), nullable=False))
 
 
 class FieldBase(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
     type: FieldType = ColInfo(sa_column=Column("type", String(32), nullable=False))
-    notes: str | None = None
-    farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
+    description: str | None = None
+    farm_id: UUID = ColInfo(foreign_key="structure.farm.id", ondelete="CASCADE")
 
 
 class FieldCreate(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
     type: FieldType
-    notes: str | None = None
+    description: str | None = None
 
 
 class FieldUpdate(SQLModel):
     name: str | None = ColInfo(default=None, max_length=255)
     type: FieldType | None = None
-    notes: str | None = None
+    description: str | None = None
     farm_id: UUID | None = None  # TODO: Allow field transfer?
 
 
 class Field(FieldBase, table=True):
     __tablename__: ClassVar[str] = "field"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "asset"}
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
@@ -231,7 +249,7 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
     type: BoundaryType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     active: bool = True
     covered: bool = False
-    notes: str | None = None
+    description: str | None = None
     geom: Annotated[str, WKTElement] = ColInfo(
         sa_column=Column(
             Geometry("MULTIPOLYGON", 4326, spatial_index=True, nullable=False)
@@ -259,9 +277,9 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
 
 class FieldBoundary(BoundaryBase, table=True):
     __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "asset"}
+    __table_args__: ClassVar[dict] = {"schema": "structure"}
 
-    field_id: UUID = ColInfo(foreign_key="asset.field.id", ondelete="CASCADE")
+    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
@@ -273,9 +291,13 @@ class BoundaryUpdate(SQLModel):
     type: BoundaryType | None = None
     active: bool | None = None
     covered: bool | None = None
-    notes: str | None = None
+    description: str | None = None
     geom: Annotated[str, WKTElement] | None = None
     field_id: UUID | None = None
+
+
+# endregion
+# region ------------------------------ Schema: resource ------------------------------
 
 
 class ProductBase(SQLModel):
@@ -283,13 +305,22 @@ class ProductBase(SQLModel):
     type: ProductType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     company_name: str | None = None
     notes: str | None = None
-    farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
+    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     crop_id: UUID | None = ColInfo(foreign_key="ref.crop.id", ondelete="RESTRICT")
+
+
+class ProductUpdate(SQLModel):
+    name: str | None = None
+    type: ProductType | None = None
+    company_name: str | None = None
+    notes: str | None = None
+    org_id: UUID | None = None
+    crop_id: UUID | None = None
 
 
 class Product(ProductBase, table=True):
     __tablename__: ClassVar[str] = "product"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "asset"}
+    __table_args__: ClassVar[dict] = {"schema": "resource"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
@@ -300,12 +331,21 @@ class EquipmentBase(SQLModel):
     make: str | None = None
     model: str | None = None
     notes: str | None = None
-    farm_id: UUID = ColInfo(foreign_key="asset.farm.id", ondelete="CASCADE")
+    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
+
+
+class EquipmentUpdate(SQLModel):
+    name: str | None = None
+    type: EquipmentType | None = None
+    make: str | None = None
+    model: str | None = None
+    notes: str | None = None
+    org_id: UUID | None = None
 
 
 class Equipment(EquipmentBase, table=True):
     __tablename__: ClassVar[str] = "equipment"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "asset"}
+    __table_args__: ClassVar[dict] = {"schema": "resource"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 

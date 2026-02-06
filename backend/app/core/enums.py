@@ -181,3 +181,14 @@ class EquipmentType(TypeEnum):
     Mill = ("Feed Mill", "Mixes and/or Mills livestock feed.")
     Irrigator = ("Irrigation", "Water Reel, Center-Pivor Irrigator, Sprinkler, etc.")
     Misc = ("Miscellaneous", "Last resort for equipment in no other category.")
+
+
+class OrgFarmType(TypeEnum):
+    Own = ("Owner")
+    Operate = ("Operator", "Manages day-to-day operations, does not own")
+    Lease = ("Lessee", "Leases the farm from an owner, but manages production.")
+    Share = ("Sharecropper", "Farms the land under a sharecropping agreement.")
+    Research = ("Research Partner", "Conducts research on, but does not own the farm.")
+    Cooperates = ("Cooperator", "Co-operates or co-owns the farm with another org.")
+    Gov = ("Government Admin", "Administers a program on behalf of a government.")
+    Consult = ("Consultant", "Consults for the owner/operator of the farm.")
