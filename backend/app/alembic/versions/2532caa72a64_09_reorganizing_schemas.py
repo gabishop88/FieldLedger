@@ -12,6 +12,8 @@ import sqlalchemy as sa
 import sqlmodel.sql.sqltypes as sm
 from alembic import op
 
+from app.core.config import settings
+
 # revision identifiers, used by Alembic.
 revision: str = "2532caa72a64"
 down_revision: str | Sequence[str] | None = "d20d1a737710"
@@ -34,6 +36,28 @@ def upgrade() -> None:
 
     op.execute("DROP SCHEMA IF EXISTS asset;")
 
+    # New Schema permissions
+    op.execute(f"""--sql
+        GRANT USAGE ON SCHEMA resource, structure TO  {settings.POSTGRES_API_USER}, {settings.POSTGRES_READONLY_USER};
+    """)  # noqa: E501
+    op.execute(f"""--sql
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA structure TO {settings.POSTGRES_API_USER};
+        GRANT SELECT ON ALL TABLES IN SCHEMA structure TO {settings.POSTGRES_READONLY_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA structure GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {settings.POSTGRES_API_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA structure GRANT SELECT ON TABLES TO {settings.POSTGRES_READONLY_USER};
+    """)  # noqa: E501
+    op.execute(f"""--sql
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA resource TO {settings.POSTGRES_API_USER};
+        GRANT SELECT ON ALL TABLES IN SCHEMA resource TO {settings.POSTGRES_READONLY_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA resource GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {settings.POSTGRES_API_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA resource GRANT SELECT ON TABLES TO {settings.POSTGRES_READONLY_USER};
+    """)  # noqa: E501
+
+    # Update search paths with new schemas
+    op.execute(f"ALTER ROLE {settings.POSTGRES_USER} SET search_path = public;")
+    op.execute(f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, operation, resource, structure;")  # noqa: E501
+    op.execute(f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, operation, resource, structure;")  # noqa: E501
+
     # New org tables
     op.create_table(
         "org",
@@ -44,6 +68,11 @@ def upgrade() -> None:
         sa.UniqueConstraint("name"),
         schema="structure",
     )
+    op.execute("""--sql
+        CREATE TRIGGER org_audit
+        AFTER INSERT OR UPDATE OR DELETE ON structure.org
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "org_farm",
         sa.Column("org_id", sa.Uuid(), nullable=False),
@@ -54,6 +83,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("org_id", "farm_id"),
         schema="structure",
     )
+    op.execute("""--sql
+        CREATE TRIGGER org_farm_audit
+        AFTER INSERT OR UPDATE OR DELETE ON structure.org_farm
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
 
     # resource.equipment table
     op.drop_constraint(
@@ -117,6 +151,18 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS asset;")
+    op.execute(f"""--sql
+        GRANT USAGE ON SCHEMA asset TO  {settings.POSTGRES_API_USER}, {settings.POSTGRES_READONLY_USER};
+    """)  # noqa: E501
+    op.execute(f"""--sql
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA asset TO {settings.POSTGRES_API_USER};
+        GRANT SELECT ON ALL TABLES IN SCHEMA asset TO {settings.POSTGRES_READONLY_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA asset GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {settings.POSTGRES_API_USER};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA asset GRANT SELECT ON TABLES TO {settings.POSTGRES_READONLY_USER};
+    """)  # noqa: E501
+    op.execute(f"ALTER ROLE {settings.POSTGRES_USER} SET search_path = public;")
+    op.execute(f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, asset, operation;")  # noqa: E501
+    op.execute(f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, asset, operation;")  # noqa: E501
 
     # Reverse equipment changes: org_id -> farm_id
     op.drop_constraint(

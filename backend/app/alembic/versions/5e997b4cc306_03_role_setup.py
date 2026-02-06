@@ -6,45 +6,26 @@ Create Date: 2025-10-07 14:03:24.110933
 
 """
 
-import os
 from collections.abc import Sequence
 
 from alembic import op
-from dotenv import load_dotenv
+
+from app.core.config import settings
 
 # revision identifiers, used by Alembic.
 revision: str = "5e997b4cc306"
 down_revision: str | Sequence[str] | None = "aa9a3b46fcd8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
-env_vars = [
-    "POSTGRES_DB",
-    "POSTGRES_API_USER",
-    "POSTGRES_API_PASSWORD",
-    "POSTGRES_READONLY_USER",
-    "POSTGRES_READONLY_PASSWORD",
-]
-
-
-def get_env_vars() -> dict[str, str | None]:
-    """Ensures `env_vars` exist and returns their values in a list of the same size."""
-    vals = [os.getenv(var) for var in env_vars]
-    if not all(vals):
-        load_dotenv("../../../../../.env")  # TODO: is this platform safe, or necessary?
-
-    vals = [os.getenv(var) for var in env_vars]
-    assert all(vals), "Make sure these are defined in .env: " + str(env_vars)
-    return dict(zip(env_vars, vals, strict=False))
 
 
 def upgrade() -> None:
     """Upgrade schema."""
-    vals = get_env_vars()
-    db = vals["POSTGRES_DB"]
-    api_user = vals["POSTGRES_API_USER"]
-    api_pass = vals["POSTGRES_API_PASSWORD"]
-    ro_user = vals["POSTGRES_READONLY_USER"]
-    ro_pass = vals["POSTGRES_READONLY_PASSWORD"]
+    db = settings.POSTGRES_DB
+    api_user = settings.POSTGRES_API_USER
+    api_pass = settings.POSTGRES_API_PASSWORD
+    ro_user = settings.POSTGRES_READONLY_USER
+    ro_pass = settings.POSTGRES_READONLY_PASSWORD
     schemas = ["asset", "iam", "operation", "ref"]
 
     # Create roles
@@ -79,6 +60,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    vals = get_env_vars()
-    op.execute(f"DROP ROLE IF EXISTS {vals['POSTGRES_API_USER']};")
-    op.execute(f"DROP ROLE IF EXISTS {vals['POSTGRES_READONLY_USER']};")
+    op.execute(f"DROP ROLE IF EXISTS {settings.POSTGRES_API_USER};")
+    op.execute(f"DROP ROLE IF EXISTS {settings.POSTGRES_READONLY_USER};")

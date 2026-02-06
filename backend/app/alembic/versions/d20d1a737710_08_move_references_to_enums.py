@@ -80,6 +80,11 @@ def downgrade() -> None:
         schema="ref",
     )
     op.bulk_insert(boundary_type_table, enums.BoundaryType.asdict())
+    op.execute("""--sql
+        CREATE TRIGGER boundary_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.boundary_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     field_type_table = op.create_table(
         "field_type",
         sa.Column("name", sa.VARCHAR(length=32), autoincrement=False, nullable=False),
@@ -88,6 +93,11 @@ def downgrade() -> None:
         schema="ref",
     )
     op.bulk_insert(field_type_table, enums.FieldType.asdict())
+    op.execute("""--sql
+        CREATE TRIGGER field_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.field_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     product_type_table = op.create_table(
         "product_type",
         sa.Column("name", sa.VARCHAR(length=32), autoincrement=False, nullable=False),
@@ -97,6 +107,11 @@ def downgrade() -> None:
         schema="ref",
     )
     op.bulk_insert(product_type_table, enums.ProductType.asdict())
+    op.execute("""--sql
+        CREATE TRIGGER product_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.product_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     equipment_type_table = op.create_table(
         "equipment_type",
         sa.Column("name", sa.VARCHAR(length=32), autoincrement=False, nullable=False),
@@ -105,6 +120,11 @@ def downgrade() -> None:
         schema="ref",
     )
     op.bulk_insert(equipment_type_table, enums.EquipmentType.asdict())
+    op.execute("""--sql
+        CREATE TRIGGER equipment_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.equipment_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.alter_column(
         "field_boundary",
         "type",

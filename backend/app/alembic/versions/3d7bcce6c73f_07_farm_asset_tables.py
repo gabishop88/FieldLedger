@@ -30,6 +30,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("name"),
         schema="ref",
     )
+    op.execute("""--sql
+        CREATE TRIGGER boundary_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.boundary_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "equipment_type",
         sa.Column("name", sm.AutoString(length=32), nullable=False),
@@ -37,6 +42,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("name"),
         schema="ref",
     )
+    op.execute("""--sql
+        CREATE TRIGGER equipment_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.equipment_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "product_type",
         sa.Column("name", sm.AutoString(length=32), nullable=False),
@@ -45,6 +55,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("name"),
         schema="ref",
     )
+    op.execute("""--sql
+        CREATE TRIGGER product_type_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.product_type
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "unit",
         sa.Column("name", sm.AutoString(length=32), nullable=False),
@@ -58,6 +73,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("name"),
         schema="ref",
     )
+    op.execute("""--sql
+        CREATE TRIGGER unit_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.unit
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "equipment",
         sa.Column("name", sm.AutoString(length=255), nullable=False),
@@ -77,6 +97,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="asset",
     )
+    op.execute("""--sql
+        CREATE TRIGGER equipment_audit
+        AFTER INSERT OR UPDATE OR DELETE ON asset.equipment
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "field",
         sa.Column("name", sm.AutoString(length=255), nullable=False),
@@ -91,6 +116,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="asset",
     )
+    op.execute("""--sql
+        CREATE TRIGGER field_audit
+        AFTER INSERT OR UPDATE OR DELETE ON asset.field
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "crop",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -109,6 +139,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="ref",
     )
+    op.execute("""--sql
+        CREATE TRIGGER crop_audit
+        AFTER INSERT OR UPDATE OR DELETE ON ref.crop
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "field_boundary",
         sa.Column("type", sm.AutoString(length=32), nullable=True),
@@ -139,6 +174,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="asset",
     )
+    op.execute("""--sql
+        CREATE TRIGGER field_boundary_audit
+        AFTER INSERT OR UPDATE OR DELETE ON asset.field_boundary
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "product",
         sa.Column("name", sm.AutoString(length=255), nullable=False),
@@ -156,6 +196,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="asset",
     )
+    op.execute("""--sql
+        CREATE TRIGGER product_audit
+        AFTER INSERT OR UPDATE OR DELETE ON asset.product
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     # ### end Alembic commands ###
 
 
