@@ -9,21 +9,12 @@ OR
 uv run python -m app.db.backup
 ```
 """
+
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import ValidationError
-
-# Import settings. If .env isn't loaded (not run through docker), load it manually.
-try:
-    from app.core.config import settings
-except ValidationError:
-    from dotenv import load_dotenv
-
-    env_path = Path(__file__).parents[3] / ".env"
-    load_dotenv(env_path)
-    from app.core.config import settings
+from app.core.config import settings
 
 
 def get_revision() -> str:

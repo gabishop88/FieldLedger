@@ -1,18 +1,7 @@
-from pathlib import Path
-
 from alembic import context
-from pydantic import ValidationError
 from sqlalchemy import engine_from_config, pool
 
-# If this is not being run from inside docker, this loads the .env variables
-try:
-    from app.core.config import settings
-except ValidationError:
-    from dotenv import load_dotenv
-
-    env_path = Path(__file__).parents[3] / ".env"
-    load_dotenv(env_path)
-    from app.core.config import settings
+from app.core.config import settings
 from app.db.models import SQLModel
 
 # Access to the config options in the .ini file

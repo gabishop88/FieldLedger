@@ -345,6 +345,9 @@ Things I am putting off for now that may need to be revisited:
 * Should I add `bale` and `lb1bale-1` to `ref.unit` (and fill in relevant `ref.crop.density` values)?
 * Should I modify `backend/app/alembic/env.py` to run a `python -m app.db.backup` (or the functions inside it) before and after upgrades?
 * Should I provide a command line argument or env var for docker when I compose to pass `prestart` a different alembic revision? Only seems useful to try to fix broken db and apply a previous data backup from and old revision. There is probably an easier way to go about that and I could probably just provide instructions to fix things should that situation occur.
+* Should I put `Energy Farm` under a different org (and maybe some of the others) and then I can also work later with sharing resources between orgs?
+* Should I make endpoints that return either paginated json or csv with embed options to allow building up any amount of the structure in each row/object? E.g. list all farms with orgs. List all fields with farms, list all fields with farms and orgs. List all fields with boundaries, list all operations with fields, boundaries, farms, and orgs, etc.
+* Should I make an endpoint that a frontend could use to basically get a tree of objects to make it easier/faster/fewer requests to get the info about everything a user has access to to fill the UI (probably wait until I know more about what this would require).
 
 ### Ideas for syncing with MyJD
 

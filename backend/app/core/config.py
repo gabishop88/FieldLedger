@@ -1,7 +1,9 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
+from dotenv import load_dotenv
 from pydantic import (
     AnyUrl,
     BeforeValidator,
@@ -31,6 +33,7 @@ class Settings(BaseSettings):
     While it is possible to run pytest from project (base directory or /backend),
     it is recommended to run tests using `docker compose exec backend pytest [flags]`.
     """
+
     # FIXME: This info is buried here. I need to move it somewhere more useful.
     model_config = SettingsConfigDict(env_ignore_empty=True, extra="ignore")
 
@@ -151,4 +154,10 @@ class Settings(BaseSettings):
 
 
 # TODO: Should I make this a cached function that will not run at import time?
-settings = Settings() # pyright: ignore[reportCallIssue]
+try:
+    settings = Settings() # pyright: ignore[reportCallIssue]
+except ValueError:
+    # Attempt to load dotenv if critical settings are missing
+    env_path = Path(__file__).parents[3] / ".env"
+    load_dotenv(env_path)
+    settings = Settings() # pyright: ignore[reportCallIssue]
