@@ -79,7 +79,6 @@ async def data_dump(db: SuperuserSession, table: str, file: UploadFile):
             for row in list(reader)
         ]
         db.add_all(objects)
-        db.commit()
     except ValidationError as e:
         db.rollback()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, e.errors())
