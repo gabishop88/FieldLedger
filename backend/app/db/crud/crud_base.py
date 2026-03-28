@@ -89,7 +89,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         return record
 
     def get_paginated(
-        self, db: Session, skip: int, limit: int, *filters, order_by=None
+        self, db: Session, skip: int, limit: int | None, *filters, order_by=None
     ) -> Paginated[ModelType]:
         assert self.model is not None, "Cannot get paginated records: model is not set."
         query = select(self.model).where(*filters).offset(skip).limit(limit)

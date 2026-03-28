@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.deps import ReadSession, UserSession
+from app.core.config import settings
 from app.core.enums import DocTag
 from app.db import crud
 from app.db.models import (
@@ -15,6 +16,8 @@ from app.db.models import (
     ProductUpdate,
 )
 
+LIM = settings.DEFAULT_PAGE_LIMIT
+
 equipment_router = APIRouter(tags=[DocTag.RES_EQIP])
 product_router = APIRouter(tags=[DocTag.RES_PROD])
 
@@ -24,7 +27,9 @@ router = APIRouter()  # Combine routers at the end (after endpoints are added)
 
 
 @equipment_router.get("/orgs/{id}/equipment", response_model=Paginated[Equipment])
-def list_org_equipment(db: ReadSession, id: UUID, skip: int = 0, limit: int = 10):
+def list_org_equipment(
+    db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM
+):
     org = crud.org.get_or_raise(db, id)
     return crud.equipment.get_paginated(db, skip, limit, Equipment.org_id == org.id)
 
@@ -56,7 +61,9 @@ def delete_equipment(db: UserSession, id: UUID):
 
 
 @product_router.get("/orgs/{id}/products", response_model=Paginated[Product])
-def list_org_products(db: ReadSession, id: UUID, skip: int = 0, limit: int = 10):
+def list_org_products(
+    db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM
+):
     org = crud.org.get_or_raise(db, id)
     return crud.product.get_paginated(db, skip, limit, Product.org_id == org.id)
 

@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     # TODO: Should I change to v3 since I have started over >= 3 times?
     API_PREFIX: str = "/api/v1"
+    DEFAULT_PAGE_LIMIT: int | None = None
+
     # NOTE: Restarting API will invalidate access tokens generated with old SECRET_KEYs.
     SECRET_KEY: str = secrets.token_urlsafe(32)
 

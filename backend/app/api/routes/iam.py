@@ -118,7 +118,7 @@ def search_for_users(
     id: UUID | None = None,
     name: str | None = None,
     skip: int = 0,
-    limit: int = 10,
+    limit: int | None = settings.DEFAULT_PAGE_LIMIT,
 ) -> Paginated[AppUser]:
     """### Search for users.
     You can search with email/id (exact match only) or name (partial matches accepted).

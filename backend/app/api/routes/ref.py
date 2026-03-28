@@ -22,6 +22,7 @@ from app.db.models import (
 
 router = APIRouter(prefix="/ref")
 
+LIM = settings.DEFAULT_PAGE_LIMIT
 PASCALIZER = re.compile(r"(^|_)([a-z])")
 
 
@@ -57,7 +58,7 @@ def list_reference_tables():
 
 @router.get("/{table}", response_model=Paginated[AnyReferencePublic])
 def list_reference_values(
-    db: ReadSession, table: RefTables, skip: int = 0, limit: int = 10
+    db: ReadSession, table: RefTables, skip: int = 0, limit: int | None = LIM
 ):
     if table in ("Crop", "Unit"):
         sel_count = select(func.count()).select_from(getattr(models, table))
