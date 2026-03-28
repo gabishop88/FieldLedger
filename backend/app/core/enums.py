@@ -22,6 +22,7 @@ manually change any previously existing records to use the new type. For deletin
 enum value, you will have to run the same `UPDATE` query prior to deleting the enum
 value in order to change them to another enum value so they remain as valid records.
 """
+
 from enum import EnumMeta, StrEnum, _EnumDict
 
 
@@ -39,7 +40,6 @@ class DocTag(StrEnum):
     OP = "Field Operations"
     REF = "Reference Tables"
     MISC = "Miscellaneous"
-
 
 
 class ErrMsg(StrEnum):
@@ -139,12 +139,14 @@ class BoundaryType(TypeEnum):
     Subfield = ("Subfield", "Field section such as for trials or alternate management.")
     Obstacle = ("Obstacle", "Impassable feature; Tree, Boulder, Tile Control, etc.")
     Forest = ("Agroforestry", "Perennial Features; Windbreak, Alleys, Riparian Buffer.")
-    Conservation = ("Conservation", "CRP, Grass Waterway, Wetland, etc.")
+    Conservation = ("Conservation", "CRP, Grass Waterway, Wetlandcan, etc.")
     Road = ("Road or Path", "Access Road, Field Entrance, Livestock Pathways, etc.")
     Misc = ("Miscellaneous", "Last resort for boundaries that do not fit another type.")
 
 
 # TODO: Add Biological/Chemical label to help organize product types?
+# I could also add a prefix just to the enum name and use it to sort them?
+# like BioCultivar or ChemHerbicide, or maybe BIO_Cultivar or something
 class ProductType(TypeEnum):
     Cultivar = ("Variety or Cultivar", "Specific crop to be planted or harvested.")
     Breed = ("Livestock Breed", "Breed of livestock to be pastured or processed.")
@@ -186,7 +188,7 @@ class EquipmentType(TypeEnum):
 
 
 class OrgFarmType(TypeEnum):
-    Own = ("Owner")
+    Own = "Owner"
     Operate = ("Operator", "Manages day-to-day operations, does not own")
     Lease = ("Lessee", "Leases the farm from an owner, but manages production.")
     Share = ("Sharecropper", "Farms the land under a sharecropping agreement.")
@@ -194,3 +196,13 @@ class OrgFarmType(TypeEnum):
     Cooperates = ("Cooperator", "Co-operates or co-owns the farm with another org.")
     Gov = ("Government Admin", "Administers a program on behalf of a government.")
     Consult = ("Consultant", "Consults for the owner/operator of the farm.")
+
+
+class OpType(TypeEnum):
+    Seed = ("Seeding", "Planting, Transplanting, Drilling, or Flying on seed.")
+    Harvest = ("Harvest", "Harvesting Grain/Biomass, Baling Hay, etc.")
+    App = ("Application", "Water, Compost/Fertilizer, Ammendment, Pesticide, etc.")
+    Till = ("Tillage", "Soil Disturbance; Harrow, Disc, Cultivate, Strip Till, etc.")
+    Control = ("Veg. Control", "No-Till Physical Disturbance; Mowing, Zapping, Raking.")
+    Livestock = ("Livestock", "Moving Livestock on a Field; Grazing, Moving, Clearing.")
+    Misc = ("Miscellaneous", "Any operation that does not belong in another category.")
