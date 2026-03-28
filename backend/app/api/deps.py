@@ -22,7 +22,7 @@ import logging
 from collections.abc import Generator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, text
 
@@ -89,12 +89,13 @@ CurrentSuperuser = Annotated[AppUser, Depends(get_current_superuser)]
 # ------------------------------- Read/Write DB Session --------------------------------
 
 
-def write_session() -> Generator[Session, None, None]:
+def write_session(request: Request) -> Generator[Session, None, None]:
+    dry_run = request.headers.get("X-Dry-Run") == "true"
     with Session(get_engine()) as session:
         try:
             session.exec(text('RESET "app.current_user"'))  # type: ignore
             yield session
-            session.commit()
+            session.rollback() if dry_run else session.commit()
         except Exception:
             session.rollback()
             raise
