@@ -1,13 +1,11 @@
 from app.db.crud.crud_base import CRUDBase
 from app.db.models import (
-    BoundaryCreate,
     BoundaryUpdate,
     Farm,
     FarmCreate,
     FarmUpdate,
     Field,
     FieldBoundary,
-    FieldCreate,
     FieldUpdate,
     Org,
     OrgCreate,
@@ -29,11 +27,11 @@ class CRUDOrgFarm(CRUDBase[OrgFarm, OrgFarm, OrgFarmUpsert]):
     pass
 
 
-class CRUDField(CRUDBase[Field, FieldCreate, FieldUpdate]):
+class CRUDField(CRUDBase[Field, Field, FieldUpdate]):
     pass
 
 
-class CRUDFieldBoundary(CRUDBase[FieldBoundary, BoundaryCreate, BoundaryUpdate]):
+class CRUDFieldBoundary(CRUDBase[FieldBoundary, FieldBoundary, BoundaryUpdate]):
     pass
 
 

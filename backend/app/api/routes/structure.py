@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from sqlmodel import select
 
 from app.api.deps import ReadSession, UserSession
+from app.core.config import settings
 from app.core.enums import DocTag, OrgFarmType
 from app.db import crud
 from app.db.models import (
@@ -24,6 +25,8 @@ from app.db.models import (
     OrgUpdate,
     Paginated,
 )
+
+LIM = settings.DEFAULT_PAGE_LIMIT
 
 org_router = APIRouter(tags=[DocTag.STRUCT_ORG])
 farm_router = APIRouter(tags=[DocTag.STRUCT_FARM])
@@ -150,14 +153,15 @@ def delete_org_farm_access(db: UserSession, org_id: UUID, farm_id: UUID):
 
 
 @field_router.get("/farms/{id}/fields", response_model=Paginated[Field])
-def list_farm_fields(db: ReadSession, id: UUID, skip: int = 0, limit: int = 10):
+def list_farm_fields(db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM):
     farm = crud.farm.get_or_raise(db, id)
     return crud.field.get_paginated(db, skip, limit, Field.farm_id == farm.id)
 
 
-@field_router.post("/fields", response_model=Field)
-def create_field(db: UserSession, data_in: FieldCreate):
-    return crud.field.create(db, data_in)
+@field_router.post("/farms/{id}/fields", response_model=Field)
+def create_field(db: UserSession, id: UUID, data_in: FieldCreate):
+    farm = crud.farm.get_or_raise(db, id)
+    return crud.field.create(db, Field(**data_in.model_dump(), farm_id=farm.id))
 
 
 @field_router.get("/fields/{id}", response_model=Field)
@@ -182,16 +186,19 @@ def delete_field(db: UserSession, id: UUID):
 
 
 @boundary_router.get("/fields/{id}/boundaries", response_model=Paginated[FieldBoundary])
-def list_field_boundaries(db: ReadSession, id: UUID, skip: int = 0, limit: int = 10):
+def list_field_boundaries(db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM):
     field = crud.field.get_or_raise(db, id)
     return crud.boundary.get_paginated(
         db, skip, limit, FieldBoundary.field_id == field.id
     )
 
 
-@boundary_router.post("/boundaries", response_model=FieldBoundary)
-def create_boundary(db: UserSession, data_in: BoundaryCreate):
-    return crud.boundary.create(db, data_in)
+@boundary_router.post("/fields/{id}/boundaries", response_model=FieldBoundary)
+def create_boundary(db: UserSession, id: UUID, data_in: BoundaryCreate):
+    fld = crud.field.get_or_raise(db, id)
+    return crud.boundary.create(
+        db, FieldBoundary(**data_in.model_dump(), field_id=fld.id)
+    )
 
 
 @boundary_router.get("/boundaries/{id}", response_model=FieldBoundary)
