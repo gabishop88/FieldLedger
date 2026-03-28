@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Annotated, ClassVar, TypeVar
 from uuid import UUID
 
@@ -7,6 +8,8 @@ from geoalchemy2.shape import to_shape
 from pydantic import EmailStr, field_serializer, field_validator
 from shapely import wkt
 from sqlmodel import Column, ForeignKey, Relationship, SQLModel, String
+
+# NOTE: Importing `Field as ColInfo` to avoid a conflict with the `Field` model below.
 from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
@@ -16,13 +19,15 @@ from app.core.enums import (
     EquipmentType,
     ErrMsg,
     FieldType,
+    OpType,
     OrgFarmType,
     ProductType,
 )
 
-# NOTE: I had to import `Field as ColInfo` since it conflicts with the `Field` table
-# TODO: Should I separate the table models from the API models?
-# TODO: Should I divide this into multiple files, possibly by schema?
+# TODO: For the crop tables: Make a CropCreate and CropPublic? Remove density_unit?
+# TODO: Make alt xPublic classes w/ Relationships, requested via query param or smth?
+# TODO: Replace all x/x_unit values with a string and use the postgresql-unit extension?
+# TODO: If using postgresql-unit, define an enum with the available units maybe per col
 
 # region ------------------------------- Miscellaneous ---------------------------------
 
@@ -50,6 +55,14 @@ class TypeEnumPublic(SQLModel):
 # region -------------------------------- Schema: ref ----------------------------------
 
 
+class UnitUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+    category: str | None = None
+    si_unit_name: str | None = None
+    si_conv: float | None = None
+
+
 class Unit(SQLModel, table=True):
     __tablename__: ClassVar[str] = "unit"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
@@ -64,14 +77,6 @@ class Unit(SQLModel, table=True):
         )
     )
     si_conv: float
-
-
-class UnitUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-    category: str | None = None
-    si_unit_name: str | None = None
-    si_conv: float | None = None
 
 
 class CropBase(SQLModel):
@@ -92,12 +97,12 @@ class CropBase(SQLModel):
 class CropUpdate(SQLModel):
     common_name: str | None = None
     latin_name: str | None = None
+    family: str | None = None
     description: str | None = None
     density: float | None = None
     density_unit_name: str | None = None
 
 
-# TODO: Fix so that I choose between density_unit and density_unit_name? This has both?
 class Crop(CropBase, table=True):
     __tablename__: ClassVar[str] = "crop"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
@@ -239,7 +244,6 @@ class FieldBase(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
     type: FieldType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     description: str | None = None
-    farm_id: UUID = ColInfo(foreign_key="structure.farm.id", ondelete="CASCADE")
 
 
 class FieldCreate(FieldBase):
@@ -250,13 +254,14 @@ class FieldUpdate(SQLModel):
     name: str | None = ColInfo(default=None, max_length=255)
     type: FieldType | None = None
     description: str | None = None
-    farm_id: UUID | None = None  # TODO: Allow field transfer?
+    # farm_id: UUID | None = None  # TODO: Allow field transfer?
 
 
 class Field(FieldBase, table=True):
     __tablename__: ClassVar[str] = "field"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
 
+    farm_id: UUID = ColInfo(foreign_key="structure.farm.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
@@ -272,7 +277,6 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
             Geometry("MULTIPOLYGON", 4326, spatial_index=True, nullable=False)
         )
     )
-    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
 
     @field_validator("geom")
     @classmethod
@@ -310,6 +314,7 @@ class FieldBoundary(BoundaryBase, table=True):
     __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
 
+    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
@@ -353,6 +358,7 @@ class EquipmentBase(SQLModel):
     type: EquipmentType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     make: str | None = None
     model: str | None = None
+    active: bool = True
     notes: str | None = None
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
 
@@ -366,6 +372,7 @@ class EquipmentUpdate(SQLModel):
     type: EquipmentType | None = None
     make: str | None = None
     model: str | None = None
+    active: bool | None = None
     notes: str | None = None
     org_id: UUID | None = None
 
@@ -373,6 +380,28 @@ class EquipmentUpdate(SQLModel):
 class Equipment(EquipmentBase, table=True):
     __tablename__: ClassVar[str] = "equipment"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "resource"}
+
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+# endregion
+# region ----------------------------- Schema: operation ------------------------------
+
+
+class FieldOpBase(SQLModel):
+    type: OpType = ColInfo(sa_column=Column("type", String(32), nullable=False))
+    season: int
+    start: datetime | None = None
+    end: datetime | None = None
+    # TODO: duration: timedelta?
+    crop_id: UUID | None = None
+    area: float | None = None
+    area_unit: str | None = None
+
+
+class FieldOp(FieldOpBase, table=True):
+    __tablename__: ClassVar[str] = "field_op"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "operation"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
