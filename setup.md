@@ -2,7 +2,7 @@
 
 This document explains how to set up FieldLedger for development.
 
-Thank you tiangolo for the [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template). This is the primary foundation for this project. Most of the documentation and workflow was inspired by or taken directly from that project.
+Thank you tiangolo for the [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template). This is the primary foundation for this project. Most of the documentation and workflow was directly inspired by that project.
 
 ## 1. Manually Installed Tools
 
@@ -193,9 +193,7 @@ New Updates:
     5. This upgrade should keep the data from previous revisions, but I highly recommend looking at most of the tables to make sure the data is still in tact and then making a new backup that is compatible with the new revision using `python -m app.db.backup`. If there is something wrong with the data, you can downgrade to the previous revision code, clear/reload the data from the dump, and try again with the new revision, or you can delete the container and/or volume and edit `backend/app/db/prestart.py` to (temporarily) upgrade to a specific version instead of the latest revision by replacing `"head"` in `["alembic", "upgrade", "head"]` with the revision code (the number at the beginning of the revision filename).
     6. Now that the changes have been applied to the database, make sure to update any CRUD functions, endpoint functions, and tests based on those changes.
 
-## ?. My Setup Process
-
-I just wanted to put here a list of the commands I ran for my initial setup, in case they are helpful later.
+## 6. The Process
 
 (after installing general dependencies from Section 1)
 
@@ -316,18 +314,11 @@ I just wanted to put here a list of the commands I ran for my initial setup, in 
   45. I didn't like how the API endpoints were shaping up, they were getting really long unncessarily, and it would only get worse if I added the org level to the hierarchy as it was. So, I decided to refactor the endpoints (and therefore supporting functions and tests) to be more condensed.
   46. I first removed all of the `*_type` tables in the `ref` schema. I moved those values into enums in `app.core.enums` and fixed everything else to use them properly. They have the same values, and these values can be easily modified in enums.py and the new values will be used immediately. The only downside currently is that existing table values will not be updated automatically like they would be with an FK.
 
-> Functions from old database that may need recreated:
->
-> * identity.get_current_user()
-> * audit.change_trigger() (+ add as trigger on all tables)
-> * asset.match_fields(farm, queries, olap)
-
-Things I am putting off for now that may need to be revisited:
+Loose Notes and TODOs:
 
 * Implementing RLS. This should be done if the db is expanded to hold data outside of the organization where access control is needed.
 * Naming convention for table constraints. This should be implemented if I need to do anything that refers to a constraint by name, otherwise it is fine to put off.
 * I should tweak the String similarity thresholds for searching, but that will have to happen once I have data in there to do a bunch of testing with. If there are a couple of really good values, then I can maybe centralize them in settings or something.
-* I am not putting a change audit on tables in the ref schema since I don't think it is important like the tables storing useful information that can be edited by anyone. If this needs to be changed, just add the trigger to those tables later.
 * It is also worth noting that the trigger function runs per row in a transaction. This means for sessions with bulk transactions, the function will call a select on iam.app_user and alembic_revision tables for every row in the transaction. This can cause some slowdown on bulk operations. I don't expect large bulk insertions that need to be fast as a common use-case for the API, so I am not worrying about this. If this becomes an issue later, the app_user and revision values that are compused in change_trigger() can be cached at the beginning of the transaction to be reused. For example, by wrapping the trigger in a trigger function that triggers once per transaction that gets those values and calls the current trigger function for each row and passing the values (change_trigger modified to take them as parameters).
 * I could add a check constraint to ref.unit like "(si_unit_name <> name) OR (si_conv = 1.0)" to ensure SI base units refer to themself with a multiplier of 1.0.
 * For now, I am cascading deletes over FKs. If I want to reduce the risk of accidental deletion, I may want to change that behavior or handle it manually?
@@ -348,8 +339,29 @@ Things I am putting off for now that may need to be revisited:
 * Should I put `Energy Farm` under a different org (and maybe some of the others) and then I can also work later with sharing resources between orgs?
 * Should I make endpoints that return either paginated json or csv with embed options to allow building up any amount of the structure in each row/object? E.g. list all farms with orgs. List all fields with farms, list all fields with farms and orgs. List all fields with boundaries, list all operations with fields, boundaries, farms, and orgs, etc.
 * Should I make an endpoint that a frontend could use to basically get a tree of objects to make it easier/faster/fewer requests to get the info about everything a user has access to to fill the UI (probably wait until I know more about what this would require).
+* Should I add a `resource.equipment.fuel_use` (+`unit`) column?
+* What kinds of geometrically conscious features should I provide?
+  * Try to search for field records based on a point or polygon
+  * Generate a crop/management history for a point/polygon
+  * Tools for changing/splitting/merging boundaries?
+* What kinds of features could be useful to help with data curation? Like tools to easily find and fix missing/unusual data
+  * Checks for probable duplicate entries
+  * Checks for important missing information
+  * Some way to send in information that may be overlapping and only incorporate new information (maybe ask when uncertain)
+  * Maybe even some kind of method to generate a list of cleaning tasks so you can just go through them, answer questions, put some off, etc.
+  * Data scanning, but also data curation at time of input
+  * Reasonable ranges for values+units and confirmation for values outside of those bounds.
+* I want to go back and clean up the equipment table, It kind of looks terrible.
+* Replace all of the x + x_unit columns with a single string column and use postgresql-unit extension
+  * Also define an enum of the units I allow people to use so it can be a dropdown instead of typing.
+  * Maybe instead of one enum have a few for different quantities or columns so that I can give the available options per table.column
+* `from sqlmodel import Field as ColConfig` instead of `ColInfo` in `app.db.models`?
+* Divide `app.db.models` into multiple files by schema or just break apart to separate the actual table models?
+* Create a `CropCreate` and `CropPublic` model in `app.db.models`?
+* Remove `density_unit` from `Crop` models?
+* Make alternate `xPublic` models that include Relationships instead of the PK to return nested jsons and provide a query param or header to request them?
 
-### Ideas for syncing with MyJD
+## 7. Syncing with John Deere
 
 The most basic idea is to have a script that makes a request for every object that lines up with this database's needs. Then, process it as needed and add that record to a big table of synced objects. Then, if you perform another sync later, you can check for the object's id in the sync'd table, see if the object has changed since last sync and choose to update or skip. The table probably should have something like: endpoint used to get it, id of record, whole record, timestamp of last sync that actually updated using that model. Hypothetically, I could use the actual MyJD id in this db since they are both UUID, but I don't know the UUID version used in JDs API, and I don't want to deal with conflicts if one record in corresponds with data in multiple tables or anything like that. It may also be useful to keep track of which table records a specific sync'd record affected, but that's probably not necessary. As long as the sync process remains consistent, it wouldn't be hard to figure that out, and even if it doesn't then that information becomes useless anyway (I think).
 
