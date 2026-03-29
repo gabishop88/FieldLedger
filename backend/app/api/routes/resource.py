@@ -34,9 +34,10 @@ def list_org_equipment(
     return crud.equipment.get_paginated(db, skip, limit, Equipment.org_id == org.id)
 
 
-@equipment_router.post("/equipment", response_model=Equipment)
-def create_equipment(db: UserSession, data_in: EquipmentCreate):
-    return crud.equipment.create(db, data_in)
+@equipment_router.post("/orgs/{id}/equipment", response_model=Equipment)
+def create_equipment(db: UserSession, id: UUID, data_in: EquipmentCreate):
+    org = crud.org.get_or_raise(db, id)
+    return crud.equipment.create(db, Equipment(**data_in.model_dump(), org_id=org.id))
 
 
 @equipment_router.get("/equipment/{id}", response_model=Equipment)
@@ -68,9 +69,10 @@ def list_org_products(
     return crud.product.get_paginated(db, skip, limit, Product.org_id == org.id)
 
 
-@product_router.post("/products", response_model=Product)
-def create_product(db: UserSession, data_in: ProductCreate):
-    return crud.product.create(db, data_in)
+@product_router.post("/orgs/{id}/products", response_model=Product)
+def create_product(db: UserSession, id: UUID, data_in: ProductCreate):
+    org = crud.org.get_or_raise(db, id)
+    return crud.product.create(db, Product(**data_in.model_dump(), org_id=org.id))
 
 
 @product_router.get("/products/{id}", response_model=Product)

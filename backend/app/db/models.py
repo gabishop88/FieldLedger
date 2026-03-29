@@ -361,7 +361,6 @@ class EquipmentBase(SQLModel):
     year: int | None = None
     active: bool = True
     notes: str | None = None
-    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
 
 
 class EquipmentCreate(EquipmentBase):
@@ -375,13 +374,14 @@ class EquipmentUpdate(SQLModel):
     model: str | None = None
     active: bool | None = None
     notes: str | None = None
-    org_id: UUID | None = None
+    # org_id: UUID | None = None
 
 
 class Equipment(EquipmentBase, table=True):
     __tablename__: ClassVar[str] = "equipment"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "resource"}
 
+    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
