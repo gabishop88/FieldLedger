@@ -116,6 +116,7 @@ def upgrade() -> None:
             ["type"], ["ref.field_type.name"], onupdate="CASCADE", ondelete="RESTRICT"
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("farm_id", "name"),
         schema="asset",
     )
     op.execute("""--sql
@@ -184,8 +185,8 @@ def upgrade() -> None:
     op.create_table(
         "product",
         sa.Column("name", sm.AutoString(length=255), nullable=False),
-        sa.Column("type", sm.AutoString(length=32), nullable=False),
         sa.Column("company_name", sm.AutoString(), nullable=True),
+        sa.Column("type", sm.AutoString(length=32), nullable=False),
         sa.Column("notes", sm.AutoString(), nullable=True),
         sa.Column("farm_id", sa.Uuid(), nullable=False),
         sa.Column("crop_id", sa.Uuid(), nullable=True),

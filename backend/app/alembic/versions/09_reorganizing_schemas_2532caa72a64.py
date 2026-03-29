@@ -75,9 +75,9 @@ def upgrade() -> None:
     """)
     op.create_table(
         "org_farm",
+        sa.Column("type", sa.String(length=32), nullable=False),
         sa.Column("org_id", sa.Uuid(), nullable=False),
         sa.Column("farm_id", sa.Uuid(), nullable=False),
-        sa.Column("type", sa.String(length=32), nullable=False),
         sa.ForeignKeyConstraint(["farm_id"], ["structure.farm.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["org_id"], ["structure.org.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("org_id", "farm_id"),

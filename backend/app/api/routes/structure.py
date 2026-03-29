@@ -186,7 +186,9 @@ def delete_field(db: UserSession, id: UUID):
 
 
 @boundary_router.get("/fields/{id}/boundaries", response_model=Paginated[FieldBoundary])
-def list_field_boundaries(db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM):
+def list_field_boundaries(
+    db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM
+):
     field = crud.field.get_or_raise(db, id)
     return crud.boundary.get_paginated(
         db, skip, limit, FieldBoundary.field_id == field.id

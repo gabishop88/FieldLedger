@@ -7,7 +7,14 @@ from geoalchemy2 import Geometry, WKBElement, WKTElement
 from geoalchemy2.shape import to_shape
 from pydantic import EmailStr, field_serializer, field_validator
 from shapely import wkt
-from sqlmodel import Column, ForeignKey, Relationship, SQLModel, String
+from sqlmodel import (
+    Column,
+    ForeignKey,
+    Relationship,
+    SQLModel,
+    String,
+    UniqueConstraint,
+)
 
 # NOTE: Importing `Field as ColInfo` to avoid a conflict with the `Field` model below.
 from sqlmodel import Field as ColInfo
@@ -225,19 +232,13 @@ class OrgFarm(SQLModel, table=True):
     __tablename__: ClassVar[str] = "org_farm"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
 
+    type: OrgFarmType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     org_id: UUID = ColInfo(
-        primary_key=True,
-        foreign_key="structure.org.id",
-        ondelete="CASCADE",
-        nullable=False,
+        primary_key=True, foreign_key="structure.org.id", ondelete="CASCADE"
     )
     farm_id: UUID = ColInfo(
-        primary_key=True,
-        foreign_key="structure.farm.id",
-        ondelete="CASCADE",
-        nullable=False,
+        primary_key=True, foreign_key="structure.farm.id", ondelete="CASCADE"
     )
-    type: OrgFarmType = ColInfo(sa_column=Column("type", String(32), nullable=False))
 
 
 class FieldBase(SQLModel):
@@ -259,7 +260,10 @@ class FieldUpdate(SQLModel):
 
 class Field(FieldBase, table=True):
     __tablename__: ClassVar[str] = "field"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "structure"}
+    __table_args__ = (
+        UniqueConstraint("farm_id", "name"),
+        {"schema": "structure"},
+    )
 
     farm_id: UUID = ColInfo(foreign_key="structure.farm.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -324,8 +328,8 @@ class FieldBoundary(BoundaryBase, table=True):
 
 class ProductBase(SQLModel):
     name: str = ColInfo(max_length=255)
+    brand: str | None = None
     type: ProductType = ColInfo(sa_column=Column("type", String(32), nullable=False))
-    company_name: str | None = None
     notes: str | None = None
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     crop_id: UUID | None = ColInfo(
@@ -339,8 +343,8 @@ class ProductCreate(ProductBase):
 
 class ProductUpdate(SQLModel):
     name: str | None = None
+    brand: str | None = None
     type: ProductType | None = None
-    company_name: str | None = None
     notes: str | None = None
     org_id: UUID | None = None
     crop_id: UUID | None = None
@@ -394,7 +398,6 @@ class FieldOpBase(SQLModel):
     season: int
     start: datetime | None = None
     end: datetime | None = None
-    # TODO: duration: timedelta?
     crop_id: UUID | None = None
     area: float | None = None
     area_unit: str | None = None
@@ -405,6 +408,74 @@ class FieldOp(FieldOpBase, table=True):
     __table_args__: ClassVar[dict] = {"schema": "operation"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+
+class OpInputBase(SQLModel):
+    area: float | None = None
+    area_unit: str | None = None
+    quantity: float | None = None
+    quantity_unit: str | None = None
+    rate: float | None = None
+    rate_unit: str | None = None
+
+
+class OpInput(OpInputBase, table=True):
+    __tablename__: ClassVar[str] = "op_input"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "operation"}
+
+    op_id: UUID = ColInfo(
+        primary_key=True, foreign_key="operation.field_op.id", ondelete="CASCADE"
+    )
+    product_id: UUID = ColInfo(
+        primary_key=True, foreign_key="resource.product.id", ondelete="RESTRICT"
+    )
+
+
+class OpOutputBase(SQLModel):
+    area: float | None = None
+    area_unit: str | None = None
+    wet_mass_total: float | None = None
+    wet_mass_total_unit: str | None = None
+    wet_mass_rate: float | None = None
+    wet_mass_rate_unit: str | None = None
+    yield_total: float | None = None
+    yield_total_unit: str | None = None
+    yield_rate: float | None = None
+    yield_rate_unit: str | None = None
+    moisture_pct: float | None = None
+
+
+class OpOutput(OpOutputBase, table=True):
+    __tablename__: ClassVar[str] = "op_output"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "operation"}
+
+    op_id: UUID = ColInfo(
+        primary_key=True, foreign_key="operation.field_op.id", ondelete="CASCADE"
+    )
+    product_id: UUID = ColInfo(
+        primary_key=True, foreign_key="resource.product.id", ondelete="RESTRICT"
+    )
+
+
+class OpEquipmentBase(SQLModel):
+    speed: float | None = None
+    speed_unit: str | None = None
+    pressure: float | None = None
+    pressure_unit: str | None = None
+    depth: float | None = None
+    depth_unit: str | None = None
+
+
+class OpEquipment(OpEquipmentBase, table=True):
+    __tablename__: ClassVar[str] = "op_equipment"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "operation"}
+
+    op_id: UUID = ColInfo(
+        primary_key=True, foreign_key="operation.field_op.id", ondelete="CASCADE"
+    )
+    equipment_id: UUID = ColInfo(
+        primary_key=True, foreign_key="resource.equipment.id", ondelete="RESTRICT"
+    )
 
 
 # endregion
