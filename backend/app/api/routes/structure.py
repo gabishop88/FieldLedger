@@ -40,7 +40,7 @@ router = APIRouter()  # Combine routers at the end (after endpoints are added)
 
 
 @org_router.get("/orgs", response_model=Paginated[Org])
-def list_orgs(db: ReadSession, skip: int = 0, limit: int = 10):
+def list_orgs(db: ReadSession, skip: int = 0, limit: int | None = LIM):
     return crud.org.get_paginated(db, skip, limit)
 
 
@@ -71,7 +71,7 @@ def delete_org(db: UserSession, id: UUID):
 
 
 @farm_router.get("/orgs/{id}/farms", response_model=Paginated[Farm])
-def list_org_farms(db: ReadSession, id: UUID, skip: int = 0, limit: int = 10):
+def list_org_farms(db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM):
     query = select(1).where(OrgFarm.org_id == id, OrgFarm.farm_id == Farm.id).exists()
     return crud.farm.get_paginated(db, skip, limit, query)
 
