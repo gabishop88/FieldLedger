@@ -84,6 +84,8 @@ def upgrade() -> None:
         sa.Column("type", sm.AutoString(length=32), nullable=True),
         sa.Column("make", sm.AutoString(), nullable=True),
         sa.Column("model", sm.AutoString(), nullable=True),
+        sa.Column("year", sa.Integer(), nullable=True),
+        sa.Column("active", sa.Boolean(), nullable=False),
         sa.Column("notes", sm.AutoString(), nullable=True),
         sa.Column("farm_id", sa.Uuid(), nullable=False),
         sa.Column("id", sa.Uuid(), nullable=False),

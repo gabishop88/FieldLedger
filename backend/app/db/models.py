@@ -358,6 +358,7 @@ class EquipmentBase(SQLModel):
     type: EquipmentType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     make: str | None = None
     model: str | None = None
+    year: int | None = None
     active: bool = True
     notes: str | None = None
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
