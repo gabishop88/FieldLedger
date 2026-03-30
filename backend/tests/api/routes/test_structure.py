@@ -143,22 +143,20 @@ def test_create_farm_field_boundary(cli, db, seed, user_head):
     assert db.get(Farm, farm_id)
     # TODO: Check generated OrgFarm record
 
-    field_in = FieldCreate(
-        name=generate_str(seed + 2), farm_id=farm_id, type=FieldType.Pasture
-    )
+    field_in = FieldCreate(name=generate_str(seed + 2), type=FieldType.Pasture)
     res = cli.post(
-        f"{PFIX}/fields", json=field_in.model_dump(mode="json"), headers=user_head
+        f"{PFIX}/farms/{farm_id}/fields",
+        json=field_in.model_dump(mode="json"),
+        headers=user_head,
     )
     assert res.status_code == 200
     field_id = res.json()["id"]
     assert db.get(Field, field_id)
 
     geom = generate_geom(seed + 3)
-    boundary_in = BoundaryCreate(
-        field_id=field_id, geom=geom, type=BoundaryType.Subfield
-    )
+    boundary_in = BoundaryCreate(geom=geom, type=BoundaryType.Subfield)
     res = cli.post(
-        f"{PFIX}/boundaries",
+        f"{PFIX}/fields/{field_id}/boundaries",
         json=boundary_in.model_dump(mode="json"),
         headers=user_head,
     )

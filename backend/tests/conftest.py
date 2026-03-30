@@ -21,6 +21,7 @@ from app.main import app
 from tests.utils.auth import random_user_headers
 
 
+# TODO: Since I added X-Dry-Run, could use Session from deps (change header fixtures)
 @pytest.fixture(scope="function", autouse=True)
 def db() -> Generator[Session, None, None]:
     """Get a database session. DO NOT call `db.commit()`."""

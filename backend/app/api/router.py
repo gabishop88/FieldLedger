@@ -9,13 +9,14 @@ from pydantic import ValidationError
 from sqlmodel import SQLModel
 
 from app.api.deps import SuperuserSession
-from app.api.routes import iam, ref, resource, structure
+from app.api.routes import iam, operation, ref, resource, structure
 from app.core.config import settings
 from app.core.enums import DocTag, ErrMsg
 from app.db import models
 
 api_router = APIRouter()
 api_router.include_router(structure.router)
+api_router.include_router(operation.router)
 api_router.include_router(resource.router)
 api_router.include_router(iam.router, tags=[DocTag.IAM_USER])
 api_router.include_router(ref.router, tags=[DocTag.REF])

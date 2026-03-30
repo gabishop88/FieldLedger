@@ -25,12 +25,12 @@ PFIX = settings.API_PREFIX
 
 def test_create_equipment(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
-    eq_in = EquipmentCreate(
-        name=generate_str(seed + 1), org_id=org.id, type=EquipmentType.Tractor
-    )
+    eq_in = EquipmentCreate(name=generate_str(seed + 1), type=EquipmentType.Tractor)
 
     res = cli.post(
-        f"{PFIX}/equipment", json=eq_in.model_dump(mode="json"), headers=user_head
+        f"{PFIX}/orgs/{org.id}/equipment",
+        json=eq_in.model_dump(mode="json"),
+        headers=user_head,
     )
     assert res.status_code == 200
     body = res.json()
@@ -44,7 +44,7 @@ def test_get_equipment(cli: TestClient, db: Session, seed: int):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     eq = crud.equipment.create(
         db,
-        EquipmentCreate(
+        Equipment(
             name=generate_str(seed + 1), org_id=org.id, type=EquipmentType.Tractor
         ),
     )
@@ -66,14 +66,14 @@ def test_list_org_equipment(cli: TestClient, db: Session, seed: int):
     eqs = [
         crud.equipment.create(
             db,
-            EquipmentCreate(
+            Equipment(
                 name=generate_str(seed + i), org_id=org.id, type=EquipmentType.Rake
             ),
         )
         for i in range(3)
     ]
     crud.equipment.create(
-        db, EquipmentCreate(name="other", org_id=other.id, type=EquipmentType.Misc)
+        db, Equipment(name="other", org_id=other.id, type=EquipmentType.Misc)
     )
 
     res = cli.get(f"{PFIX}/orgs/{org.id}/equipment")
@@ -86,7 +86,7 @@ def test_list_org_equipment(cli: TestClient, db: Session, seed: int):
 def test_update_equipment(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     eq = crud.equipment.create(
-        db, EquipmentCreate(name="old", org_id=org.id, type=EquipmentType.Harvester)
+        db, Equipment(name="old", org_id=org.id, type=EquipmentType.Harvester)
     )
 
     edits = EquipmentUpdate(name="new").model_dump(exclude_unset=True)
@@ -98,7 +98,7 @@ def test_update_equipment(cli: TestClient, db: Session, seed: int, user_head):
 def test_delete_equipment(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     eq = crud.equipment.create(
-        db, EquipmentCreate(name="x", org_id=org.id, type=EquipmentType.Header)
+        db, Equipment(name="x", org_id=org.id, type=EquipmentType.Header)
     )
 
     res = cli.delete(f"{PFIX}/equipment/{eq.id}", headers=user_head)
@@ -112,12 +112,12 @@ def test_delete_equipment(cli: TestClient, db: Session, seed: int, user_head):
 
 def test_create_product(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
-    prod_in = ProductCreate(
-        name=generate_str(seed + 1), org_id=org.id, type=ProductType.Adjuvant
-    )
+    prod_in = ProductCreate(name=generate_str(seed + 1), type=ProductType.Adjuvant)
 
     res = cli.post(
-        f"{PFIX}/products", json=prod_in.model_dump(mode="json"), headers=user_head
+        f"{PFIX}/orgs/{org.id}/products",
+        json=prod_in.model_dump(mode="json"),
+        headers=user_head,
     )
     assert res.status_code == 200
     assert res.json()["org_id"] == str(org.id)
@@ -126,7 +126,7 @@ def test_create_product(cli: TestClient, db: Session, seed: int, user_head):
 def test_get_product(cli: TestClient, db: Session, seed: int):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     prod = crud.product.create(
-        db, ProductCreate(name="p", org_id=org.id, type=ProductType.Water)
+        db, Product(name="p", org_id=org.id, type=ProductType.Water)
     )
 
     res = cli.get(f"{PFIX}/products/{prod.id}")
@@ -139,12 +139,8 @@ def test_get_product(cli: TestClient, db: Session, seed: int):
 
 def test_list_org_products(cli: TestClient, db: Session, seed: int):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
-    crud.product.create(
-        db, ProductCreate(name="a", org_id=org.id, type=ProductType.Bioinput)
-    )
-    crud.product.create(
-        db, ProductCreate(name="b", org_id=org.id, type=ProductType.Cultivar)
-    )
+    crud.product.create(db, Product(name="a", org_id=org.id, type=ProductType.Bioinput))
+    crud.product.create(db, Product(name="b", org_id=org.id, type=ProductType.Cultivar))
 
     res = cli.get(f"{PFIX}/orgs/{org.id}/products")
     assert res.status_code == 200
@@ -154,7 +150,7 @@ def test_list_org_products(cli: TestClient, db: Session, seed: int):
 def test_update_product(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     prod = crud.product.create(
-        db, ProductCreate(name="old", org_id=org.id, type=ProductType.Fungicide)
+        db, Product(name="old", org_id=org.id, type=ProductType.Fungicide)
     )
 
     res = cli.patch(
@@ -169,7 +165,7 @@ def test_update_product(cli: TestClient, db: Session, seed: int, user_head):
 def test_delete_product(cli: TestClient, db: Session, seed: int, user_head):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     prod = crud.product.create(
-        db, ProductCreate(name="x", org_id=org.id, type=ProductType.Manure)
+        db, Product(name="x", org_id=org.id, type=ProductType.Manure)
     )
 
     res = cli.delete(f"{PFIX}/products/{prod.id}", headers=user_head)
