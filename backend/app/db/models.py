@@ -35,6 +35,7 @@ from app.core.enums import (
 # TODO: Make alt xPublic classes w/ Relationships, requested via query param or smth?
 # TODO: Replace all x/x_unit values with a string and use the postgresql-unit extension?
 # TODO: If using postgresql-unit, define an enum with the available units maybe per col
+# TODO: Clean up inconsistency on whether parent ids can be upated in Update schemas.
 
 # region ------------------------------- Miscellaneous ---------------------------------
 
@@ -331,7 +332,6 @@ class ProductBase(SQLModel):
     brand: str | None = None
     type: ProductType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     notes: str | None = None
-    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     crop_id: UUID | None = ColInfo(
         default=None, foreign_key="ref.crop.id", ondelete="RESTRICT"
     )
@@ -354,6 +354,7 @@ class Product(ProductBase, table=True):
     __tablename__: ClassVar[str] = "product"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "resource"}
 
+    org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
 
@@ -401,13 +402,34 @@ class FieldOpBase(SQLModel):
     crop_id: UUID | None = None
     area: float | None = None
     area_unit: str | None = None
+    boundary_id: UUID | None = ColInfo(
+        foreign_key="structure.field_boundary.id", ondelete="CASCADE"
+    )
+
+
+class FieldOpUpdate(SQLModel):
+    type: str | None = None
+    season: int | None = None
+    start: datetime | None = None
+    end: datetime | None = None
+    crop_id: UUID | None = None
+    area: float | None = None
+    area_unit: str | None = None
+    boundary_id: UUID | None = None
+
+
+class FieldOpCreate(FieldOpBase): ...
 
 
 class FieldOp(FieldOpBase, table=True):
     __tablename__: ClassVar[str] = "field_op"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "operation"}
 
+    field_id: UUID = ColInfo(foreign_key="structure.field.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+    inputs: list["OpInput"] = Relationship(back_populates="op")
+    outputs: list["OpOutput"] = Relationship(back_populates="op")
+    equipment: list["OpEquipment"] = Relationship(back_populates="op")
 
 
 class OpInputBase(SQLModel):
@@ -417,6 +439,17 @@ class OpInputBase(SQLModel):
     quantity_unit: str | None = None
     rate: float | None = None
     rate_unit: str | None = None
+
+
+class OpInputCreate(OpInputBase): ...
+
+
+class OpInputUpdate(OpInputBase): ...
+
+
+class OpInputPublic(OpInputBase):
+    op_id: UUID
+    product_id: UUID
 
 
 class OpInput(OpInputBase, table=True):
@@ -429,6 +462,7 @@ class OpInput(OpInputBase, table=True):
     product_id: UUID = ColInfo(
         primary_key=True, foreign_key="resource.product.id", ondelete="RESTRICT"
     )
+    op: FieldOp = Relationship(back_populates="inputs")
 
 
 class OpOutputBase(SQLModel):
@@ -445,6 +479,17 @@ class OpOutputBase(SQLModel):
     moisture_pct: float | None = None
 
 
+class OpOutputCreate(OpOutputBase): ...
+
+
+class OpOutputUpdate(OpOutputBase): ...
+
+
+class OpOutputPublic(OpOutputBase):
+    op_id: UUID
+    product_id: UUID
+
+
 class OpOutput(OpOutputBase, table=True):
     __tablename__: ClassVar[str] = "op_output"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "operation"}
@@ -455,6 +500,7 @@ class OpOutput(OpOutputBase, table=True):
     product_id: UUID = ColInfo(
         primary_key=True, foreign_key="resource.product.id", ondelete="RESTRICT"
     )
+    op: FieldOp = Relationship(back_populates="outputs")
 
 
 class OpEquipmentBase(SQLModel):
@@ -464,6 +510,17 @@ class OpEquipmentBase(SQLModel):
     pressure_unit: str | None = None
     depth: float | None = None
     depth_unit: str | None = None
+
+
+class OpEquipmentCreate(OpEquipmentBase): ...
+
+
+class OpEquipmentUpdate(OpEquipmentBase): ...
+
+
+class OpEquipmentPublic(OpEquipmentBase):
+    op_id: UUID
+    equipment_id: UUID
 
 
 class OpEquipment(OpEquipmentBase, table=True):
@@ -476,6 +533,13 @@ class OpEquipment(OpEquipmentBase, table=True):
     equipment_id: UUID = ColInfo(
         primary_key=True, foreign_key="resource.equipment.id", ondelete="RESTRICT"
     )
+    op: FieldOp = Relationship(back_populates="equipment")
+
+
+class BulkResource(SQLModel):
+    inputs: list[OpInputPublic]
+    outputs: list[OpOutputPublic]
+    equipment: list[OpEquipmentPublic]
 
 
 # endregion

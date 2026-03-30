@@ -9,19 +9,24 @@ Some classes add functions or alter logic, see each class in app/db/crud/ for mo
 """
 
 __all__ = [
-    "user",
-    "crop",
-    "unit",
-    "equipment",
-    "product",
     "boundary",
+    "crop",
+    "equipment",
     "farm",
     "field",
+    "op",
+    "op_equipment",
+    "op_input",
+    "op_output",
     "org",
     "org_farm",
+    "product",
+    "unit",
+    "user",
 ]
 
 from .crud_iam import user
+from .crud_operation import op, op_equipment, op_input, op_output
 from .crud_ref import crop, unit
 from .crud_resource import equipment, product
 from .crud_structure import boundary, farm, field, org, org_farm

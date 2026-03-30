@@ -31,7 +31,15 @@ def upgrade() -> None:
         sa.Column("crop_id", sa.Uuid(), nullable=True),
         sa.Column("area", sa.Float(), nullable=True),
         sa.Column("area_unit", sm.AutoString(), nullable=True),
+        sa.Column("field_id", sa.Uuid(), nullable=False),
+        sa.Column("boundary_id", sa.Uuid(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["boundary_id"], ["structure.field_boundary.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(
+            ["field_id"], ["structure.field.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
         schema="operation",
     )
