@@ -35,6 +35,9 @@ def upgrade() -> None:
         sa.Column("boundary_id", sa.Uuid(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(
+            ["area_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
             ["boundary_id"], ["structure.field_boundary.id"], ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
@@ -54,6 +57,18 @@ def upgrade() -> None:
         sa.Column("op_id", sa.Uuid(), nullable=False),
         sa.Column("equipment_id", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(
+            ["speed_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["pressure_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["depth_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
             ["equipment_id"], ["resource.equipment.id"], ondelete="RESTRICT"
         ),
         sa.ForeignKeyConstraint(
@@ -72,6 +87,18 @@ def upgrade() -> None:
         sa.Column("rate_unit", sm.AutoString(), nullable=True),
         sa.Column("op_id", sa.Uuid(), nullable=False),
         sa.Column("product_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["area_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["quantity_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["rate_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
         sa.ForeignKeyConstraint(
             ["op_id"], ["operation.field_op.id"], ondelete="CASCADE"
         ),
@@ -96,6 +123,33 @@ def upgrade() -> None:
         sa.Column("moisture_pct", sa.Float(), nullable=True),
         sa.Column("op_id", sa.Uuid(), nullable=False),
         sa.Column("product_id", sa.Uuid(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["area_unit"], ["ref.unit.name"], onupdate="CASCADE", ondelete="RESTRICT"
+        ),
+        sa.ForeignKeyConstraint(
+            ["wet_mass_total_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["wet_mass_rate_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["yield_total_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["yield_rate_unit"],
+            ["ref.unit.name"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
         sa.ForeignKeyConstraint(
             ["op_id"], ["operation.field_op.id"], ondelete="CASCADE"
         ),

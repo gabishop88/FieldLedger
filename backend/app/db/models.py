@@ -63,6 +63,17 @@ class TypeEnumPublic(SQLModel):
 # region -------------------------------- Schema: ref ----------------------------------
 
 
+# NOTE: This gets reused a LOT, so I thought it would be easier to just make a helper
+def unit_fk(nullable=True):
+    return ColInfo(
+        default=None if nullable else ...,
+        sa_column=Column(
+            ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
+            nullable=nullable,
+        ),
+    )
+
+
 class UnitUpdate(SQLModel):
     name: str | None = None
     description: str | None = None
@@ -78,12 +89,7 @@ class Unit(SQLModel, table=True):
     name: str = ColInfo(primary_key=True, max_length=32)
     description: str | None = None
     category: str | None = None
-    si_unit_name: str = ColInfo(
-        sa_column=Column(
-            ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
-            nullable=False,
-        )
-    )
+    si_unit_name: str = unit_fk(nullable=False)
     si_conv: float
 
 
@@ -93,13 +99,7 @@ class CropBase(SQLModel):
     family: str
     description: str | None = None
     density: float | None = None
-    density_unit_name: str | None = ColInfo(
-        default=None,
-        sa_column=Column(
-            ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
-            nullable=True,
-        ),
-    )
+    density_unit_name: str | None = unit_fk()
 
 
 class CropUpdate(SQLModel):
@@ -408,9 +408,9 @@ class FieldOpBase(SQLModel):
     end: datetime | None = None
     crop_id: UUID | None = None
     area: float | None = None
-    area_unit: str | None = None
+    area_unit: str | None = unit_fk()
     boundary_id: UUID | None = ColInfo(
-        foreign_key="structure.field_boundary.id", ondelete="CASCADE"
+        default=None, foreign_key="structure.field_boundary.id", ondelete="CASCADE"
     )
 
 
@@ -441,11 +441,11 @@ class FieldOp(FieldOpBase, table=True):
 
 class OpInputBase(SQLModel):
     area: float | None = None
-    area_unit: str | None = None
+    area_unit: str | None = unit_fk()
     quantity: float | None = None
-    quantity_unit: str | None = None
+    quantity_unit: str | None = unit_fk()
     rate: float | None = None
-    rate_unit: str | None = None
+    rate_unit: str | None = unit_fk()
 
 
 class OpInputCreate(OpInputBase): ...
@@ -474,15 +474,15 @@ class OpInput(OpInputBase, table=True):
 
 class OpOutputBase(SQLModel):
     area: float | None = None
-    area_unit: str | None = None
+    area_unit: str | None = unit_fk()
     wet_mass_total: float | None = None
-    wet_mass_total_unit: str | None = None
+    wet_mass_total_unit: str | None = unit_fk()
     wet_mass_rate: float | None = None
-    wet_mass_rate_unit: str | None = None
+    wet_mass_rate_unit: str | None = unit_fk()
     yield_total: float | None = None
-    yield_total_unit: str | None = None
+    yield_total_unit: str | None = unit_fk()
     yield_rate: float | None = None
-    yield_rate_unit: str | None = None
+    yield_rate_unit: str | None = unit_fk()
     moisture_pct: float | None = None
 
 
@@ -512,11 +512,11 @@ class OpOutput(OpOutputBase, table=True):
 
 class OpEquipmentBase(SQLModel):
     speed: float | None = None
-    speed_unit: str | None = None
+    speed_unit: str | None = unit_fk()
     pressure: float | None = None
-    pressure_unit: str | None = None
+    pressure_unit: str | None = unit_fk()
     depth: float | None = None
-    depth_unit: str | None = None
+    depth_unit: str | None = unit_fk()
 
 
 class OpEquipmentCreate(OpEquipmentBase): ...
