@@ -11,16 +11,16 @@ However, it is not difficult, just run this query in the database:
 UPDATE asset.field SET type='Row Crops' WHERE type='Field Crops';
 ```
 
-This is only necessary when changing the actual value that shows up in the database.
-For an enum entry that looks like `FieldType = ("Field Type", "Field Type Description"),
-you would have to run the `UPDATE` query only for changing `"Field Type"`.
-either `FieldType` or `"Field Type Description"` can be changed with no updates to the
+This is only necessary when changing the name that shows up in the database.
+For an enum entry that looks like `ShortType = ("Type Name", "Field Type Description")`,
+you would have to run the `UPDATE` query only for changing `"Type Name"`.
+either `ShortType` or `"Field Type Description"` can be changed with no updates to the
 database.
 
 For adding new entries, no changes need to be made to the database unless you want to
 manually change any previously existing records to use the new type. For deleting an
 enum value, you will have to run the same `UPDATE` query prior to deleting the enum
-value in order to change them to another enum value so they remain as valid records.
+value in order to change them to a different enum value so the records remain valid.
 """
 
 from enum import EnumMeta, StrEnum, _EnumDict
@@ -147,23 +147,25 @@ class BoundaryType(TypeEnum):
 # TODO: Add Biological/Chemical label to help organize product types?
 # I could also add a prefix just to the enum name and use it to sort them?
 # like BioCultivar or ChemHerbicide, or maybe BIO_Cultivar or something
+# TODO: Is biochar a bio-input or an ammendment?
 class ProductType(TypeEnum):
-    Cultivar = ("Variety or Cultivar", "Specific crop to be planted or harvested.")
-    Breed = ("Livestock Breed", "Breed of livestock to be pastured or processed.")
+    Seed = ("Seed", "Specific crop to be planted or otherwise propogated.")
+    Crop = ("Crop", "Plant products not for planting; grain, biomass, forage, etc.")
+    Animal = ("Animal", "Animal products to be harvested or applied.")  # TODO: graze?
     Manure = ("Manure", "Solid or Liquid manure that has not been further processed.")
     Compost = ("Compost", "Dry or Brewed composed organic material from any source.")
     Bioinput = ("Bio-input", "Biological product; Inoculants, Biochar, Insects, etc.")
     Water = ("Water", "As a carrier or for irrigation. Add mix-ins separately.")
     Coating = ("Seed Coating", "Anything applied directly to seeds before planting.")
     SynFert = ("Fertilizer", "Mined or Refined N, P, or K sources; Ammonia, Urea, etc.")
-    FertAdd = ("Fertilizer Additive", "Non-nutritive; stabilizers, inhibitors, etc.")
+    Additive = ("Additive", "Non-nutritive fertilizer additives; inhibitors, etc.")
     Ammendment = ("Soil Ammendment", "Inorganic micronutrients, pH balancers, etc.")
     Herbicide = ("Herbicide", "Controls or Suppresses unwated plants, organic or not.")
     Insecticide = ("Insecticide", "Kills insects, organic or not.")
     Fungicide = ("Fungicide", "Suppresses fungal pathogens, organic or not.")
-    OtherPesticide = ("Other Pesticide", "Suppresses pests/pathogens, not listed.")
+    Othercide = ("Other Pesticide", "Suppresses pests/pathogens, not listed.")
     Adjuvant = ("Adjuvant", "Tank Mix Additives; surfactants, drift reducers, etc.")
-    Regulator = ("Growth Regulator", "Any product that modifies plant growth.")
+    Regulator = ("Growth Regulator", "Any product designed to modify plant growth.")
     Misc = ("Miscellaneous", "Last resort for products that do not fit another type.")
 
 
@@ -203,6 +205,6 @@ class OpType(TypeEnum):
     Harvest = ("Harvest", "Harvesting Grain/Biomass, Baling Hay, etc.")
     App = ("Application", "Water, Compost/Fertilizer, Ammendment, Pesticide, etc.")
     Till = ("Tillage", "Soil Disturbance; Harrow, Disc, Cultivate, Strip Till, etc.")
-    Control = ("Veg. Control", "No-Till Physical Disturbance; Mowing, Zapping, Raking.")
+    NoTill = ("Non-Tillage", "No-Till Physical Disturbance; Mowing, Zapping, Raking.")
     Livestock = ("Livestock", "Moving Livestock on a Field; Grazing, Moving, Clearing.")
     Misc = ("Miscellaneous", "Any operation that does not belong in another category.")

@@ -140,7 +140,7 @@ def test_get_product(cli: TestClient, db: Session, seed: int):
 def test_list_org_products(cli: TestClient, db: Session, seed: int):
     org = crud.org.create(db, OrgCreate(name=generate_str(seed)))
     crud.product.create(db, Product(name="a", org_id=org.id, type=ProductType.Bioinput))
-    crud.product.create(db, Product(name="b", org_id=org.id, type=ProductType.Cultivar))
+    crud.product.create(db, Product(name="b", org_id=org.id, type=ProductType.Seed))
 
     res = cli.get(f"{PFIX}/orgs/{org.id}/products")
     assert res.status_code == 200
