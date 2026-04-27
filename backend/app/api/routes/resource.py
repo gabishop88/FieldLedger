@@ -62,7 +62,9 @@ def delete_equipment(db: UserSession, id: UUID):
 
 
 @product_router.get("/orgs/{id}/products", response_model=Paginated[Product])
-def list_org_products(db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM):
+def list_org_products(
+    db: ReadSession, id: UUID, skip: int = 0, limit: int | None = LIM
+):
     org = crud.org.get_or_raise(db, id)
     return crud.product.get_paginated(db, skip, limit, Product.org_id == org.id)
 

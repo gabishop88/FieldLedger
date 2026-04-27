@@ -6,6 +6,7 @@ from app.api.deps import ReadSession, UserSession
 from app.core.config import settings
 from app.core.enums import DocTag
 from app.db import crud
+from app.db.crud.crud_operation import CRUDOpEquipment, CRUDOpInput, CRUDOpOutput
 from app.db.models import (
     BulkResource,
     FieldOp,
@@ -73,10 +74,15 @@ def list_op_resources(db: ReadSession, id: UUID):
 
 @router.post("/ops/{id}/resources", response_model=BulkResource)
 def add_op_resources(db: UserSession, id: UUID, data_in: BulkResource):
+    def get_crud(resource_name: str) -> CRUDOpInput | CRUDOpOutput | CRUDOpEquipment:
+        """Gets the relevant crud class based on a BulkResource field name."""
+        # NOTE: BulkResource fields plural, crud class names singular.
+        return getattr(crud, f"op_{resource_name}".strip("s"))
+
     crud.op.get_or_raise(db, id)  # NOTE: id unused; BulkResource has op/resource ids
     data = data_in.model_dump()
     return BulkResource.model_validate(
-        {k: getattr(crud, f"op_{k}").create_multiple(db, data[k]) for k in data}
+        {k: get_crud(k).create_multiple(db, data[k]) for k in data}
     )
 
 
