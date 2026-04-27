@@ -55,8 +55,12 @@ def upgrade() -> None:
 
     # Update search paths with new schemas
     op.execute(f"ALTER ROLE {settings.POSTGRES_USER} SET search_path = public;")
-    op.execute(f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, operation, resource, structure;")  # noqa: E501
-    op.execute(f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, operation, resource, structure;")  # noqa: E501
+    op.execute(
+        f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, operation, resource, structure;"  # noqa: E501
+    )
+    op.execute(
+        f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, operation, resource, structure;"  # noqa: E501
+    )
 
     # New org tables
     op.create_table(
@@ -107,6 +111,9 @@ def upgrade() -> None:
         source_schema="resource",
         referent_schema="structure",
     )
+    op.create_unique_constraint(
+        "uq_equipment_org_id_name", "equipment", ["org_id", "name"], schema="resource"
+    )
 
     # resource.product
     op.drop_constraint(
@@ -125,6 +132,9 @@ def upgrade() -> None:
         ondelete="CASCADE",
         source_schema="resource",
         referent_schema="structure",
+    )
+    op.create_unique_constraint(
+        "uq_product_org_id_name", "product", ["org_id", "name"], schema="resource"
     )
 
     # structure.field
@@ -161,10 +171,17 @@ def downgrade() -> None:
         ALTER DEFAULT PRIVILEGES IN SCHEMA asset GRANT SELECT ON TABLES TO {settings.POSTGRES_READONLY_USER};
     """)  # noqa: E501
     op.execute(f"ALTER ROLE {settings.POSTGRES_USER} SET search_path = public;")
-    op.execute(f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, asset, operation;")  # noqa: E501
-    op.execute(f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, asset, operation;")  # noqa: E501
+    op.execute(
+        f"ALTER ROLE {settings.POSTGRES_API_USER} SET search_path = public, iam, asset, operation;"  # noqa: E501
+    )
+    op.execute(
+        f"ALTER ROLE {settings.POSTGRES_READONLY_USER} SET search_path = public, iam, asset, operation;"  # noqa: E501
+    )
 
     # Reverse equipment changes: org_id -> farm_id
+    op.drop_constraint(
+        "uq_equipment_org_id_name", "equipment", schema="resource", type_="unique"
+    )
     op.drop_constraint(
         "equipment_org_id_fkey", "equipment", schema="resource", type_="foreignkey"
     )
@@ -184,6 +201,9 @@ def downgrade() -> None:
     )
 
     # Reverse product changes: org_id -> farm_id
+    op.drop_constraint(
+        "uq_product_org_id_name", "product", schema="resource", type_="unique"
+    )
     op.drop_constraint(
         "product_org_id_fkey", "product", schema="resource", type_="foreignkey"
     )

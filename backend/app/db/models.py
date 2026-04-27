@@ -352,7 +352,10 @@ class ProductUpdate(SQLModel):
 
 class Product(ProductBase, table=True):
     __tablename__: ClassVar[str] = "product"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "resource"}
+    __table_args__ = (
+        UniqueConstraint("org_id", "name"),
+        {"schema": "resource"},
+    )
 
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
@@ -364,6 +367,7 @@ class EquipmentBase(SQLModel):
     make: str | None = None
     model: str | None = None
     year: int | None = None
+    serial_number: str | None = None
     active: bool = True
     notes: str | None = None
 
@@ -384,7 +388,10 @@ class EquipmentUpdate(SQLModel):
 
 class Equipment(EquipmentBase, table=True):
     __tablename__: ClassVar[str] = "equipment"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "resource"}
+    __table_args__ = (
+        UniqueConstraint("org_id", "name"),
+        {"schema": "resource"},
+    )
 
     org_id: UUID = ColInfo(foreign_key="structure.org.id", ondelete="CASCADE")
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
