@@ -550,3 +550,35 @@ class BulkResource(SQLModel):
 
 
 # endregion
+# region ----------------------------------- Audit ------------------------------------
+
+
+# NOTE: model has `schema_name` attr to not override BaseModel. Table col name 'schema'.
+class Changelog(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "changelog"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "audit"}
+
+    timestamp: datetime = ColInfo(
+        sa_column=Column(
+            TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+        )
+    )
+    revision: str = ColInfo(max_length=32)
+    schema_name: str = ColInfo(sa_column=Column("schema", String(32), nullable=False))
+    table: str = ColInfo(max_length=32)
+    op: str = ColInfo(max_length=32)
+    role: str = ColInfo(
+        sa_column=Column(
+            String(32), nullable=False, server_default=text("SESSION_USER")
+        )
+    )
+    new_data: dict[str, Any] | None = ColInfo(None, sa_column=Column(JSONB))
+    old_data: dict[str, Any] | None = ColInfo(None, sa_column=Column(JSONB))
+    app_user: dict[str, Any] | None = ColInfo(None, sa_column=Column(JSONB))
+    id: UUID = ColInfo(primary_key=True, default_factory=uuid7)
+
+
+# TODO: add audit table for storing webhook events.
+
+
+# endregion

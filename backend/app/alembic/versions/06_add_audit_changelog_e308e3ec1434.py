@@ -24,7 +24,6 @@ def upgrade() -> None:
     # Create changelog table
     op.create_table(
         "changelog",
-        sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("uuidv7()")),
         sa.Column(
             "timestamp",
             sa.TIMESTAMP(timezone=True),
@@ -44,6 +43,7 @@ def upgrade() -> None:
         sa.Column("new_data", postgresql.JSONB),
         sa.Column("old_data", postgresql.JSONB),
         sa.Column("app_user", postgresql.JSONB),
+        sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("uuidv7()")),
         sa.PrimaryKeyConstraint("id"),
         schema="audit",
     )

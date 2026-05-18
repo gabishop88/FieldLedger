@@ -2,6 +2,7 @@
 FROM python:3.12-slim
 # This is heavily inspired by https://github.com/fastapi/full-stack-fastapi-template
 
+# NOTE: Used primarily for pg_dump and pg_restore
 # Add PGDG apt repo for PostgreSQL 18 client tools
 RUN apt-get update && apt-get install -y --no-install-recommends wget gnupg ca-certificates && \
     wget --quiet -O /usr/share/keyrings/postgresql-archive-keyring.gpg \

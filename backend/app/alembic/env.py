@@ -17,7 +17,7 @@ config = context.config
 # add your model's MetaData object here
 target_metadata = SQLModel.metadata
 
-skip_tables = ["spatial_ref_sys", "alembic_version", "changelog"]
+skip_tables = ["spatial_ref_sys", "alembic_version"]
 
 
 def include_object(object, name, type_, reflected, compare_to):  # noqa: ARG001
