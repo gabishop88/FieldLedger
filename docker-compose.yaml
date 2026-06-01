@@ -16,19 +16,26 @@ services:
     ports:
       - "5432:5432"
 
+  redis:
+    image: redis:8
+    container_name: fieldledger_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   backend-prestart:
     build:
       context: ./backend
     image: backend:dev
-    container_name: fieldledger_prestart_setup
+    container_name: fieldledger_prestart
     depends_on:
       db:
         condition: service_healthy
-    command: uv run python app/db/prestart.py
     env_file:
       - .env
     environment:
       - POSTGRES_SERVER=fieldledger_db
+    command: uv run python -m app.db.prestart
 
   backend:
     build:
@@ -52,6 +59,24 @@ services:
     ports:
       - "8000:8000"
     command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
+
+  sync_worker:
+    build:
+      context: ./backend
+    image: backend:dev
+    container_name: fieldledger_sync_worker
+    restart: unless-stopped
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=fieldledger_db
+      - REDIS_HOST=redis
+    volumes:
+      - ./backend:/app
+    command: uv run arq app.integrations.worker.WorkerSettings
 
   # frontend:
   #   build: ./frontend

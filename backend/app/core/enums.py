@@ -39,6 +39,8 @@ class DocTag(StrEnum):
     IAM_USER = "Access • Users"
     OP = "Field Operations"
     REF = "Reference Tables"
+    # NOTE: If I add integrations, do what I did with struct tags for heirarchy.
+    INTEG = "Integrations"
     MISC = "Miscellaneous"
 
 
@@ -55,6 +57,7 @@ class ErrMsg(StrEnum):
     # HTTP_400_BAD_REQUEST
     BAD_PWD = "Incorrect Password."
     BAD_EMPTY_SEARCH = "Provide A Search Option"
+    BAD_PAYLOAD = "Empty Payload"
 
     # HTTP_403_FORBIDDEN
     FBDN_CRED = "Unable To Validate Credentials."
@@ -71,6 +74,15 @@ class ErrMsg(StrEnum):
     # HTTP_422_UNPROCESSABLE_ENTITY
     INVALID_WKT = "'geom' is not valid WKT."
     INVALID_TOPO = "'geom' has invalid topology."
+
+
+class SyncStatus(StrEnum):
+    NOSYNC = "Not Synced"  # Found in heirarchy, not synced. empty gray checkbox
+    SYNC = "Synced"  # Completely synced and up-to-date. filled green checkbox
+    DIRTY = "Unsynced"  # Sync enabled, data maybe old/loading. filled yellow checkbox
+    PAUSE = "Paused"  # previously synced, currently not updating. empty yellow checkbox
+    ERROR = "Error"  # Something has gone wrong - may need to restart sync?
+    FLAG = "Flagged"  # Sync detected likely garbage data
 
 
 class LoadStrEnumMeta(EnumMeta):

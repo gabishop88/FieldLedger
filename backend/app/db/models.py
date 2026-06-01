@@ -1,23 +1,24 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Annotated, ClassVar, TypeVar
+from typing import Annotated, Any, ClassVar, TypeVar
 from uuid import UUID
 
 from geoalchemy2 import Geometry, WKBElement, WKTElement
 from geoalchemy2.shape import to_shape
 from pydantic import EmailStr, field_serializer, field_validator
 from shapely import wkt
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import (
+    TIMESTAMP,
     Column,
     ForeignKey,
     Relationship,
     SQLModel,
     String,
     UniqueConstraint,
+    text,
 )
-
-# NOTE: Importing `Field as ColInfo` to avoid a conflict with the `Field` model below.
-from sqlmodel import Field as ColInfo
+from sqlmodel import Field as ColInfo  # NOTE: `Field as ColInfo` bc of `Field` model.
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
 
@@ -29,6 +30,7 @@ from app.core.enums import (
     OpType,
     OrgFarmType,
     ProductType,
+    SyncStatus,
 )
 
 # TODO: For the crop tables: Make a CropCreate and CropPublic? Remove density_unit?
@@ -36,6 +38,7 @@ from app.core.enums import (
 # TODO: Replace all x/x_unit values with a string and use the postgresql-unit extension?
 # TODO: If using postgresql-unit, define an enum with the available units maybe per col
 # TODO: Clean up inconsistency on whether parent ids can be upated in Update schemas.
+# TODO: Add changelog hooks here so they are more visible/explicit?
 
 # region ------------------------------- Miscellaneous ---------------------------------
 
@@ -60,69 +63,7 @@ class TypeEnumPublic(SQLModel):
 
 
 # endregion
-# region -------------------------------- Schema: ref ----------------------------------
-
-
-# NOTE: This gets reused a LOT, so I thought it would be easier to just make a helper
-def unit_fk(nullable=True):
-    return ColInfo(
-        default=None if nullable else ...,
-        sa_column=Column(
-            ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
-            nullable=nullable,
-        ),
-    )
-
-
-class UnitUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-    category: str | None = None
-    si_unit_name: str | None = None
-    si_conv: float | None = None
-
-
-class Unit(SQLModel, table=True):
-    __tablename__: ClassVar[str] = "unit"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-    name: str = ColInfo(primary_key=True, max_length=32)
-    description: str | None = None
-    category: str | None = None
-    si_unit_name: str = unit_fk(nullable=False)
-    si_conv: float
-
-
-class CropBase(SQLModel):
-    common_name: str
-    latin_name: str
-    family: str
-    description: str | None = None
-    density: float | None = None
-    density_unit_name: str | None = unit_fk()
-
-
-class CropUpdate(SQLModel):
-    common_name: str | None = None
-    latin_name: str | None = None
-    family: str | None = None
-    description: str | None = None
-    density: float | None = None
-    density_unit_name: str | None = None
-
-
-class Crop(CropBase, table=True):
-    __tablename__: ClassVar[str] = "crop"  # type: ignore
-    __table_args__: ClassVar[dict] = {"schema": "ref"}
-
-    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
-    density_unit: Unit = Relationship()
-
-
-AnyReferencePublic = TypeEnumPublic | Crop | Unit
-
-# endregion
-# region -------------------------------- Schema: iam ----------------------------------
+# region ------------------------------------ IAM -------------------------------------
 
 
 class UserBase(SQLModel):
@@ -172,7 +113,7 @@ class AppUser(UserBase, table=True):
 
 
 # endregion
-# region ----------------------------- Schema: structure ------------------------------
+# region --------------------------------- Structure ----------------------------------
 
 
 class OrgBase(SQLModel):
@@ -324,7 +265,69 @@ class FieldBoundary(BoundaryBase, table=True):
 
 
 # endregion
-# region ------------------------------ Schema: resource ------------------------------
+# region ------------------------------------ Ref -------------------------------------
+
+
+# NOTE: This gets reused a LOT, so I thought it would be easier to just make a helper
+def unit_fk(nullable=True):
+    return ColInfo(
+        default=None if nullable else ...,
+        sa_column=Column(
+            ForeignKey("ref.unit.name", onupdate="CASCADE", ondelete="RESTRICT"),
+            nullable=nullable,
+        ),
+    )
+
+
+class UnitUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+    category: str | None = None
+    si_unit_name: str | None = None
+    si_conv: float | None = None
+
+
+class Unit(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "unit"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "ref"}
+
+    name: str = ColInfo(primary_key=True, max_length=32)
+    description: str | None = None
+    category: str | None = None
+    si_unit_name: str = unit_fk(nullable=False)
+    si_conv: float
+
+
+class CropBase(SQLModel):
+    common_name: str
+    latin_name: str
+    family: str
+    description: str | None = None
+    density: float | None = None
+    density_unit_name: str | None = unit_fk()
+
+
+class CropUpdate(SQLModel):
+    common_name: str | None = None
+    latin_name: str | None = None
+    family: str | None = None
+    description: str | None = None
+    density: float | None = None
+    density_unit_name: str | None = None
+
+
+class Crop(CropBase, table=True):
+    __tablename__: ClassVar[str] = "crop"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "ref"}
+
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+    density_unit: Unit = Relationship()
+
+
+AnyReferencePublic = TypeEnumPublic | Crop | Unit
+
+# endregion
+# region ---------------------------------- Resource ----------------------------------
 
 
 class ProductBase(SQLModel):
@@ -398,7 +401,9 @@ class Equipment(EquipmentBase, table=True):
 
 
 # endregion
-# region ----------------------------- Schema: operation ------------------------------
+# region --------------------------------- Operation ----------------------------------
+
+# TODO: add Product/Equipment Relationships to i/o/e?
 
 
 class FieldOpBase(SQLModel):
@@ -547,6 +552,45 @@ class BulkResource(SQLModel):
     inputs: list[OpInputPublic]
     outputs: list[OpOutputPublic]
     equipment: list[OpEquipmentPublic]
+
+
+# endregion
+# region -------------------------------- Integration ---------------------------------
+
+
+class JDConnection(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "jd_connection"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "integration"}
+
+    user_id: UUID = ColInfo(foreign_key="iam.app_user.id", ondelete="CASCADE")
+    org_id: UUID = ColInfo(
+        foreign_key="structure.org.id", ondelete="CASCADE", primary_key=True
+    )
+
+    records: list["JDRecordLink"] = Relationship(
+        back_populates="connection",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class JDRecordLink(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "jd_record_link"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "integration"}
+
+    link: str
+    data: dict[str, Any] = ColInfo(sa_column=Column(JSONB, nullable=False))
+    status: SyncStatus = ColInfo(
+        SyncStatus.NOSYNC, sa_column=Column("type", String(32), nullable=False)
+    )
+    # last_sync: datetime
+    table_name: str
+    table_key: dict[str, Any] = ColInfo(sa_column=Column(JSONB, nullable=False))
+    org_id: UUID = ColInfo(
+        foreign_key="integration.jd_connection.org_id", ondelete="CASCADE"
+    )
+    id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
+
+    connection: JDConnection = Relationship(back_populates="records")
 
 
 # endregion
