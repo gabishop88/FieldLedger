@@ -2,14 +2,14 @@ import logging
 from typing import Literal
 from urllib.parse import urlparse
 
-from requests import Response
-from requests.api import request
+from requests import Response, request
 from rich.logging import RichHandler
 
 log_handler = RichHandler(rich_tracebacks=True, show_time=False)
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
 log = logging.getLogger(__name__)
 
+JD_API_BASE = "https://sandbox.deere.com/platform"
 Method = Literal["get", "post", "put", "patch", "delete"]
 
 

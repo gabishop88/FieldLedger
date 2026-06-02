@@ -1,12 +1,10 @@
-import inspect
 import logging
 import os
-from typing import Literal
 
-from arq import create_pool
 from arq.connections import RedisSettings
 
 import app.integrations.jd.sync as jd
+from app.db.connection import get_engine
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ class WorkerSettings:
 
     @staticmethod
     async def on_startup(ctx):
-        """Currently Unused"""
+        ctx["engine"] = get_engine()
         log.info("Arq Worker Starting Up.")
 
     @staticmethod

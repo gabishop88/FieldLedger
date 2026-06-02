@@ -57,7 +57,6 @@ class ErrMsg(StrEnum):
     # HTTP_400_BAD_REQUEST
     BAD_PWD = "Incorrect Password."
     BAD_EMPTY_SEARCH = "Provide A Search Option"
-    BAD_PAYLOAD = "Empty Payload"
 
     # HTTP_403_FORBIDDEN
     FBDN_CRED = "Unable To Validate Credentials."
@@ -94,9 +93,6 @@ class LoadStrEnumMeta(EnumMeta):
         if vals:
             dct.update({v: v for v in vals})
         return super().__new__(mcls, name, bases, dct)
-
-
-# class RefTables(StrEnum, metaclass=DynamicStrEnumMeta, vals=get_table_names()): ...
 
 
 class TypeEnum(StrEnum):
