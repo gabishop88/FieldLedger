@@ -93,6 +93,8 @@ def mermaid_erd(include_cols=True) -> str:
         "resource": "#ff7d35",
         "operation": "#00b572",
     }
+    for sch in SQLModel.metadata._schemas - set(schemas.keys()):
+        schemas[sch] = "#cccccc"
     colors = [f"\tclassDef {s} stroke:{c}" for (s, c) in schemas.items()]
     ts = SQLModel.metadata.tables.values()
     ts = sorted(ts, key=lambda t: list(schemas.keys()).index(t.schema or ""))
