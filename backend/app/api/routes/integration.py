@@ -1,11 +1,10 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request, Response, status
 
-from app.api.deps import UserSession
-from app.core.enums import DocTag, ErrMsg
-from app.integrations.worker import add_task
+from app.api.deps import CurrentUser, JobPool
+from app.core.enums import DocTag
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -13,24 +12,29 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=[DocTag.INTEG])
 
 
-# TODO: How to ensure caller is John Deere API and get which user's webhook called?
-@router.post("/jd/webhook-callback")  # TODO: Look up webhook expected response
-async def recieve_jd_webhook(request: Request):
-    payload = await request.json()
-    if not payload:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, ErrMsg.BAD_PAYLOAD)
-    log.info(f"Recieved Webhook from John Deere: {payload.get('eventType')}")
-    await add_task("handle_webhook_event", payload)
-    return {"status": "accepted"}
+# TODO: Can I replace request with just the events body? maybe need pydantic?
+# TODO: Should I use the Authorization header (CurrentUser) or token in body for user?
+@router.post("/jd/recieve-webhook-events")
+async def recieve_jd_webhook(request: Request, user: CurrentUser, pool: JobPool) -> Response:
+    """Handle webhook callback. Must return status 204 within 5s as per JD docs."""
+    events = await request.json()
+    for event in events:
+        # TODO: Should I handle the subscriptionVerification events here immediately?
+        await pool.enqueue_job("handle_webhook_event", user_id=user.id, event=event)
+
+    return Response(None, status.HTTP_204_NO_CONTENT)
 
 
-@router.post("jd/sync/{org_id}")
-async def jd_sync_org(db: UserSession, org_id: UUID):
-    log.info(f"Manual Sync Triggered for {org_id=}")
-    await add_task("initial_sync", db, org_id)
-    return {"status": "syncing", "org_id": str(org_id)}
+@router.post("jd/sync/{jd_org_id}")
+async def jd_sync_org(user: CurrentUser, pool: JobPool, jd_org_id: UUID):
+    log.info(f"Manual Sync Triggered for {jd_org_id=}")
+    await pool.enqueue_job("initial_sync", org_id=jd_org_id, user_id=user.id)
+    # TODO: Determine a better response, such as getting the sync tree from the task
+    return {"status": "syncing", "org_id": str(jd_org_id)}
 
 
 # TODO: Add endpoints to modify sync states within the sync tree?
-#   I think make an endpoint to get sync tree for org_id (+ return it from jd_sync_org)
+#   I think make an endpoint to get sync tree for org_id (+ return it from jd_sync_org?)
 #   Probably also make endpoints to modify sync state for specific records or bulk?
+
+# TODO: Add col to JDRecordLink to indicate when it should be deleted if link is

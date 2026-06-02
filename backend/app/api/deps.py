@@ -5,7 +5,7 @@ To use one of the dependencies defined here:
 ```py
 from app.api.deps import SomeSession, SomeUser
 def endpoint_function(db: SomeSession, user: SomeUser): # For example
-    ...
+    pass
 ```
 Where `SomeSession` can be:
 * `ReadSession`: Read-only session to be used by anyone; cannot alter the database.
@@ -22,6 +22,7 @@ import logging
 from collections.abc import Generator
 from typing import Annotated
 
+from arq import ArqRedis
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, text
@@ -38,14 +39,16 @@ logger = logging.getLogger(__name__)
 # NOTE: read/write_session calls 'RESET "app.current_user"' to prevent any missing errs.
 
 
-# --------------------------- Auth Token from Request Header ---------------------------
-
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_PREFIX}/account/login/access-token"
 )
 AccessToken = Annotated[str, Depends(reusable_oauth2)]
 
-# -------------------------------- Read-only DB Session --------------------------------
+
+def arq_job_pool(request: Request) -> ArqRedis:
+    return request.app.state.job_pool
+
+JobPool = Annotated[ArqRedis, Depends(arq_job_pool)]
 
 
 def read_session() -> Generator[Session, None, None]:
@@ -55,8 +58,6 @@ def read_session() -> Generator[Session, None, None]:
 
 
 ReadSession = Annotated[Session, Depends(read_session)]
-
-# --------------------------- AppUser Record From Auth Token ---------------------------
 
 
 def get_current_user(db: ReadSession, token: AccessToken) -> AppUser:
@@ -84,9 +85,6 @@ def get_current_superuser(current_user: CurrentUser) -> AppUser:
 
 
 CurrentSuperuser = Annotated[AppUser, Depends(get_current_superuser)]
-
-
-# ------------------------------- Read/Write DB Session --------------------------------
 
 
 def write_session(request: Request) -> Generator[Session, None, None]:

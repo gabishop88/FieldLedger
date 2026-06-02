@@ -1,5 +1,7 @@
 import re
+from contextlib import asynccontextmanager
 
+from arq import create_pool
 from fastapi import FastAPI, status
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRoute
@@ -8,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.enums import DocTag
+from app.integrations.worker import REDIS_SETTINGS
 
 SNAKIFIER = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
@@ -19,15 +22,23 @@ def custom_route_id(route: APIRoute) -> str:
     return f"{tag}_{route.name}"
 
 
+@asynccontextmanager
+async def lifespan(app):
+    app.state.job_pool = create_pool(REDIS_SETTINGS)
+    yield
+    app.state.job_pool.close()
+
+
 app = FastAPI(
     title=f"{settings.PROJECT_NAME} API",
-    contact={"role": "Developer", "email": settings.FIRST_SUPERUSER},
-    generate_unique_id_function=custom_route_id,
-    openapi_tags=[{"name": str(tag)} for tag in DocTag],
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
-    swagger_ui_oauth2_redirect_url=f"{settings.API_PREFIX}/docs/oauth2-redirect",
+    openapi_tags=[{"name": str(tag)} for tag in DocTag],
     docs_url=None,  # I registered a custom docs page in `app/api/router.py`
     redoc_url=f"{settings.API_PREFIX}/redoc",
+    swagger_ui_oauth2_redirect_url=f"{settings.API_PREFIX}/docs/oauth2-redirect",
+    lifespan=lifespan,
+    contact={"role": "Developer", "email": settings.FIRST_SUPERUSER},
+    generate_unique_id_function=custom_route_id,
 )
 
 if settings.all_cors_origins:

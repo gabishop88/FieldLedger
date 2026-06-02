@@ -33,15 +33,3 @@ class WorkerSettings:
     async def on_shutdown(ctx):
         """Currently Unused"""
         log.info("Arq Worker Shutting Down.")
-
-
-Task = Literal["initial_sync", "handle_webhook_event"]
-
-async def add_task(task: Task, *args, **kwargs) -> None:
-    """Enqueue a task to be processed by the worker."""
-    redis = await create_pool(WorkerSettings.redis_settings)
-    fn = next((fn for fn in WorkerSettings.functions if fn.__name__ == task), None)
-    if fn is None:
-        raise ValueError(f"{task=} must be in {Task=}")
-    inspect.signature(fn).bind(*args, **kwargs)  # NOTE: TypeError if invalid args
-    await redis.enqueue_job(task, *args, **kwargs)
