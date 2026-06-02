@@ -48,7 +48,8 @@ db_refs = list_db_ref_tables()
 enum_refs = list_enum_ref_tables()
 
 
-class RefTables(StrEnum, metaclass=LoadStrEnumMeta, vals=db_refs + enum_refs): ...
+class RefTables(StrEnum, metaclass=LoadStrEnumMeta, vals=db_refs + enum_refs):
+    pass
 
 
 @router.get("/tables", response_model=list[str])

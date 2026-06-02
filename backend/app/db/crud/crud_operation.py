@@ -11,16 +11,20 @@ from app.db.models import (
 )
 
 
-class CRUDFieldOp(CRUDBase[FieldOp, FieldOp, FieldOpUpdate]): ...
+class CRUDFieldOp(CRUDBase[FieldOp, FieldOp, FieldOpUpdate]):
+    pass
 
 
-class CRUDOpInput(CRUDBase[OpInput, OpInput, OpInputUpdate]): ...
+class CRUDOpInput(CRUDBase[OpInput, OpInput, OpInputUpdate]):
+    pass
 
 
-class CRUDOpOutput(CRUDBase[OpOutput, OpOutput, OpOutputUpdate]): ...
+class CRUDOpOutput(CRUDBase[OpOutput, OpOutput, OpOutputUpdate]):
+    pass
 
 
-class CRUDOpEquipment(CRUDBase[OpEquipment, OpEquipment, OpEquipmentUpdate]): ...
+class CRUDOpEquipment(CRUDBase[OpEquipment, OpEquipment, OpEquipmentUpdate]):
+    pass
 
 
 op = CRUDFieldOp(FieldOp)

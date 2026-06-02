@@ -15,19 +15,24 @@ from app.db.models import (
 )
 
 
-class CRUDOrg(CRUDBase[Org, OrgCreate, OrgUpdate]): ...
+class CRUDOrg(CRUDBase[Org, OrgCreate, OrgUpdate]):
+    pass
 
 
-class CRUDFarm(CRUDBase[Farm, FarmCreate, FarmUpdate]): ...
+class CRUDFarm(CRUDBase[Farm, FarmCreate, FarmUpdate]):
+    pass
 
 
-class CRUDOrgFarm(CRUDBase[OrgFarm, OrgFarm, OrgFarmUpsert]): ...
+class CRUDOrgFarm(CRUDBase[OrgFarm, OrgFarm, OrgFarmUpsert]):
+    pass
 
 
-class CRUDField(CRUDBase[Field, Field, FieldUpdate]): ...
+class CRUDField(CRUDBase[Field, Field, FieldUpdate]):
+    pass
 
 
-class CRUDFieldBoundary(CRUDBase[FieldBoundary, FieldBoundary, BoundaryUpdate]): ...
+class CRUDFieldBoundary(CRUDBase[FieldBoundary, FieldBoundary, BoundaryUpdate]):
+    pass
 
 
 org = CRUDOrg(Org)

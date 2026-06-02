@@ -430,7 +430,8 @@ class FieldOpUpdate(SQLModel):
     boundary_id: UUID | None = None
 
 
-class FieldOpCreate(FieldOpBase): ...
+class FieldOpCreate(FieldOpBase):
+    pass
 
 
 class FieldOp(FieldOpBase, table=True):
@@ -453,10 +454,12 @@ class OpInputBase(SQLModel):
     rate_unit: str | None = unit_fk()
 
 
-class OpInputCreate(OpInputBase): ...
+class OpInputCreate(OpInputBase):
+    pass
 
 
-class OpInputUpdate(OpInputBase): ...
+class OpInputUpdate(OpInputBase):
+    pass
 
 
 class OpInputPublic(OpInputBase):
@@ -491,10 +494,12 @@ class OpOutputBase(SQLModel):
     moisture_pct: float | None = None
 
 
-class OpOutputCreate(OpOutputBase): ...
+class OpOutputCreate(OpOutputBase):
+    pass
 
 
-class OpOutputUpdate(OpOutputBase): ...
+class OpOutputUpdate(OpOutputBase):
+    pass
 
 
 class OpOutputPublic(OpOutputBase):
@@ -524,10 +529,12 @@ class OpEquipmentBase(SQLModel):
     depth_unit: str | None = unit_fk()
 
 
-class OpEquipmentCreate(OpEquipmentBase): ...
+class OpEquipmentCreate(OpEquipmentBase):
+    pass
 
 
-class OpEquipmentUpdate(OpEquipmentBase): ...
+class OpEquipmentUpdate(OpEquipmentBase):
+    pass
 
 
 class OpEquipmentPublic(OpEquipmentBase):
