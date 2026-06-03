@@ -565,19 +565,40 @@ class BulkResource(SQLModel):
 # region -------------------------------- Integration ---------------------------------
 
 
+# NOTE: Right now, connection is based on user_id. This is mostly to prevent any
+#   complications from multiple users being able to sync. Could replace pk with id
 class JDConnection(SQLModel, table=True):
     __tablename__: ClassVar[str] = "jd_connection"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "integration"}
 
-    user_id: UUID = ColInfo(foreign_key="iam.app_user.id", ondelete="CASCADE")
-    org_id: UUID = ColInfo(
-        foreign_key="structure.org.id", ondelete="CASCADE", primary_key=True
+    access_token: str | None = None
+    access_expires_at: datetime | None = None
+    refresh_token: str | None = None
+    user_id: UUID = ColInfo(
+        foreign_key="iam.app_user.id", ondelete="CASCADE", primary_key=True
     )
 
     records: list["JDRecordLink"] = Relationship(
         back_populates="connection",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+
+class SyncTreeNode(SQLModel):
+    link: str
+    data: dict
+    status: SyncStatus
+    persistent: bool
+    table_name: str
+    table_key: dict | None
+    id: UUID
+
+    children: list["SyncTreeNode"]
+
+
+class JDRecordLinkUpdate(SQLModel):
+    status: SyncStatus | None = None
+    persistent: bool | None = None
 
 
 class JDRecordLink(SQLModel, table=True):
@@ -589,15 +610,24 @@ class JDRecordLink(SQLModel, table=True):
     status: SyncStatus = ColInfo(
         SyncStatus.NOSYNC, sa_column=Column("type", String(32), nullable=False)
     )
+    persistent: bool = False
     # last_sync: datetime
     table_name: str
-    table_key: dict[str, Any] = ColInfo(sa_column=Column(JSONB, nullable=False))
-    org_id: UUID = ColInfo(
-        foreign_key="integration.jd_connection.org_id", ondelete="CASCADE"
+    table_key: dict[str, Any] | None = ColInfo(sa_column=Column(JSONB))
+    parent_id: UUID = ColInfo(
+        foreign_key="integration.jd_record_link.id", ondelete="CASCADE"
+    )
+    user_id: UUID = ColInfo(
+        foreign_key="integration.jd_connection.id", ondelete="CASCADE"
     )
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
     connection: JDConnection = Relationship(back_populates="records")
+    parent: "JDRecordLink | None" = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={"remote_side": "JDRecordLink.id"},
+    )
+    children: list["JDRecordLink"] = Relationship(back_populates="parent")
 
 
 # endregion

@@ -20,7 +20,7 @@ REDIS_SETTINGS = RedisSettings(host=os.getenv("REDIS_HOST") or "localhost")
 
 class WorkerSettings:
     redis_settings = REDIS_SETTINGS
-    functions = [jd.initial_sync, jd.handle_webhook_event]
+    functions = [jd.validate_sync_tree, jd.modify_sync, jd.handle_webhook_event]
 
     @staticmethod
     async def on_startup(ctx):
