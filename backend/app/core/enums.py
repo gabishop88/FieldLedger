@@ -58,8 +58,12 @@ class ErrMsg(StrEnum):
     BAD_PWD = "Incorrect Password."
     BAD_EMPTY_SEARCH = "Provide A Search Option"
 
+    # HTTP_401_UNAUTHORIZED
+    UNAUTH_CRED = "Unable To Validate Credentials."
+    UNAUTH_JD = "John Deere Integration is not Authorized."
+
+
     # HTTP_403_FORBIDDEN
-    FBDN_CRED = "Unable To Validate Credentials."
     FBDN_PRIV = "User Missing Priveleges."
     FBDN_DEL_1SU = "YOU ARE NEEDED, ADMINISTRATOR."
     FBDN_REM_1SU = "Cannot Delete First Superuser."
@@ -82,6 +86,8 @@ class SyncStatus(StrEnum):
     PAUSE = "Paused"  # previously synced, currently not updating. empty yellow checkbox
     ERROR = "Error"  # Something has gone wrong - may need to restart sync?
     FLAG = "Flagged"  # Sync detected likely garbage data
+    # NOTE: https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
+    NORG = "No Org Access"  # User is authenticated in jd, but hasn't enabled org access
 
 
 class LoadStrEnumMeta(EnumMeta):

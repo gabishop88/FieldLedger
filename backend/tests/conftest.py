@@ -41,7 +41,7 @@ def cli(db: Session) -> Generator[TestClient, None, None]:
     def current_user_override(db: ReadSession, token: AccessToken) -> AppUser:
         key = security.decode_token(token)
         if key is None:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, ErrMsg.FBDN_CRED)
+            raise HTTPException(status.HTTP_403_FORBIDDEN, ErrMsg.UNAUTH_CRED)
         user = db.get(AppUser, key)
         if not user:
             raise HTTPException(

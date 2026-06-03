@@ -64,7 +64,7 @@ def get_current_user(db: ReadSession, token: AccessToken) -> AppUser:
     """Returns current user if the header contains a valid auth token."""
     key = security.decode_token(token)
     if key is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, ErrMsg.FBDN_CRED)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_CRED)
 
     user = db.get(AppUser, key)
     if not user:
@@ -79,7 +79,7 @@ CurrentUser = Annotated[AppUser, Depends(get_current_user)]
 
 def get_current_superuser(current_user: CurrentUser) -> AppUser:
     """Returns current user if they have superuser perms. Otherwise raises Exception."""
-    if current_user is None or not current_user.is_superuser:
+    if not current_user.is_superuser:
         raise HTTPException(status.HTTP_403_FORBIDDEN, ErrMsg.FBDN_PRIV)
     return current_user
 
