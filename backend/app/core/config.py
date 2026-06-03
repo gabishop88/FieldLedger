@@ -137,9 +137,16 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
-    def _check_default_secret(self, var_name: str, value: str | None) -> None:
-        if value == "changethis":
-            message = f"Please update {var_name} in .env. Current value: 'changethis'."
+    # John Deere Integration
+    JD_API_BASE: str = "https://sandbox.deere.com/platform"
+    JD_AUTH_BASE: str = "https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1"
+    JD_CLIENT_ID: str
+    JD_CLIENT_SECRET: str
+
+    def _check_default_secret(self, var_name: str) -> None:
+        value = getattr(self, var_name)
+        if not value or value == "changethis":
+            message = f"Please update {var_name} in .env. Current {value=}"
             if self.ENVIRONMENT == "local":
                 warnings.warn(message, stacklevel=1)
             else:
@@ -147,11 +154,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _enforce_secrets(self) -> Self:
-        self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
-        self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
-        self._check_default_secret(
-            "FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD
-        )
+        self._check_default_secret("SECRET_KEY")
+        self._check_default_secret("POSTGRES_PASSWORD")
+        self._check_default_secret("FIRST_SUPERUSER_PASSWORD")
+        self._check_default_secret("JD_CLIENT_ID")
+        self._check_default_secret("JD_CLIENT_SECRET")
         return self
 
 
