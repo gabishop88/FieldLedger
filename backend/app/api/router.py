@@ -2,14 +2,14 @@ import csv
 from io import StringIO
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, UploadFile, status
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from pydantic import ValidationError
-from sqlmodel import Column, ForeignKey, SQLModel, Table
+from sqlmodel import Column, ForeignKey, SQLModel, Table, select
 
-from app.api.deps import SuperuserSession
-from app.api.routes import iam, operation, ref, resource, structure
+from app.api.deps import JobPool, ReadSession, SuperuserSession
+from app.api.routes import iam, integration, operation, ref, resource, structure
 from app.core.config import settings
 from app.core.enums import DocTag, ErrMsg
 from app.db import models
@@ -20,6 +20,7 @@ api_router.include_router(operation.router)
 api_router.include_router(resource.router)
 api_router.include_router(iam.router, tags=[DocTag.IAM_USER])
 api_router.include_router(ref.router, tags=[DocTag.REF])
+api_router.include_router(integration.router)
 
 
 # ----------------------------------- Base Endpoints -----------------------------------
@@ -28,8 +29,27 @@ api_router.include_router(ref.router, tags=[DocTag.REF])
 
 @api_router.get("/health-check", tags=[DocTag.MISC])
 @api_router.head("/health-check", include_in_schema=False)
-def health_check(_: Request):
-    return PlainTextResponse("<3", status_code=status.HTTP_200_OK)
+def api_health_check(db: ReadSession):
+    try:
+        db.exec(select(1)).one()
+    except Exception as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e))
+    return PlainTextResponse("<3", status.HTTP_200_OK)
+
+
+@api_router.get("/health-check/sync-worker", tags=[DocTag.MISC])
+@api_router.head("/health-check/sync-worker", include_in_schema=False)
+async def sync_health_check(pool: JobPool, timeout_sec: int = 10):
+    job = await pool.enqueue_job("health_check")
+    if job is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, ErrMsg.NO_QUEUE)
+
+    try:
+        if await job.result(timeout=timeout_sec):
+            return PlainTextResponse("<3", status.HTTP_200_OK)
+    except TimeoutError:
+        pass
+    raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, ErrMsg.NO_WORKER)
 
 
 # Redirect people to the /docs page if it looks like they need help
@@ -80,7 +100,9 @@ def mermaid_erd(include_cols=True) -> str:
         return f'\t\t{tname(fk.column.table)} ||--o{{ {tname(t)} : ""'
 
     def incl(fk: ForeignKey) -> bool:  # NOTE: Filter most unit fks, there are too many.
-        return fk.column.table.name != "unit" or fk.parent.table.name == "crop"
+        skip_unit = fk.column.table.name != "unit" or fk.parent.table.name == "crop"
+        skip_self = fk.parent.table.name != fk.column.table.name
+        return skip_unit and skip_self
 
     def rels(t: Table) -> list[str]:  # NOTE: Output all fks that connect to t
         return [conn(t, fk) for c in t.columns for fk in c.foreign_keys if incl(fk)]
@@ -102,14 +124,15 @@ def mermaid_erd(include_cols=True) -> str:
     return "\n\t\t".join(lines)
 
 
-# TODO: Can/Should I update project to 3.14 so I can get template strings?
-DIAGRAM_HTML = """
+@api_router.get("/erd", tags=[DocTag.MISC], response_class=HTMLResponse)
+def get_database_diagram(simple: bool = False):
+    return f"""
 <!doctype html><html>
 <head>
     <meta charset="utf-8">
     <title>FieldLedger ERD</title>
     <style>
-        body {
+        body {{
             box-sizing: border-box;
             max-width: 1460px;
             margin: 0 auto;
@@ -117,27 +140,54 @@ DIAGRAM_HTML = """
             font-family: sans-serif;
             background: #1c2022;
             color: #d2d6d8;
-        }
+        }}
     </style>
 </head>
 <body>
-    <h1 style="{font-size: 36px; margin: 50px 20px;}">FieldLedger ERD</h1>
+    <h1 style="{{font-size: 36px; margin: 50px 20px;}}">FieldLedger ERD</h1>
+    <button id="svg-btn">Download SVG</button>
+    <button id="png-btn">Download PNG</button>
     <pre class="mermaid">
-        {diagram}
+        {mermaid_erd(not simple)}
     </pre>
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({theme: "dark", look: "handDrawn"});
+        mermaid.initialize({{theme: "dark", look: "handDrawn"}});
     </script>
+<script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+
+<script>
+document.getElementById("svg-btn").onclick=()=>{{
+    const svg=document.querySelector(".mermaid svg");
+    const data=new XMLSerializer().serializeToString(svg);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([data],{{type:"image/svg+xml"}}));
+    a.download="fieldledger-erd.svg";
+    a.click();
+}};
+
+document.getElementById("png-btn").onclick=async()=>{{
+    const svg=document.querySelector(".mermaid svg");
+    const data=new XMLSerializer().serializeToString(svg);
+
+    const canvas=document.createElement("canvas");
+    const ctx=canvas.getContext("2d");
+
+    canvas.width=svg.viewBox.baseVal.width||svg.getBBox().width;
+    canvas.height=svg.viewBox.baseVal.height||svg.getBBox().height;
+
+    const v=await Canvg.fromString(ctx,data);
+    await v.render();
+
+    const a=document.createElement("a");
+    a.href=canvas.toDataURL("image/png");
+    a.download="fieldledger-erd.png";
+    a.click();
+}};
+</script>
 </body>
 </html>
 """
-
-
-@api_router.get("/erd", tags=[DocTag.MISC], response_class=HTMLResponse)
-def get_database_diagram(simple: bool = False):
-    # NOTE: replace bc there are {} that aren't placeholders and t-strings are in 3.14
-    return DIAGRAM_HTML.replace("{diagram}", mermaid_erd(not simple))
 
 
 # @api_router.post("/erd/layout")

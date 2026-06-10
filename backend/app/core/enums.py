@@ -47,7 +47,7 @@ class DocTag(StrEnum):
 class ErrMsg(StrEnum):
     """### Provides literals to maintain consistent error messages.
     Use `.format()` to replace placeholers (like the `{0}` in `ExeMsg.NF`):
-    > `ExeMsg.NF.format("User", missing_user_id)`
+    > `ExeMsg.NF.format("AppUser", missing_user_id)`
 
     > `<{0} {1}> Not Found.` -> `<User 123e4567-e89b-12d3-a456-426614174000> Not Found.`
 
@@ -61,7 +61,6 @@ class ErrMsg(StrEnum):
     # HTTP_401_UNAUTHORIZED
     UNAUTH_CRED = "Unable To Validate Credentials."
     UNAUTH_JD = "John Deere Integration is not Authorized."
-
 
     # HTTP_403_FORBIDDEN
     FBDN_PRIV = "User Missing Priveleges."
@@ -78,16 +77,25 @@ class ErrMsg(StrEnum):
     INVALID_WKT = "'geom' is not valid WKT."
     INVALID_TOPO = "'geom' has invalid topology."
 
+    # HTTP_503_SERVICE_UNAVAILABLE
+    NO_QUEUE = "Unable to enqueue job to check on worker."
+    NO_WORKER = "Worker health check timed out."
+
 
 class SyncStatus(StrEnum):
-    NOSYNC = "Not Synced"  # Found in heirarchy, not synced. empty gray checkbox
     SYNC = "Synced"  # Completely synced and up-to-date. filled green checkbox
     DIRTY = "Unsynced"  # Sync enabled, data maybe old/loading. filled yellow checkbox
     PAUSE = "Paused"  # previously synced, currently not updating. empty yellow checkbox
-    ERROR = "Error"  # Something has gone wrong - may need to restart sync?
     FLAG = "Flagged"  # Sync detected likely garbage data
+    NOSYNC = "Not Synced"  # Found in heirarchy, not synced. empty gray checkbox
+    # Status options for orgs only
     # NOTE: https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
     NORG = "No Org Access"  # User is authenticated in jd, but hasn't enabled org access
+    CONFLICT = "Synced by Another User"
+
+
+SYNC_ACTIVE = {SyncStatus.SYNC, SyncStatus.DIRTY, SyncStatus.PAUSE, SyncStatus.FLAG}
+SYNC_INACTIVE = {SyncStatus.NOSYNC, SyncStatus.NORG, SyncStatus.CONFLICT}
 
 
 class LoadStrEnumMeta(EnumMeta):

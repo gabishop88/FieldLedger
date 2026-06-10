@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str
 
     # John Deere Integration
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+
     JD_API_BASE: str = "https://sandbox.deere.com/platform"
     JD_AUTH_BASE: str = "https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1"
     JD_CLIENT_ID: str

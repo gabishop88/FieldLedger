@@ -19,9 +19,12 @@ services:
   redis:
     image: redis:8
     container_name: fieldledger_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-    ports:
-      - "6379:6379"
 
   backend-prestart:
     build:
@@ -35,6 +38,9 @@ services:
       - .env
     environment:
       - POSTGRES_SERVER=fieldledger_db
+    volumes:
+      - docker-venv:/app/.venv
+      - docker-uv:/app/.uv
     command: uv run python -m app.db.prestart
 
   backend:
@@ -48,27 +54,31 @@ services:
         condition: service_healthy
       backend-prestart:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     env_file:
       - ./.env
     environment:
       - POSTGRES_SERVER=fieldledger_db
     volumes:
       - ./backend:/app
-      - /app/.venv
-      - /app/.uv
+      - docker-venv:/app/.venv
+      - docker-uv:/app/.uv
     ports:
       - "8000:8000"
     command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
 
-  sync_worker:
+  sync-worker:
     build:
       context: ./backend
     image: backend:dev
     container_name: fieldledger_sync_worker
     restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -76,7 +86,9 @@ services:
       - REDIS_HOST=redis
     volumes:
       - ./backend:/app
-    command: uv run arq app.integrations.worker.WorkerSettings
+      - docker-venv:/app/.venv
+      - docker-uv:/app/.uv
+    command: uv run watchfiles "uv run arq app.integrations.worker.WorkerSettings" app
 
   # frontend:
   #   build: ./frontend
@@ -84,3 +96,5 @@ services:
 
 volumes:
   db-data:
+  docker-venv:
+  docker-uv:

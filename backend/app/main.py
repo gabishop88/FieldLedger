@@ -24,9 +24,9 @@ def custom_route_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app):
-    app.state.job_pool = create_pool(REDIS_SETTINGS)
+    app.state.job_pool = await create_pool(REDIS_SETTINGS)
     yield
-    app.state.job_pool.close()
+    await app.state.job_pool.close()
 
 
 app = FastAPI(

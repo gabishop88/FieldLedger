@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Annotated, Any, ClassVar, TypeVar
+from typing import Annotated, Any, ClassVar, Optional, TypeVar
 from uuid import UUID
 
 from geoalchemy2 import Geometry, WKBElement, WKTElement
@@ -565,6 +565,14 @@ class BulkResource(SQLModel):
 # region -------------------------------- Integration ---------------------------------
 
 
+class JDConnectionUpdate(SQLModel):
+    access_token: str
+    access_expires_at: datetime
+    refresh_token: str
+
+
+# TODO: I am storing tokens as plaintext. I need to encrypt them, but SECREY_KEY
+    #   in settings changes when the API starts. I need a stable key for refresh_token
 # NOTE: Right now, connection is based on user_id. This is mostly to prevent any
 #   complications from multiple users being able to sync. Could replace pk with id
 class JDConnection(SQLModel, table=True):
@@ -596,7 +604,7 @@ class SyncTreeNode(SQLModel):
     children: list["SyncTreeNode"]
 
 
-class JDRecordLinkUpdate(SQLModel):
+class JDLinkUpdate(SQLModel):
     status: SyncStatus | None = None
     persistent: bool | None = None
 
@@ -613,17 +621,18 @@ class JDRecordLink(SQLModel, table=True):
     persistent: bool = False
     # last_sync: datetime
     table_name: str
-    table_key: dict[str, Any] | None = ColInfo(sa_column=Column(JSONB))
-    parent_id: UUID = ColInfo(
-        foreign_key="integration.jd_record_link.id", ondelete="CASCADE"
+    table_key: dict[str, Any] | None = ColInfo(None, sa_column=Column(JSONB))
+    parent_id: UUID | None = ColInfo(
+        None, foreign_key="integration.jd_record_link.id", ondelete="CASCADE"
     )
     user_id: UUID = ColInfo(
-        foreign_key="integration.jd_connection.id", ondelete="CASCADE"
+        foreign_key="integration.jd_connection.user_id", ondelete="CASCADE"
     )
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
 
     connection: JDConnection = Relationship(back_populates="records")
-    parent: "JDRecordLink | None" = Relationship(
+    # NOTE: Optional["X"] rather than "X | None" because the latter made the API crash
+    parent: Optional["JDRecordLink"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={"remote_side": "JDRecordLink.id"},
     )
