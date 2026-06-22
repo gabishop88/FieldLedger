@@ -17,6 +17,7 @@ from pathlib import Path
 from app.core.config import settings
 
 
+# TODO: use `python -m alembic current` since it will be guaranteed by uv?
 def get_revision() -> str:
     result = subprocess.run(["alembic", "current"], capture_output=True, text=True)
     return result.stdout.split(" ")[0].strip()
@@ -26,6 +27,7 @@ def get_timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%d_%H%M%S").strip()
 
 
+# TODO: remove the explicit path and rely on being the correct pgsql version (18)?
 def make_backup(dir: Path) -> None:
     fp = dir.joinpath(f"{get_revision()}_{get_timestamp()}_{settings.POSTGRES_DB}.dump")
     db_url = str(settings.ADMIN_DATABASE_URI).replace("+psycopg", "")

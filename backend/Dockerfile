@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim
-# This is heavily inspired by https://github.com/fastapi/full-stack-fastapi-template
+# This draws heavily from https://github.com/fastapi/full-stack-fastapi-template
 
 # NOTE: Used primarily for pg_dump and pg_restore
 # Add PGDG apt repo for PostgreSQL 18 client tools
