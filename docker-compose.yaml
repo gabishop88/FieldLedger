@@ -38,9 +38,6 @@ services:
       - .env
     environment:
       - POSTGRES_SERVER=fieldledger_db
-    volumes:
-      - docker-venv:/app/.venv
-      - docker-uv:/app/.uv
     command: uv run python -m app.db.prestart
 
   backend:
@@ -61,9 +58,8 @@ services:
     environment:
       - POSTGRES_SERVER=fieldledger_db
     volumes:
-      - ./backend:/app
-      - docker-venv:/app/.venv
-      - docker-uv:/app/.uv
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
     ports:
       - "8000:8000"
     command: uv run fastapi dev app/main.py --host 0.0.0.0 --port 8000
@@ -85,9 +81,8 @@ services:
       - POSTGRES_SERVER=fieldledger_db
       - REDIS_HOST=redis
     volumes:
-      - ./backend:/app
-      - docker-venv:/app/.venv
-      - docker-uv:/app/.uv
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
     command: uv run watchfiles "uv run arq app.integrations.worker.WorkerSettings" app
 
   # frontend:
@@ -96,5 +91,3 @@ services:
 
 volumes:
   db-data:
-  docker-venv:
-  docker-uv:
