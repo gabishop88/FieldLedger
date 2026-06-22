@@ -88,6 +88,13 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             )
         return record
 
+    def get_first(self, db: Session, *filters, order_by=None) -> ModelType | None:
+        """Similar to `get_paginated` but only get the first record, if it exists."""
+        assert self.model is not None, "Cannot get record, model is not set."
+        query = select(self.model).where(*filters)
+        query = query if order_by is None else query.order_by(order_by)
+        return db.exec(query).first()
+
     def get_paginated(
         self, db: Session, skip: int, limit: int | None, *filters, order_by=None
     ) -> Paginated[ModelType]:
