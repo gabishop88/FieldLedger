@@ -139,7 +139,7 @@ class Org(OrgBase, table=True):
 
 class FarmBase(SQLModel):
     name: str = ColInfo(max_length=255, unique=True)
-    private: bool = False
+    private: bool = False  # TODO: how do I use this with org being how it is? remove?
     description: str | None = None
 
 
@@ -230,9 +230,9 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
         try:
             shapely_geom = wkt.loads(value)
             if shapely_geom.is_empty or not shapely_geom.is_valid:
-                raise ValueError(ErrMsg.INVALID_TOPO)
+                raise ValueError(ErrMsg.INVLD_TOPO)
         except Exception:
-            raise ValueError(ErrMsg.INVALID_WKT)
+            raise ValueError(ErrMsg.INVLD_WKT)
 
         return value
 
@@ -567,8 +567,9 @@ class BulkResource(SQLModel):
 
 class JDConnectionUpdate(SQLModel):
     access_token: str
-    access_expires_at: datetime
     refresh_token: str
+    access_expires_at: datetime
+    first_established: datetime | None = None
 
 
 # TODO: I am storing tokens as plaintext. I need to encrypt them, but SECREY_KEY
@@ -580,8 +581,9 @@ class JDConnection(SQLModel, table=True):
     __table_args__: ClassVar[dict] = {"schema": "integration"}
 
     access_token: str | None = None
-    access_expires_at: datetime | None = None
     refresh_token: str | None = None
+    access_expires_at: datetime | None = None
+    first_established: datetime | None = None
     user_id: UUID = ColInfo(
         foreign_key="iam.app_user.id", ondelete="CASCADE", primary_key=True
     )
@@ -593,10 +595,10 @@ class JDConnection(SQLModel, table=True):
 
 
 class SyncTreeNode(SQLModel):
-    link: str
+    uri: str
     data: dict
     status: SyncStatus
-    persistent: bool
+    local_persistent: bool
     table_name: str
     table_key: dict | None
     id: UUID
@@ -606,19 +608,26 @@ class SyncTreeNode(SQLModel):
 
 class JDLinkUpdate(SQLModel):
     status: SyncStatus | None = None
-    persistent: bool | None = None
+    local_persistent: bool | None = None
+
+
+class SyncLinkUpdate(SQLModel):
+    """This is an update model designed to be used to update a link internally."""
+    data: dict[str, Any] | None = None
+    table_key: dict[str, Any] | None = None
+    local_persistent: bool | None = None
 
 
 class JDRecordLink(SQLModel, table=True):
     __tablename__: ClassVar[str] = "jd_record_link"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "integration"}
 
-    link: str
+    uri: str
     data: dict[str, Any] = ColInfo(sa_column=Column(JSONB, nullable=False))
     status: SyncStatus = ColInfo(
         SyncStatus.NOSYNC, sa_column=Column("type", String(32), nullable=False)
     )
-    persistent: bool = False
+    local_persistent: bool = False
     # last_sync: datetime
     table_name: str
     table_key: dict[str, Any] | None = ColInfo(None, sa_column=Column(JSONB))
