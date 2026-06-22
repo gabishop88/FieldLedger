@@ -107,7 +107,7 @@ def edit_unit(db: SuperuserSession, name: str, edits: UnitUpdate):
 
 
 @router.delete("/unit/{name}", response_model=Unit)
-def delete_unit(db: SuperuserSession, name: UUID):
+def delete_unit(db: SuperuserSession, name: str):
     unit = db.get(Unit, name)
     if unit is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Unit", name))
