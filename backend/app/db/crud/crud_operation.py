@@ -27,7 +27,7 @@ class CRUDOpEquipment(CRUDBase[OpEquipment, OpEquipment, OpEquipmentUpdate]):
     pass
 
 
-op = CRUDFieldOp(FieldOp)
+field_op = CRUDFieldOp(FieldOp)
 op_input = CRUDOpInput(OpInput)
 op_output = CRUDOpOutput(OpOutput)
 op_equipment = CRUDOpEquipment(OpEquipment)

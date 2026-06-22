@@ -36,30 +36,30 @@ def list_operations(
     limit: int | None = LIM,
 ):
     field = crud.field.get_or_raise(db, id)
-    return crud.op.get_paginated(db, skip, limit, FieldOp.field_id == field.id)
+    return crud.field_op.get_paginated(db, skip, limit, FieldOp.field_id == field.id)
 
 
 @router.post("/fields/{id}/ops", response_model=FieldOp)
 def add_operation(db: UserSession, id: UUID, data_in: FieldOpCreate):
     field = crud.field.get_or_raise(db, id)
-    return crud.op.create(db, FieldOp(**data_in.model_dump(), field_id=field.id))
+    return crud.field_op.create(db, FieldOp(**data_in.model_dump(), field_id=field.id))
 
 
 @router.get("/ops/{id}", response_model=FieldOp)
 def get_operation(db: ReadSession, id: UUID):
-    return crud.op.get_or_raise(db, id)
+    return crud.field_op.get_or_raise(db, id)
 
 
 @router.patch("/ops/{id}", response_model=FieldOp)
 def edit_operation(db: UserSession, id: UUID, data_in: FieldOpUpdate):
-    record = crud.op.get_or_raise(db, id)
-    return crud.op.update(db, record, data_in)
+    record = crud.field_op.get_or_raise(db, id)
+    return crud.field_op.update(db, record, data_in)
 
 
 @router.delete("/ops/{id}", response_model=FieldOp)
 def delete_operation(db: UserSession, id: UUID):
-    record = crud.op.get_or_raise(db, id)
-    return crud.op.delete(db, record)
+    record = crud.field_op.get_or_raise(db, id)
+    return crud.field_op.delete(db, record)
 
 
 # endregion
@@ -68,7 +68,7 @@ def delete_operation(db: UserSession, id: UUID):
 
 @router.get("/ops/{id}/resources", response_model=BulkResource)
 def list_op_resources(db: ReadSession, id: UUID):
-    op = crud.op.get_or_raise(db, id)
+    op = crud.field_op.get_or_raise(db, id)
     return BulkResource.model_validate(op)
 
 
@@ -79,7 +79,7 @@ def add_op_resources(db: UserSession, id: UUID, data_in: BulkResource):
         # NOTE: BulkResource fields plural, crud class names singular.
         return getattr(crud, f"op_{resource_name}".strip("s"))
 
-    crud.op.get_or_raise(db, id)  # NOTE: id unused; BulkResource has op/resource ids
+    crud.field_op.get_or_raise(db, id)  # NOTE: id unused; BulkResource has op/resor ids
     data = data_in.model_dump()
     return BulkResource.model_validate(
         {k: get_crud(k).create_multiple(db, data[k]) for k in data}
