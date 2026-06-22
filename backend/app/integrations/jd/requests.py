@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, overload
 from uuid import UUID
 
 import httpx
@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import AppUser, JDConnection, JDConnectionUpdate
-from app.integrations.jd.models import JDOrg
+from app.integrations.jd.models import JDModel, JDOrg
 
 log_handler = RichHandler(rich_tracebacks=True, show_time=False)
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
@@ -21,19 +21,6 @@ log = logging.getLogger(__name__)
 Method = Literal["get", "post", "put", "patch", "delete"]
 GrantType = Literal["authorization_code", "refresh_token"]
 REDIRECT_URI = f"localhost:8000{settings.API_PREFIX}/jd/oauth-capture"
-
-
-# def rq(m: Method, url: str, pram=None, head=None, json=None, data=None) -> Response:
-#     """Make and print request, return response."""
-#     res = request(m, url, params=pram, headers=head, data=data, json=json)
-#     u, status = urlparse(res.request.url), res.status_code
-#     log.info(f'{u.hostname} "{m.upper()} {u.path}?{u.query} HTTP/1.1" {status} -')
-#     assert status in (200, 304, 404, 409), f"{status}: {res.text}"
-#     return res
-
-
-# https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
-# TODO: Check user has enabled org access per org when orgs are requested
 
 
 class JDClient:
@@ -85,6 +72,8 @@ class JDClient:
             res = await cli.request("POST", url, headers=head, data=data)
         tkn = res.raise_for_status().json()
         tkn["expires_at"] = datetime.now(UTC) + timedelta(seconds=tkn["expires_in"])
+        if not refr and self.conn.first_established is None:
+            tkn["first_established"] = datetime.now(UTC)
         crud.jd_connection.update(self.db, self.conn, JDConnectionUpdate(**tkn))
 
     def auth_url(self) -> str:
@@ -115,13 +104,12 @@ class JDClient:
         if not self.has_token():
             return False
         try:
-            await self.orgs(False)
+            await self.get(f"{settings.JD_API_BASE}/organizations")
             return True
         except httpx.HTTPStatusError:
             return False
 
-
-    async def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+    async def request(self, method: str, uri: str, **kwargs) -> httpx.Response:
         await self.ensure_fresh_access()
         headers = {
             "Authorization": f"Bearer {self.conn.access_token}",
@@ -130,77 +118,35 @@ class JDClient:
         }
         headers.update(kwargs.pop("headers", {}))
         async with httpx.AsyncClient() as client:
-            response = await client.request(method, url, headers=headers, **kwargs)
+            response = await client.request(method, uri, headers=headers, **kwargs)
         return response.raise_for_status()
 
-    async def get(self, url: str, **kwargs) -> dict[str, Any]:
-        response = await self.request("GET", url, **kwargs)
-        return response.json()
+    @overload
+    async def get(self, uri: str, **kwargs) -> dict[str, Any]: ...
 
-    async def post(self, url: str, **kwargs) -> dict[str, Any]:
-        response = await self.request("POST", url, **kwargs)
-        return response.json()
+    @overload
+    async def get[T: JDModel](self, uri: str, model: type[T], **kwargs) -> T: ...
+
+    async def get[T: JDModel](
+        self, uri: str, model: type[T] | None = None, **kwargs
+    ) -> dict[str, Any] | T:
+        """Get data at url. If you pass `model`, data is returned validated by it."""
+        data = (await self.request("GET", uri, **kwargs)).json()
+        return data if model is None else model.model_validate(data)
+
+    async def post(self, uri: str, **kwargs) -> dict[str, Any]:
+        return (await self.request("POST", uri, **kwargs)).json()
+
+    async def get_org(self, uri: str, **kwargs) -> JDOrg | None:
+        """Extract the org part from the url, then make request."""
+        base, _, tail = uri.partition("/organizations/")
+        org_id = tail.split("/", 1)[0]
+        if not org_id:
+            log.warning(f"<uri {uri}> does not contain an organization.")
+            return None
+        return await self.get(f"{base}/organizations/{org_id}", JDOrg, **kwargs)
 
     async def orgs(self, member_only=True) -> list[JDOrg]:
         data = await self.get(f"{settings.JD_API_BASE}/organizations")
         orgs = list(map(JDOrg.model_validate, data["values"]))
         return [org for org in orgs if not member_only or org.member]
-
-    # TODO: Since my endpoint may use a resource path, I may only really need self.get
-
-    # async def add_orgs(self, member_only=True):
-    #     """Add org links available to connection. Basically, create org-tree roots."""
-    #     log.info(f"Adding initial orgs to {self.conn=}")
-    #     data = await self.get(f"{settings.JD_API_BASE}/organizations")
-    #     orgs = filter(lambda org: member_only and org["member"], data["values"])
-    #     for org in orgs:
-    #         links = org["links"]  # TODO: conn_link in data, so I can get it to user
-    #         conn_link = next(filter(lambda ln: ln["rel"] == "connections", links), None)
-    #         self_link = next(filter(lambda ln: ln["rel"] == "self", links))
-    #         conn_status = SyncStatus.NORG if conn_link else None
-    #         match = crud.org.get_paginated(self.db, 0, None, Org.name == org["name"])
-    #         org_link = JDRecordLink(
-    #             link=self_link["uri"],
-    #             data=org,
-    #             status=conn_status or (SyncStatus.NOSYNC, SyncStatus.SYNC)[match.count],
-    #             persistent=bool(match.count),
-    #             table_name="org",
-    #             table_key={"id": match.data[0].id} if match.count else None,
-    #             parent_id=None,
-    #             user_id=self.conn.user_id,
-    #         )
-    #         filters = [
-    #             JDRecordLink.link == self_link["uri"],
-    #             JDRecordLink.user_id == self.conn.user_id,
-    #         ]
-    #         existing = crud.jd_link.get_paginated(self.db, 0, None, *filters)
-    #         assert existing.count < 2, existing
-    #         existing_link = existing.data[0] if existing.count else None
-    #         if existing_link:  # TODO: Validate and ensure this can replace org_link
-    #             assert (
-    #                 existing_link.table_name == "org"
-    #                 and existing_link.parent_id is None
-    #             ), existing_link
-    #             if existing_link.status == SyncStatus.PAUSE:
-    #                 continue
-    #             existing_link.data = org
-    #             if existing_link.table_key is None:
-    #                 if match.count:
-    #                     existing_link.table_key = {"id": match.data[0].id}
-    #                     existing_link.persistent = True
-    #                     existing_link.status = SyncStatus.SYNC
-    #                 else:
-    #                     existing_link.status = SyncStatus.NOSYNC
-    #             if conn_link:
-    #                 existing_link.status = SyncStatus.NORG
-
-    #         org_link = existing_link or org_link
-    #         self.db.add(org_link)
-    #         self.db.flush()
-    #         if existing.count or match.count:
-    #             assert org_link.table_key and org_link.table_name == "org"
-    #             db_org = self.db.get(Org, org_link.table_key)
-    #             if db_org and db_org.name != org["name"]:
-    #                 crud.org.update(self.db, db_org, OrgUpdate(name=org["name"]))
-
-    #             # TODO: if there was a match or existing link, update farms

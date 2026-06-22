@@ -2,11 +2,11 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
 from app.core.config import settings
-from app.core.enums import DocTag, ErrMsg
+from app.core.enums import SYNC_ACTIVE, DocTag, ErrMsg, SyncStatus
 from app.db import crud
 from app.db.models import JDLinkUpdate, Paginated, SyncTreeNode
 from app.integrations.jd.requests import JDClient
@@ -37,14 +37,16 @@ def authorize_jd(db: UserSession, user: CurrentUser):
 
 
 @jd_router.post("/oauth-capture", include_in_schema=False)
-async def capture_jd_auth_code(
-    db: WriteSession, user: CurrentUser, pool: JobPool, code: str, state: str
-):
+async def capture_jd_auth_code(db: WriteSession, pool: JobPool, code: str, state: str):
     client = JDClient.from_user(db, UUID(state))
     await client.access_from_auth_code(code)
     if not await client.check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
-    await pool.enqueue_job("discover_orgs", user_id=user.id)
+    job_id = f"discover:{state}"
+    await pool.enqueue_job("discover_orgs", user_id=UUID(state), _job_id=job_id)
+    return JSONResponse(
+        {"action": "discover_orgs", "accepted": True}, status.HTTP_202_ACCEPTED
+    )
 
 
 # TODO: Can I replace request with just the events body? maybe need pydantic?
@@ -71,20 +73,38 @@ async def jd_modify_sync(
     db: UserSession,
     user: CurrentUser,
     pool: JobPool,
-    updates: JDLinkUpdate,
+    data_in: JDLinkUpdate,
     resource_path: str = Path(description="e.g. `organizations/{id}/farms/{id}`"),
 ):
     """### Modifies the Sync State of a John Deere Resource Link."""
+    if data_in.status and data_in.status in (SyncStatus.NORG, SyncStatus.CONFLICT):
+        msg = ErrMsg.INVLD_STATUS.format(data_in.status)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
+
     if not JDClient.from_user(db, user.id).check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
-    link = f"{settings.JD_API_BASE}/{resource_path}"
-    if not crud.jd_link.get_by_link(db, user.id, link):
+
+    uri = f"{settings.JD_API_BASE}/{resource_path}"
+    link = crud.jd_link.get_by_user_and_uri(db, user.id, uri)
+    if not link:
+        msg = ErrMsg.NF.format("Resource Link", resource_path)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, msg)
+    if link.parent and link.parent.status not in SYNC_ACTIVE:
+        msg = ErrMsg.INACTIVE_PARENT.format(link.uri, link.parent.uri)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
+
+    # TODO: remove once completed
+    if link.table_name in ("boundary", "field_op"):
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("Resource", resource_path)
+            status.HTTP_501_NOT_IMPLEMENTED, f"{link.table_name} sync is unimplemneted."
         )
-    # TODO: Preliminary sanity check for the values in `updates`?
-    await pool.enqueue_job("modify_sync", user_id=user.id, link=link, updates=updates)
-    return {"status": "job queued", "resource": resource_path}
+
+    args = {"user_id": user.id, "uri": uri, "update": data_in}
+    await pool.enqueue_job("modify_sync", **args, _job_id=f"modify:{resource_path}")
+    return JSONResponse(
+        {"action": "modify_sync", "accepted": True, "resource": resource_path},
+        status.HTTP_202_ACCEPTED,
+    )
 
 
 # TODO: If someone attempts to modify the sync status of a resource, first check that
