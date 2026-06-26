@@ -377,3 +377,8 @@ Loose Notes and TODOs:
 * Maybe add a state transition table to the status change function in sync.py, it is a bit confusing.
 * I will need to test the John Deere sync stuff. In order to do so, I should make a test version of the JDClient that will give me example data for testing.
 * To deal with the bad data, I could incorporate an LLM (ideally locally run, as docker container?) to identify and maintain flags for potential bad data. To go with bad data detection, I could have a tool designed to allow the frontent to generate a link that the user could click to send the changes to John Deere. Basically, instead of just giving them a link to go find the thing on Op Center and fix it, I could package the change as an API request that could be sent off (ideally with a cool animation) to make that change, and then the change would get propogated back to the FieldLedger UI through sync so you know it was successful.
+* Is there any way that I could use simulations like SCE to help with decision on crop rotations? Could I use a farm's historical data to train a simulation to be much more accurate for their farm so that they can simulate new scenarios, and maybe even export APSIM files that would allow them to use other simulation tools with that higher accuracy?
+* Before this tool is published, I should add a table to the `audit` schema for bug reports and user feedback and put into place a feedback system?
+* Should I have op_inputs and op_outputs? If I only ever have inputs OR outputs for a given operation, it would kind of make sense to just have op_product and op_equipment?
+
+Could I take a dataset from Dryad, ideally from UIUC, that has a location component and use it to illustrate the tool's capabilities?
