@@ -53,7 +53,7 @@ async def sync_health_check(pool: JobPool, timeout_sec: int = 10):
 
 
 # Redirect people to the /docs page if it looks like they need help
-@api_router.get("/", include_in_schema=False)
+@api_router.get("", include_in_schema=False)
 @api_router.get("/help", include_in_schema=False)
 async def redirect_to_docs():
     return RedirectResponse(

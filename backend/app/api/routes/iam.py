@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import EmailStr
 from sqlmodel import func
@@ -88,7 +88,7 @@ def logout_remove_cookie(response: Response):
 # ---------------------------------- Modify Own User -----------------------------------
 
 
-@router.get("/", response_model=UserPublic)
+@router.get("", response_model=UserPublic)
 def get_your_user_info(user: CurrentUser) -> AppUser:
     """### See the account information for the user that is currently authenticated.
     To be 'authenticated', send the auth token in request "Auth" headers.
@@ -98,7 +98,7 @@ def get_your_user_info(user: CurrentUser) -> AppUser:
     return user
 
 
-@router.post("/", response_model=UserPublic)
+@router.post("", response_model=UserPublic)
 def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
     """### Register a new user account."""
     # TODO: Send a 'New Account' email? Add email verification? Use email-validator lib?
@@ -106,7 +106,7 @@ def register_user(db: WriteSession, user_in: UserRegister) -> AppUser:
 
 
 # TODO: Should I separate an update_password endpoint to just update that?
-@router.patch("/", response_model=UserPublic)
+@router.patch("", response_model=UserPublic)
 def edit_your_user_info(
     db: UserSession, user: CurrentUser, edits: UserUpdateSelf
 ) -> AppUser:
@@ -118,7 +118,7 @@ def edit_your_user_info(
     return crud.user.update(db, user, edits)
 
 
-@router.delete("/", response_model=UserPublic)
+@router.delete("", response_model=UserPublic)
 def delete_your_user_info(db: UserSession, user: CurrentUser) -> AppUser:
     """### Delete the currently authorized user.
     Returns user info as it was before deletion, it will not exist after calling.

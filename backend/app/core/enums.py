@@ -55,7 +55,7 @@ class ErrMsg(StrEnum):
     """
 
     # HTTP_400_BAD_REQUEST
-    BAD_PWD = "Incorrect Password."
+    BAD_LOGIN = "Incorrect Email or Password."
     BAD_EMPTY_SEARCH = "Provide A Search Option"
 
     # HTTP_401_UNAUTHORIZED
