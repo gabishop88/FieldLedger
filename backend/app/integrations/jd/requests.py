@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 from uuid import UUID
 
 import httpx
@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import AppUser, JDConnection, JDConnectionUpdate
-from app.integrations.jd.models import JDModel, JDOrg
+from app.integrations.jd.models import JDModel, JDMulti, JDOrg
 
 log_handler = RichHandler(rich_tracebacks=True, show_time=False)
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
@@ -20,7 +20,9 @@ log = logging.getLogger(__name__)
 
 Method = Literal["get", "post", "put", "patch", "delete"]
 GrantType = Literal["authorization_code", "refresh_token"]
-REDIRECT_URI = f"localhost:8000{settings.API_PREFIX}/jd/oauth-capture"
+
+# TODO: This is almost certainly a problem, but I don't know enough to fix it yet.
+REDIRECT_URI = f"http://localhost:8000{settings.API_PREFIX}/jd/oauth-capture"
 
 
 class JDClient:
@@ -28,7 +30,7 @@ class JDClient:
     `client = JDClient(db, connection)` is valid as long as the Session (db) is active.
     Client will be able to make requests as long as connection has a valid access_token.
 
-    `JDClient(db, user_id)` will fetch the connection from the database or create one.
+    `JDClient.from_user(db, user_id)` will fetch user's connection from db or create it.
     If a new JDConnection is created with this method, it will not have an access_token.
 
     Use `client.auth_url()` to get a url that will allow the user to sign in to JD.
@@ -48,7 +50,7 @@ class JDClient:
         self.conn = connection
 
     @classmethod
-    def from_user(cls, db: Session, user_id: UUID):
+    def from_user(cls: type[Self], db: Session, user_id: UUID) -> Self:
         if not db.get(AppUser, user_id):
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, ErrMsg.NF.format("AppUser", user_id)
@@ -139,16 +141,6 @@ class JDClient:
     async def post(self, uri: str, **kwargs) -> dict[str, Any]:
         return (await self.request("POST", uri, **kwargs)).json()
 
-    async def get_org(self, uri: str, **kwargs) -> JDOrg | None:
-        """Extract the org part from the url, then make request."""
-        base, _, tail = uri.partition("/organizations/")
-        org_id = tail.split("/", 1)[0]
-        if not org_id:
-            log.warning(f"<uri {uri}> does not contain an organization.")
-            return None
-        return await self.get(f"{base}/organizations/{org_id}", JDOrg, **kwargs)
-
     async def orgs(self, member_only=True) -> list[JDOrg]:
-        data = await self.get(f"{settings.JD_API_BASE}/organizations")
-        orgs = list(map(JDOrg.model_validate, data["values"]))
-        return [org for org in orgs if not member_only or org.member]
+        orgs = await self.get(f"{settings.JD_API_BASE}/organizations", JDMulti[JDOrg])
+        return [o for o in orgs.values if not member_only or o.member]
