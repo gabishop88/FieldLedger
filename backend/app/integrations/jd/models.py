@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import cached_property
 from typing import Any, ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, field_validator
@@ -26,17 +27,17 @@ class Meas(JDBaseModel):
 
 
 class JDModel(JDBaseModel):
-    keep_links: ClassVar[set[str]] = {"self", "owningOrganization"}
+    keep_links: ClassVar[set[str]] = {"self", "owningOrganization", "organization"}
     links: list[JDLink]
 
-    def linked(self, rel: str) -> str:
-        """Get the uri of a link in `self.links`"""
+    def get_uri(self, rel: str) -> str:
+        """Get the uri of a link in `self.links`."""
         assert rel in self.keep_links, f"{rel=} not in {self.keep_links}."
         return next(link for link in self.links if link.rel == rel).uri
 
-    @property
+    @cached_property
     def uri(self) -> str:
-        return self.linked("self")
+        return self.get_uri("self")
 
     @field_validator("links", mode="before")
     @classmethod
