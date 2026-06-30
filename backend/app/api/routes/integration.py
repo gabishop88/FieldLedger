@@ -8,7 +8,7 @@ from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
 from app.core.config import settings
 from app.core.enums import SYNC_ACTIVE, DocTag, ErrMsg, SyncStatus
 from app.db import crud
-from app.db.models import JDLinkUpdate, Paginated, SyncTreeNode
+from app.db.models import AppUser, AuthPublic, JDLinkUpdate, Paginated, SyncTreeNode
 from app.integrations.jd.requests import JDClient
 
 LIM = settings.DEFAULT_PAGE_LIMIT
@@ -22,31 +22,39 @@ router = APIRouter()  # Combine routers at the end (after endpoints are added)
 
 
 @jd_router.get(
-    "/authorize-integration",
-    responses={
-        200: {"description": "Already Authenticated"},
-        307: {"description": "Redirect to John Deere Sign-in."},
-    },
+    "/authorization-link",
+    response_model=AuthPublic,
+    responses={307: {"description": "Redirect to John Deere Sign-in."}},
 )
-def authorize_jd(db: UserSession, user: CurrentUser):
+async def authorize_jd(db: UserSession, user: CurrentUser, redirect: bool = False):
     """### Redirects user to John Deere sign-in page to authorize syncing"""
     client = JDClient.from_user(db, user.id)
-    if client.check_connection():
-        return {"status": "authorized"}
-    return RedirectResponse(client.auth_url())
+    if await client.check_connection():
+        return AuthPublic(authorized=True, auth_uri=client.auth_uri())
+    if redirect:
+        return RedirectResponse(client.auth_uri())
+    return AuthPublic(authorized=False, auth_uri=client.auth_uri())
 
 
-@jd_router.post("/oauth-capture", include_in_schema=False)
-async def capture_jd_auth_code(db: WriteSession, pool: JobPool, code: str, state: str):
+@jd_router.get("/oauth-capture", include_in_schema=False)
+async def capture_jd_auth_code(
+    db: WriteSession,
+    pool: JobPool,
+    state: str,
+    code: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+):
     client = JDClient.from_user(db, UUID(state))
+    if not code:
+        log.error(f"{error}: {error_description}")
+        return RedirectResponse(f"{settings.FRONTEND_HOST}?jd-connection=failed")
     await client.access_from_auth_code(code)
     if not await client.check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
     job_id = f"discover:{state}"
     await pool.enqueue_job("discover_orgs", user_id=UUID(state), _job_id=job_id)
-    return JSONResponse(
-        {"action": "discover_orgs", "accepted": True}, status.HTTP_202_ACCEPTED
-    )
+    return RedirectResponse(f"{settings.FRONTEND_HOST}?jd-connection=authorized")
 
 
 # TODO: Can I replace request with just the events body? maybe need pydantic?
@@ -81,7 +89,7 @@ async def jd_modify_sync(
         msg = ErrMsg.INVLD_STATUS.format(data_in.status)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
-    if not JDClient.from_user(db, user.id).check_connection():
+    if not await JDClient.from_user(db, user.id).check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
 
     uri = f"{settings.JD_API_BASE}/{resource_path}"

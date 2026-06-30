@@ -450,6 +450,9 @@ class FieldOp(FieldOpBase, table=True):
     equipment: list["OpEquipment"] = Relationship(back_populates="op")
 
 
+# TODO: Could I merge inputs and outputs into op_product or something since I only ever
+# have either inputs OR outptus in an operation? Is there a case I would have both?
+
 class OpInputBase(SQLModel):
     area: float | None = None
     area_unit: str | None = unit_fk()
@@ -570,6 +573,11 @@ class BulkResource(SQLModel):
 # region -------------------------------- Integration ---------------------------------
 
 
+class AuthPublic(SQLModel):
+    authorized: bool
+    auth_uri: str | None = None
+
+
 class JDConnectionUpdate(SQLModel):
     access_token: str
     refresh_token: str
@@ -577,8 +585,11 @@ class JDConnectionUpdate(SQLModel):
     first_established: datetime | None = None
 
 
+# TODO: Add a column that let's me track the current reason that it is not connected?
+#   it would start out saying that it just hasn't been connected, but could also hold
+#   errors when they are given by john deere.
 # TODO: I am storing tokens as plaintext. I need to encrypt them, but SECREY_KEY
-    #   in settings changes when the API starts. I need a stable key for refresh_token
+#   in settings changes when the API starts. I need a stable key for refresh_token
 # NOTE: Right now, connection is based on user_id. This is mostly to prevent any
 #   complications from multiple users being able to sync. Could replace pk with id
 class JDConnection(SQLModel, table=True):
@@ -601,7 +612,7 @@ class JDConnection(SQLModel, table=True):
 
 class SyncTreeNode(SQLModel):
     uri: str
-    data: dict
+    data: dict[str, Any]
     status: SyncStatus
     local_persistent: bool
     table_name: str
@@ -612,12 +623,17 @@ class SyncTreeNode(SQLModel):
 
 
 class JDLinkUpdate(SQLModel):
+    """Since this is not a simple update, every field is handled in
+    `integrations.jd.sync.modify_sync separately.
+    """
+
     status: SyncStatus | None = None
     local_persistent: bool | None = None
 
 
 class SyncLinkUpdate(SQLModel):
-    """This is an update model designed to be used to update a link internally."""
+    """This is an update model designed to be used internally when syncing."""
+
     data: dict[str, Any] | None = None
     table_key: dict[str, Any] | None = None
     local_persistent: bool | None = None
