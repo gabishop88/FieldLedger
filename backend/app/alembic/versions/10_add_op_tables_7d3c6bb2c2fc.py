@@ -46,6 +46,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema="operation",
     )
+    op.execute("""--sql
+        CREATE TRIGGER field_op_audit
+        AFTER INSERT OR UPDATE OR DELETE ON operation.field_op
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "op_equipment",
         sa.Column("speed", sa.Float(), nullable=True),
@@ -77,6 +82,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("op_id", "equipment_id"),
         schema="operation",
     )
+    op.execute("""--sql
+        CREATE TRIGGER op_equipment_audit
+        AFTER INSERT OR UPDATE OR DELETE ON operation.op_equipment
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "op_input",
         sa.Column("area", sa.Float(), nullable=True),
@@ -108,6 +118,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("op_id", "product_id"),
         schema="operation",
     )
+    op.execute("""--sql
+        CREATE TRIGGER op_input_audit
+        AFTER INSERT OR UPDATE OR DELETE ON operation.op_input
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.create_table(
         "op_output",
         sa.Column("area", sa.Float(), nullable=True),
@@ -159,6 +174,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("op_id", "product_id"),
         schema="operation",
     )
+    op.execute("""--sql
+        CREATE TRIGGER op_output_audit
+        AFTER INSERT OR UPDATE OR DELETE ON operation.op_output
+        FOR EACH ROW EXECUTE FUNCTION audit.change_trigger();
+    """)
     op.alter_column(
         "product",
         "company_name",
