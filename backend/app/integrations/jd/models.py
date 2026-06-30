@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import AliasChoices, BaseModel, field_validator
 from pydantic import Field as ColInfo
+from shapely import MultiPolygon, Point, Polygon
 
 # region -------------------------------- Core Models ---------------------------------
 
@@ -91,28 +92,53 @@ class JDField(JDModel):
 # region ------------------------------ Boundary Models -------------------------------
 
 
-class Point(JDBaseModel):
+class JDPoint(JDBaseModel):
     lat: float
     lon: float
 
+    def as_shapely(self) -> Point:
+        return Point(self.lon, self.lat)
 
-class Polygon(JDBaseModel):
-    rings: list[Point]
+
+class JDRing(JDBaseModel):
+    points: list[JDPoint]
     type: Literal["interior", "exterior"]
+
+    @property
+    def coords(self) -> list[tuple[float, float]]:
+        return [(p.lon, p.lat) for p in self.points]
+
+
+class JDPolygon(JDBaseModel):
+    rings: list[JDRing]
+
+    def as_shapely(self) -> Polygon:
+        return Polygon(
+            shell=next(r for r in self.rings if r.type == "exterior").coords,
+            holes=[r.coords for r in self.rings if r.type == "interior"],
+        )
 
 
 class JDBoundary(JDModel):
     keep_links: ClassVar[set[str]] = {"self", "owningOrganization"}
     name: str
-    area: Meas
-    workableArea: Meas
-    multipolygons: list[Polygon]
-    centroid: Point
+    area: Meas | None = None
+    workableArea: Meas | None = None
+    multipolygons: list[JDPolygon]
+    centroid: JDPoint
     archived: bool
     id: str
     links: list[JDLink]
     active: bool
     irrigated: bool
+
+    def as_shapely(self) -> MultiPolygon:
+        return MultiPolygon([p.as_shapely() for p in self.multipolygons])
+
+    @property
+    def wkt(self) -> str:
+        """Well-Known-Text representation of the boundary geometry."""
+        return self.as_shapely().wkt
 
 
 # endregion
