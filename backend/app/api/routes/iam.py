@@ -20,6 +20,7 @@ from app.core.security import create_access_token
 from app.db import crud
 from app.db.models import (
     AppUser,
+    LoginBody,
     Paginated,
     Token,
     UserPublic,
@@ -44,23 +45,44 @@ router = APIRouter(prefix="/account")
 # ------------------------------------- Auth Token -------------------------------------
 
 
-@router.post("/login/access-token")
+@router.post("/login/access-token", response_model=Token)
 def get_access_token(db: ReadSession, login_data: LoginForm) -> Token:
     """### Provide an email (username) and password to get an auth token."""
     user = crud.user.authenticate(db, login_data.username, login_data.password)
     if not user:
-        if crud.user.get_by_email(db, login_data.username):
-            raise HTTPException(BAD_REQUEST, ErrMsg.BAD_PWD)
-        else:
-            raise HTTPException(
-                NOT_FOUND, ErrMsg.NF.format("Email", login_data.username)
-            )
+        raise HTTPException(BAD_REQUEST, ErrMsg.BAD_LOGIN)
 
     expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(
         access_token=create_access_token(user.id, expires_after),
         expires_min=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
+
+
+@router.post("/login/access-cookie", response_model=UserPublic)
+def login_with_cookie(
+    response: Response, db: ReadSession, login_data: LoginBody
+) -> AppUser:
+    """Authenticate and return an HttpOnly cookie."""
+    user = crud.user.authenticate(db, login_data.username, login_data.password)
+    if not user:
+        raise HTTPException(BAD_REQUEST, ErrMsg.BAD_LOGIN)
+
+    expires_after = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    token = create_access_token(user.id, expires_after)
+    response.set_cookie(
+        key=settings.COOKIE_NAME,
+        value=token,
+        max_age=int(expires_after.total_seconds()),
+        httponly=True,
+    )
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout_remove_cookie(response: Response):
+    """Remove the authentication cookie. No need to logout for Bearer token."""
+    response.delete_cookie(key=settings.COOKIE_NAME)
 
 
 # ---------------------------------- Modify Own User -----------------------------------
@@ -72,8 +94,6 @@ def get_your_user_info(user: CurrentUser) -> AppUser:
     To be 'authenticated', send the auth token in request "Auth" headers.
 
     If using /docs page, log in with the green 'Authorize' button.
-
-    # TODO: add instructions for authentication via postman or manually via header.
     """
     return user
 

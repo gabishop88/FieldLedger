@@ -42,7 +42,7 @@ def test_fail_superuser_login(cli: TestClient) -> None:
     form["username"] = settings.FIRST_SUPERUSER
     res = cli.post(f"{PFIX}/account/login/access-token", data=form)
     assert res.status_code == 400
-    assert res.json()["detail"] == ErrMsg.BAD_PWD
+    assert res.json()["detail"] == ErrMsg.BAD_LOGIN
 
 
 def test_register_user(cli: TestClient, db: Session, seed) -> None:

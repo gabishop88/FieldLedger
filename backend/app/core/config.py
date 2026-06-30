@@ -60,6 +60,11 @@ class Settings(BaseSettings):
         ]
 
     PROJECT_NAME: str
+
+    @property
+    def COOKIE_NAME(self) -> str:
+        return f"{self.PROJECT_NAME}AccessToken"
+
     SENTRY_DSN: HttpUrl | None = None
     POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
@@ -141,7 +146,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
 
-    JD_API_BASE: str = "https://sandbox.deere.com/platform"
+    JD_API_BASE: str = "https://sandboxapi.deere.com/platform"
     JD_AUTH_BASE: str = "https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1"
     JD_CLIENT_ID: str
     JD_CLIENT_SECRET: str

@@ -99,6 +99,11 @@ class UserUpdateSelf(SQLModel):
     password: str | None = ColInfo(default=None, min_length=8, max_length=255)
 
 
+class LoginBody(SQLModel):
+    username: EmailStr
+    password: str
+
+
 class PasswordReset(SQLModel):
     token: str
     new_password: str = ColInfo(min_length=8, max_length=255)

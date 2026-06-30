@@ -86,6 +86,8 @@ class ErrMsg(StrEnum):
     NO_WORKER = "Worker health check timed out."
 
 
+# NOTE: See for info on the NORG status:
+# https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
 class SyncStatus(StrEnum):
     SYNC = "Synced"  # Completely synced and up-to-date. filled green checkbox
     DIRTY = "Unsynced"  # Sync enabled, data maybe old/loading. filled yellow checkbox

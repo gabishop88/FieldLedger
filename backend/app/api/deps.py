@@ -23,7 +23,7 @@ from collections.abc import Generator
 from typing import Annotated
 
 from arq import ArqRedis
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, text
 
@@ -40,13 +40,25 @@ logger = logging.getLogger(__name__)
 
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_PREFIX}/account/login/access-token"
+    tokenUrl=f"{settings.API_PREFIX}/account/login/access-token", auto_error=False
 )
-AccessToken = Annotated[str, Depends(reusable_oauth2)]
+BearerToken = Annotated[str | None, Depends(reusable_oauth2)]
+CookieToken = Annotated[str | None, Cookie(alias=settings.COOKIE_NAME)]
+
+
+def resolve_token(bearer: BearerToken, cookie: CookieToken) -> str:
+    token = bearer or cookie
+    if token is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_CRED)
+    return token
+
+
+AccessToken = Annotated[str, Depends(resolve_token)]
 
 
 def arq_job_pool(request: Request) -> ArqRedis:
     return request.app.state.job_pool
+
 
 JobPool = Annotated[ArqRedis, Depends(arq_job_pool)]
 

@@ -71,15 +71,17 @@ class JDClient:
             url = f"{settings.JD_AUTH_BASE}/token"
             res = await cli.request("POST", url, headers=head, data=data)
         tkn = res.raise_for_status().json()
-        tkn["expires_at"] = datetime.now(UTC) + timedelta(seconds=tkn["expires_in"])
+        tkn["access_expires_at"] = datetime.now(UTC) + timedelta(
+            seconds=tkn["expires_in"]
+        )
         if not refr and self.conn.first_established is None:
             tkn["first_established"] = datetime.now(UTC)
         crud.jd_connection.update(self.db, self.conn, JDConnectionUpdate(**tkn))
 
-    def auth_url(self) -> str:
+    def auth_uri(self) -> str:
         params = {
             "response_type": "code",
-            "scope": "ag2 offline-access eq1",
+            "scope": "offline_access ag2 eq1",
             "client_id": settings.JD_CLIENT_ID,
             "state": self.conn.user_id,
             "redirect_uri": REDIRECT_URI,
