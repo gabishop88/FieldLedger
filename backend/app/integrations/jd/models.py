@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 from functools import cached_property
 from typing import Any, ClassVar, Literal
@@ -184,7 +185,7 @@ class JDAppTotal(JDBaseModel):
     productTotals: list[JDProductTotal]
 
 
-class JDOpMeas(JDBaseModel):
+class JDMeasType(JDBaseModel):
     measurementName: str
     area: Meas | None = None
     # Application Ops
@@ -193,7 +194,7 @@ class JDOpMeas(JDBaseModel):
     totalMaterial: Meas | None = None
     averageMaterial: Meas | None = None
     # Harvest Ops
-    yield_: Meas | None = ColInfo(None, alias="yield")
+    yield_: Meas | None = ColInfo(default=None, alias="yield")
     averageYield: Meas | None = None
     averageMoisture: Meas | None = None
     wetMass: Meas | None = None
@@ -209,6 +210,33 @@ class JDOpMeas(JDBaseModel):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         kwargs.setdefault("by_alias", True)
         return super().model_dump(**kwargs)
+
+
+class InputMeasurements(JDBaseModel):
+    area: Meas | None = None
+    total: Meas | None = None
+    rate: Meas | None = None
+
+
+class OutputMeasurements(JDBaseModel):
+    area: Meas | None = None
+    wet_mass: Meas | None = None
+    wet_mass_rate: Meas | None = None
+    yield_: Meas | None = ColInfo(
+        default=None, validation_alias="yield", serialization_alias="yield"
+    )
+    yield_rate: Meas | None = None
+    moisture: Meas | None = None
+
+
+class JDMeasurements(JDBaseModel):
+    area: Meas | None = None
+    speed: Meas | None = None
+    pressure: Meas | None = None
+    depth: Meas | None = None
+
+    inputs: dict[str, InputMeasurements] = ColInfo(default_factory=dict)
+    outputs: dict[str, OutputMeasurements] = ColInfo(default_factory=dict)
 
 
 class JDComponent(JDBaseModel):
@@ -254,12 +282,133 @@ class JDFieldOp(JDModel):
     cropName: str | None = None
 
     products: list[JDProduct] | None = None
-    # measurementTypes
+    measurementTypes: list[JDMeasType] | None = None
     fieldOperationMachines: list[JDOpMachine] | None = None
     tillageProducts: list[JDTillageProduct] | None = None
     varieties: list[JDProduct] | None = None
     id: str
     links: list[JDLink]
+
+    @cached_property
+    def measurements(self) -> JDMeasurements:
+        return parse_measurements(self)
+
+
+# endregion
+# region ----------------------------- Operation Helpers ------------------------------
+
+
+def _prefer(a: JDMeasType, b: JDMeasType) -> bool:
+    """Return True if measurements in a should take precedence over b."""
+
+    def base(name: str) -> str:
+        return name.removesuffix("Target").removesuffix("Result")
+
+    def is_result(name: str) -> bool:
+        return name.endswith("Result")
+
+    a_name = a.measurementName
+    b_name = b.measurementName
+    return base(a_name) == base(b_name) and is_result(a_name) and not is_result(b_name)
+
+
+def _merge_lists(a: list[Any], b: list[Any]) -> list[Any]:
+    if not a:
+        return deepcopy(b)
+    if not b:
+        return deepcopy(a)
+
+    key = {
+        JDVarietyTotal: "varietyId",
+        JDProductTotal: "productId",
+        JDAppTotal: "productId",
+    }.get(type(a[0]))
+    if not isinstance(a[0], JDBaseModel) or key is None:
+        return deepcopy(a)
+
+    merged = {getattr(item, key): deepcopy(item) for item in a}
+    for item in b:
+        item_key = getattr(item, key)
+        if item_key in merged:
+            merged[item_key] = _merge(merged[item_key], item)
+        else:
+            merged[item_key] = deepcopy(item)
+    return list(merged.values())
+
+
+def _merge(a: Any, b: Any) -> Any:
+    if a in (None, [], {}):
+        return deepcopy(b)
+    if b in (None, [], {}):
+        return deepcopy(a)
+
+    if isinstance(a, JDBaseModel) and isinstance(b, JDBaseModel):
+        values = {}
+        for field in a.__class__.model_fields:
+            values[field] = _merge(getattr(a, field), getattr(b, field))
+        return a.__class__.model_construct(**values)
+    if isinstance(a, list) and isinstance(b, list):
+        return _merge_lists(a, b)
+    return deepcopy(a)
+
+
+def merge_measurements(ms: list[JDMeasType]) -> JDMeasType:
+    if not ms:
+        return JDMeasType(measurementName="Merged")
+    merged = deepcopy(ms[0])
+    for othr in ms[1:]:
+        merged = _merge(othr, merged) if _prefer(othr, merged) else _merge(merged, othr)
+    return merged
+
+
+def parse_measurements(op: JDFieldOp) -> JDMeasurements:
+    result = JDMeasurements()
+    mts = op.measurementTypes or []
+    if not mts:
+        return result
+
+    merged = merge_measurements(mts)
+    result.area = merged.area
+    result.speed = merged.averageSpeed
+    result.pressure = merged.averagePressure
+    result.depth = merged.averageDepth
+
+    match op.fieldOperationType.lower():
+        case "application":
+            app = next(iter(merged.applicationProductTotals or []), None)
+            if app:
+                result.area = app.appliedArea or app.area or result.area
+                result.speed = app.averageSpeed or result.speed
+                result.inputs = {
+                    p.productId: InputMeasurements(
+                        area=result.area,
+                        total=p.totalMaterial or app.totalMaterial,
+                        rate=p.averageMaterial or app.averageMaterial,
+                    )
+                    for p in app.productTotals
+                }
+        case "seeding":
+            result.inputs = {
+                v.varietyId: InputMeasurements(
+                    area=v.area or result.area,
+                    total=v.totalMaterial or merged.totalMaterial,
+                    rate=v.averageMaterial or merged.averageMaterial,
+                )
+                for v in merged.varietyTotals or []
+            }
+        case "harvest":
+            result.outputs = {
+                v.varietyId: OutputMeasurements(
+                    area=v.area or result.area,
+                    wet_mass=v.wetMass or merged.wetMass,
+                    wet_mass_rate=v.averageWetMass or merged.averageWetMass,
+                    yield_=v.yield_ or merged.yield_,
+                    yield_rate=v.averageYield or merged.averageYield,
+                    moisture=v.averageMoisture or merged.averageMoisture,
+                )
+                for v in merged.varietyTotals or []
+            }
+    return result
 
 
 # endregion
