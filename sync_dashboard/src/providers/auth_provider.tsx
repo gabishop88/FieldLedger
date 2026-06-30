@@ -3,17 +3,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 
 import {
-    type LoginData,
     type User,
+    type LoginData,
+    type RegisterData,
     getCurrentUser,
     loginRequest,
-    logoutRequest 
+    createAccountRequest,
+    logoutRequest,
+    deleteAccountRequest,
 } from "../api/auth";
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     login(data: LoginData): Promise<void>;
+    register(data: RegisterData): Promise<void>;
+    deleteAccount(): Promise<void>;
     logout(): Promise<void>;
     refresh(): Promise<void>;
 }
@@ -32,20 +37,44 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function login(data: LoginData) {
-        try{
+        try {
             await loginRequest(data);
             await refresh();
-            notifications.show({title: "Logged In", message: "Authentication successful."});
+            notifications.show({ title: "Logged In", message: "Authentication successful." });
         } catch {
-            notifications.show({color: "red", title: "Login Failed", message: "Invalid email or password."});
+            notifications.show({ color: "red", title: "Login Failed", message: "Invalid email or password." });
             throw Error("Login failed.");
+        }
+    }
+
+    async function register(data: RegisterData) {
+        try {
+            await createAccountRequest(data);
+            await loginRequest({ username: data.email, password: data.password })
+            await refresh();
+            notifications.show({ title: "Account Created", message: "Successfully logged in." });
+        } catch {
+            notifications.show({ color: "red", title: "Registration Failed", message: "Unable to create account." });
+            throw Error("Register failed.");
+        }
+    }
+
+    async function deleteAccount() {
+        try {
+            await deleteAccountRequest();
+            await logoutRequest(); // logging out afterwards in case deletion failed. logout just removes cookie anyway.
+            await refresh();
+            notifications.show({ title: "Account Deleted", message: "Your account has been deleted permanently." });
+        } catch {
+            notifications.show({ color: "red", title: "Deletion Failed", message: "Unable to delete the account." });
+            throw Error("Account deletion failed.")
         }
     }
 
     async function logout() {
         await logoutRequest();
         await refresh();
-        notifications.show({title: "Logged Out", message: "Authentication cookie removed."});
+        notifications.show({ title: "Logged Out", message: "Authentication cookie removed." });
     }
 
     return (
@@ -54,6 +83,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                 user: query.data ?? null,
                 loading: query.isLoading,
                 login,
+                register,
+                deleteAccount,
                 logout,
                 refresh,
             }}

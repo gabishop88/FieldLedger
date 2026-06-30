@@ -7,9 +7,10 @@ interface Props {
     loading: boolean;
     onLogin: () => void;
     onLogout: () => void;
+    onDeleteAccount: () => Promise<void>;
 }
 
-export default function AppHeader({ user, loading, onLogin, onLogout }: Props) {
+export default function AppHeader({ user, loading, onLogin, onLogout, onDeleteAccount }: Props) {
     return (
         <AppShell.Header p="lg">
             <Group justify="space-between" align="end">
@@ -22,6 +23,7 @@ export default function AppHeader({ user, loading, onLogin, onLogout }: Props) {
                     loading={loading}
                     onLogin={onLogin}
                     onLogout={onLogout}
+                    onDeleteAccount={onDeleteAccount}
                 />
             </Group>
         </AppShell.Header>

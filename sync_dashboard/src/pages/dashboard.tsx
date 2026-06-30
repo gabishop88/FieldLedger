@@ -13,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 
 export default function Dashboard() {
-    const { user, loading, logout } = useAuth();
+    const { user, loading, logout, deleteAccount } = useAuth();
     const jdAuth = useJDAuth(!!user);
     const tree = useSyncTree(jdAuth.data?.authorized ?? false)
 
@@ -47,6 +47,7 @@ export default function Dashboard() {
                 loading={loading}
                 onLogin={() => setLoginOpened(true)}
                 onLogout={logout}
+                onDeleteAccount={deleteAccount}
             />
             <AppShell.Main>
                 <div style={{
