@@ -23,7 +23,8 @@ class CRUDJDRecordLink(CRUDBase[JDRecordLink, JDRecordLink, LinkUpdate]):
     def get_trees_paginated(
         self, db: Session, user_id: UUID, skip: int = 0, limit: int | None = None
     ):
-        filters = [JDRecordLink.user_id == user_id, JDRecordLink.parent is None]
+        # NOTE: Must use `== None`, not `is None` because `==` operator makes a filter.
+        filters = [JDRecordLink.user_id == user_id, JDRecordLink.parent_id == None]  # noqa: E711
         return self.get_paginated(db, skip, limit, *filters)
 
     def get_by_user_and_uri(
