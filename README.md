@@ -13,6 +13,7 @@ Access and modify farm management data.
 
 ## TODO
 
+> - Make Detailed ERD more legible
 > - executive summary stuff
 > - one or two data outputs
 > - one or two visualizations.

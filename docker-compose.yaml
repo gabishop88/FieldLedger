@@ -85,6 +85,18 @@ services:
       - ./backend/tests:/app/tests
     command: uv run watchfiles "uv run arq app.integrations.worker.WorkerSettings" app
 
+  sync-dashboard:
+    build:
+      context: ./sync_dashboard
+    container_name: fieldledger_sync_dashboard
+    volumes:
+      - ./sync_dashboard:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
   # frontend:
   #   build: ./frontend
   #   container_name: fieldledger_ui
