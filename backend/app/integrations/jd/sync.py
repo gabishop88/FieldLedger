@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Generator
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from typing import cast
 from uuid import UUID
@@ -8,12 +9,22 @@ from uuid import UUID
 from sqlalchemy import Engine
 from sqlmodel import Session, select, text
 
-from app.core.enums import SYNC_ACTIVE, FieldType, OrgFarmType, SyncStatus
+from app.core.enums import (
+    ORG_SYNC_ERRORS,
+    SYNC_ACTIVE,
+    BoundaryType,
+    FieldType,
+    OpType,
+    OrgFarmType,
+    SyncStatus,
+)
 from app.db import crud
 from app.db.models import (
     Farm,
     FarmCreate,
     Field,
+    FieldBoundary,
+    FieldOp,
     JDLinkUpdate,
     JDRecordLink,
     Org,
@@ -26,6 +37,7 @@ from app.integrations.jd.models import (
     JDFarm,
     JDField,
     JDFieldOp,
+    JDModel,
     JDMulti,
     JDOrg,
 )
@@ -34,7 +46,7 @@ from app.integrations.jd.requests import JDClient
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-
+# TODO: probably move to be shared by all integrations, but this is the only one for now
 @contextmanager
 def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
     with Session(engine) as db:
@@ -42,52 +54,21 @@ def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
             db.exec(text(f"SET SESSION \"app.current_user\"= '{user_id}'"))  # type: ignore
             yield db
             db.commit()
-        except:
+        except Exception:
             db.rollback()
             raise
 
 
-async def discover_orgs(ctx, user_id: UUID, member_only=True) -> None:
-    log.info(f"Discovering orgs for {user_id=}")
-    with user_session(ctx["engine"], user_id) as db:
-        client = JDClient.from_user(db, user_id)
-        for org in await client.orgs(member_only):
-            org_links = crud.jd_link.get_paginated(
-                db, 0, None, JDRecordLink.uri == org.uri
-            )
-            existing = next((v for v in org_links.data if v.user_id == user_id), None)
-            others = [v for v in org_links.data if v.user_id != user_id]
-            if existing:  # NOTE: if a link exists, just leave it be.
-                continue
-
-            # Starting status
-            if others and any(v.status in SYNC_ACTIVE for v in others):
-                status = SyncStatus.CONFLICT
-            elif org.has_conn_link:
-                status = SyncStatus.NORG
-            else:
-                status = SyncStatus.NOSYNC
-
-            crud.jd_link.create(
-                db,
-                JDRecordLink(
-                    uri=org.uri,
-                    data=org.model_dump(exclude_unset=True),
-                    status=status,
-                    local_persistent=False,
-                    table_name="org",
-                    table_key=None,
-                    parent_id=None,
-                    user_id=user_id,
-                ),
-            )
+# region ------------------------------- Unsync Helpers -------------------------------
 
 
 def remove_linked(db: Session, link: JDRecordLink) -> None:
     """### Deletes link and referenced local data.
-    Does NOT check if it *should*, only if it *can*."""
+    Does NOT check if it *should*, only if it *can*.
+    """
     if not hasattr(crud, link.table_name):
-        raise ValueError(f"Desync unsupported for {link.table_name=}")
+        log.error(f"No crud class found for {link.table_name=}")
+        return
 
     table_crud = getattr(crud, link.table_name)
     record = table_crud.get_or_raise(db, link.table_key)
@@ -120,266 +101,400 @@ async def unsync_link(db: Session, link: JDRecordLink) -> bool:
     return is_removable
 
 
+# endregion
+# region -------------------------------- Sync Helpers --------------------------------
+
+
+def child_links[T: JDModel](
+    link: JDRecordLink, table: str, children: JDMulti[T]
+) -> list[JDRecordLink]:
+    existing_uris = {x.uri for x in link.children}
+    return [
+        JDRecordLink(
+            uri=x.uri,
+            data=x.model_dump(),
+            status=SyncStatus.NOSYNC,
+            local_persistent=False,
+            table_name=table,
+            table_key=None,
+            parent_id=link.id,
+            user_id=link.user_id,
+        )
+        for x in children.values
+        if x.uri not in existing_uris
+    ]
+
+
 # TODO: should I add a get_first function to CRUDBase?
-async def sync_link(db: Session, link: JDRecordLink) -> None:
+async def try_sync(db: Session, link: JDRecordLink) -> bool:
     """
     Guarantees:
     - Resource(s) exist locally
     - local matches JD
     - children are discovered (if applicable).
-    DOES NOT MODIFY link.status!
+
+    Returns whether the sync was successful. False indicates something went very wrong
+    or link is not valid as a sync target for some reason.
+    > DOES NOT MODIFY link.status!
     """
-    client = JDClient(db, link.connection)
-
-    # NOTE: mention in docstring, but prob fine to update link.status w everything else
-    # What fields would LinkUpdate need? local_persistent, data, table_key, parent_id
-
     changes = {}
+    client = JDClient(db, link.connection)
     match link.table_name:
         case "org":
+            if link.parent is not None:
+                log.error(f"Sync Error, Org has parent.\n{link=}\n{link.parent=}")
+                return False
+
             # NOTE: Update the link
-            jd_org = JDOrg.model_validate(await client.get(link.uri))
+            jd_org = await client.get(link.uri, JDOrg)
             fl_org = db.get(Org, link.table_key) if link.table_key else None
             if fl_org is None:
                 fl_org = crud.org.get_first(db, Org.name == jd_org.name)
+                if fl_org and not link.local_persistent:
+                    changes["local_persistent"] = True
             if fl_org is None:
                 fl_org = crud.org.create(db, OrgCreate(name=jd_org.name))
-            elif not link.local_persistent:
-                changes["local_persistent"] = True
-            changes["data"] = jd_org.model_dump(exclude_unset=True)
+            changes["data"] = jd_org.model_dump()
             changes["table_key"] = {"id": fl_org.id}
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
-            # NOTE: Discover Children
-            farm_links = {c.uri for c in link.children}
-            jd_farms = await client.get(jd_org.linked("farms"), JDMulti[JDFarm])
-            for jd_farm in jd_farms.values:
-                if jd_farm.uri not in farm_links:
-                    crud.jd_link.create(
-                        db,
-                        JDRecordLink(
-                            uri=jd_farm.uri,
-                            data=jd_farm.model_dump(exclude_unset=True),
-                            status=SyncStatus.NOSYNC,
-                            local_persistent=False,
-                            table_name="farm",
-                            table_key=None,
-                            parent_id=link.id,
-                            user_id=link.user_id,
-                        ),
-                    )
+            # NOTE: Discover children
+            children = await client.get(jd_org.get_uri("farms"), JDMulti[JDFarm])
+            crud.jd_link.create_multiple(db, child_links(link, "farm", children))
+
             # TODO: update webhook
 
         case "farm":
-            assert (  # TODO: replace assert? maybe for an issue, unsync and start over?
-                link.parent
-                and link.parent.table_name == "org"
-                and link.parent.table_key
-            ), link.parent
+            if (
+                link.parent is None
+                or link.parent.table_name != "org"
+                or link.parent.table_key is None
+            ):
+                log.error(f"Sync Error, Invalid Parent.{link=}\n{link.parent=}")
+                return False
             org_id = link.parent.table_key["id"]
 
             # NOTE: Update the link
-            jd_farm = JDFarm.model_validate(await client.get(link.uri))
+            jd_farm = await client.get(link.uri, JDFarm)
             fl_farm = db.get(Farm, link.table_key) if link.table_key else None
             if fl_farm is None:
                 org_fil = [OrgFarm.org_id == org_id, OrgFarm.farm_id == Farm.id]
                 filter = [select(1).where(*org_fil).exists(), Farm.name == jd_farm.name]
                 fl_farm = crud.farm.get_first(db, *filter)
+                if fl_farm and not link.local_persistent:
+                    changes["local_persistent"] = True
             if fl_farm is None:
                 fl_farm = crud.farm.create(db, FarmCreate(name=jd_farm.name))
                 own = OrgFarm(type=OrgFarmType.Own, org_id=org_id, farm_id=fl_farm.id)
                 crud.org_farm.create(db, own)
-            elif not link.local_persistent:
-                changes["local_persistent"] = True
-            changes["data"] = jd_farm.model_dump(exclude_unset=True)
+            changes["data"] = jd_farm.model_dump()
             changes["table_key"] = {"id": fl_farm.id}
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
             # NOTE: Discover Children
-            field_links = {c.uri for c in link.children}
-            jd_fields = await client.get(jd_farm.linked("fields"), JDMulti[JDField])
-            for jd_field in jd_fields.values:
-                if jd_field.uri not in field_links:
-                    crud.jd_link.create(
-                        db,
-                        JDRecordLink(
-                            uri=jd_field.uri,
-                            data=jd_field.model_dump(exclude_unset=True),
-                            status=SyncStatus.NOSYNC,
-                            local_persistent=False,
-                            table_name="field",
-                            table_key=None,
-                            parent_id=link.id,
-                            user_id=link.user_id,
-                        ),
-                    )
+            children = await client.get(jd_farm.get_uri("fields"), JDMulti[JDField])
+            crud.jd_link.create_multiple(db, child_links(link, "field", children))
+
             # TODO: update webhook
 
         case "field":
-            assert (
-                link.parent
-                and link.parent.table_name == "farm"
-                and link.parent.table_key
-            ), link.parent
+            if (
+                link.parent is None
+                or link.parent.table_name != "farm"
+                or link.parent.table_key is None
+            ):
+                log.error(f"Sync Error, Invalid Parent.{link=}\n{link.parent=}")
+                return False
             farm_id = link.parent.table_key["id"]
 
             # NOTE: Update the link
-            jd_field = JDField.model_validate(await client.get(link.uri))
+            jd_field = await client.get(link.uri, JDField)
             fl_field = db.get(Field, link.table_key) if link.table_key else None
             if fl_field is None:
                 fl_field = crud.field.get_first(
                     db, Field.farm_id == farm_id, Field.name == jd_field.name
                 )
+                if fl_field and not link.local_persistent:
+                    changes["local_persistent"] = True
             if fl_field is None:
                 data = Field(  # TODO: always use type=FieldCrops?
                     name=jd_field.name, type=FieldType.FieldCrops, farm_id=farm_id
                 )
                 fl_field = crud.field.create(db, data)
-            elif not link.local_persistent:
-                changes["local_persistent"] = True
-            changes["data"] = jd_field.model_dump(exclude_unset=True)
+            changes["data"] = jd_field.model_dump()
             changes["table_key"] = {"id": fl_field.id}
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
-            child_links = {c.uri for c in link.children}
-            jd_bounds = await client.get(
-                jd_field.linked("boundaries"), JDMulti[JDBoundary]
-            )
-            jd_ops = await client.get(
-                jd_field.linked("fieldOperation"),
+            # NOTE: Discover Children
+            bds = await client.get(jd_field.get_uri("boundaries"), JDMulti[JDBoundary])
+            ops = await client.get(
+                jd_field.get_uri("fieldOperation"),
                 JDMulti[JDFieldOp],
                 embed="measurementTypes",
             )
-            for jd_field_child in jd_bounds.values + jd_ops.values:
-                if jd_field_child.uri not in child_links:
-                    pass  # TODO: build JDRecordLink
-            # TODO: discover boundaries and operations
+            crud.jd_link.create_multiple(db, child_links(link, "boundary", bds))
+            crud.jd_link.create_multiple(db, child_links(link, "field_op", ops))
+
+            # TODO: update webhook
+
+        case "boundary":
+            if (
+                link.parent is None
+                or link.parent.table_name not in ("field", "field_op")
+                or link.parent.table_key is None
+            ):
+                log.error(f"Sync Error, Invalid Parent.{link=}\n{link.parent=}")
+                return False
+            fl_op = None
+            field_id = link.parent.table_key["id"]
+            if link.parent.table_name == "field_op":
+                fl_op = db.get(FieldOp, link.parent.table_key)
+                if fl_op is None:
+                    return False
+                field_id = fl_op.field_id
+
+            # NOTE: Update the link
+            jd_bound = await client.get(link.uri, JDBoundary)
+            fl_bound = db.get(FieldBoundary, link.table_key) if link.table_key else None
+            # TODO: If parent is op, look for exactly matching boundary as op
+            # TODO: If parent is field, should I look for near or exact boundary match?
+            if fl_bound is None:
+                data = FieldBoundary(
+                    type=BoundaryType.Subfield if fl_op else BoundaryType.Primary,
+                    active=jd_bound.active,
+                    description=jd_bound.name,
+                    geom=jd_bound.wkt,
+                    field_id=field_id,
+                )
+                fl_bound = crud.boundary.create(db, data)
+            changes["data"] = jd_bound.model_dump()
+            changes["table_key"] = {"id": fl_bound.id}
+            crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
+
             # TODO: update webhook
 
         case "field_op":
-            # TODO: client.get uri -> JDOperation
-            # TODO: create operation (no columns to match existing ops that I can see)
-            # TODO: deal with potentially making i/o/e records and bringing in boundary
-            # TODO: Discover boundary
+            if (
+                link.parent is None
+                or link.parent.table_name != "field"
+                or link.parent.table_key is None
+            ):
+                log.error(f"Sync Error, Invalid Parent.\n{link=}\n{link.parent=}")
+                return False
+            field_id = link.parent.table_key["id"]
+
+            # NOTE: Update the link
+            jd_op = await client.get(link.uri, JDFieldOp)
+            fl_op = db.get(FieldOp, link.table_key) if link.table_key else None
+            # TODO: Is there a way to see if the operation already exists?
+            if fl_op is None:
+                crop = crud.crop.get_first_similar_name(db, jd_op.cropName)
+                meas = jd_op.measurements
+
+                # TODO: determine Till vs. NoTill ops?
+                data = FieldOp(
+                    type=OpType(jd_op.fieldOperationType.capitalize()),
+                    season=jd_op.cropSeason,
+                    start=jd_op.startDate,
+                    end=jd_op.endDate,
+                    crop_id=crop.id if crop else None,
+                    area=meas.area.value if meas.area else None,
+                    area_unit=meas.area.unit if meas.area else None,
+                    boundary_id=None,  # TODO: make this now or sync it separately?
+                    field_id=field_id,
+                )
+                fl_op = crud.field_op.create(db, data)
+            changes["data"] = jd_op.model_dump()
+            changes["table_key"] = {"id": fl_op.id}
+            crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
+
+            # When you click sync on a field operation, it will sync op exists
+            # It will
+
+            # TODO: Discover children, possibilities are:
+            #   - list of products that were used. Syncing product adds i/o records
+            #   - list of equipment that were used. Syncing eq adds eq use records
+            #   - one boundary for the operation that can be added as a Subfield
+            #   - not sure what to use shpfile for; exract data for op_equipment record?
+
             # TODO: update webhooks
-            pass
-        case "boundary":
-            # TODO: client.get uri -> JDBoundary
-            # TODO: find or create boundary
-            # TODO: update webhook
             pass
 
         case _:
-            raise ValueError(f"Sync unsupported for {link.table_name=}")
+            log.error(f"Sync unsupported for {link.table_name=}")
+            return False
+    return True
 
 
-async def update_status(db: Session, link: JDRecordLink, to_status: SyncStatus) -> None:
-    """### Change JDRecordLink.status. All state changes should be done here.
-    This function calls `sync_link` or `unsync_link` for applicable transitions.
-    > Do NOT call `change_status` from `sync_link`, `unsync_link` or a function called
-    by them unless you know with certainty it will not cause infinite recusion.
+# endregion
+# region ------------------------------- Status Helpers -------------------------------
+
+
+async def org_conn_allowed(db: Session, link: JDRecordLink) -> bool:
+    if link.table_name != "org":
+        return True  # If not an org link, assume conn was allowed to make current link
+
+    if link.data and not JDOrg.model_validate(link.data).has_conn_link:
+        return True  # has data, which doesn't have connection link, good to go
+
+    org = await JDClient(db, link.connection).get(link.uri, JDOrg)
+    return org and not org.has_conn_link  # update data and check again for conn link.
+
+
+async def resolve_org_conflicts(db: Session, link: JDRecordLink) -> None:
+    """Ensures at most one link to the org referred to by `link` is active across users.
+    * If more than one is active, will unsync all but oldest.
+    * If exactly one is active, will make sure the rest are set to conflict status.
+    * If none are active, will clear all conflict statuses.
     """
+    if link.table_name != "org":
+        return
+
+    others = crud.jd_link.get_paginated(
+        db, 0, None, JDRecordLink.uri == link.uri, JDRecordLink.user_id != link.user_id
+    ).data
+    another_active = any(x.status in SYNC_ACTIVE for x in others)
+    if link.status in SYNC_ACTIVE and another_active:
+        log.error(f"Sync Conflict Detected. {link=}\n{others=}")
+        active = [x for x in [link, *others] if x.status in SYNC_ACTIVE]
+        active.sort(key=lambda x: cast(datetime, x.connection.first_established))
+        active.pop(0)  # Oldest connection keeps the active state.
+        for bad_link in active:
+            await unsync_link(db, bad_link)
+            crud.jd_link.update(db, bad_link, JDLinkUpdate(status=SyncStatus.CONFLICT))
+    else:
+        no_conflict = link.status not in SYNC_ACTIVE and not another_active
+        for x in [link, *others]:
+            if no_conflict:
+                to = (SyncStatus.NORG, SyncStatus.NOSYNC)[await org_conn_allowed(db, x)]
+                if x.status != to:
+                    crud.jd_link.update(db, x, JDLinkUpdate(status=to))
+            elif not no_conflict and x.status == SyncStatus.NOSYNC:
+                crud.jd_link.update(db, x, JDLinkUpdate(status=SyncStatus.CONFLICT))
+
+
+async def change_status(db: Session, link: JDRecordLink, to_status: SyncStatus):
+    """### Change JDRecordLink.status.
+    Behavior differs depending on requirements to go from current status to `to_status`.
+    Primarily, that is calling `sync_link` or `unsync_link` for applicable transitions.
+
+    This and helpers are the ONLY functions that should directly modify link.status.
+
+    Note about recursion here: Each recursive call is basically: check if a
+    restriction has cleared and start over. They are designed to recurse at most once.
+    """
+
+    def set_status(new_status: SyncStatus, _lnk=link) -> JDRecordLink:
+        if _lnk.status != new_status:
+            return crud.jd_link.update(db, _lnk, JDLinkUpdate(status=new_status))
+        return _lnk
+
+    if link.table_name != "org" and link.status in ORG_SYNC_ERRORS:
+        set_status(SyncStatus.NOSYNC)  # Unlikely, but clear org-only status on non-org
     if link.status == to_status:
         return
-    client = JDClient(db, link.connection)
-
-    def exec_update(new_status: SyncStatus, target=link) -> JDRecordLink:
-        return crud.jd_link.update(db, target, JDLinkUpdate(status=new_status))
-
-    # TODO: This could run (and make request) multiple times per job. cache/precompute?
-    async def still_norg(target=link) -> bool:
-        """### Returns True if user has not allowed org connection in JD (NORG).
-        Makes GET request to ensure fully up-to-date answer.
-        """
-        org = await client.get_org(target.uri)
-        return org is None or org.has_conn_link
-
-    async def resolve_conflicts(target=link) -> None:
-        if target.table_name != "org":  # Conflicts are only for orgs.
-            if target.status in (SyncStatus.NORG, SyncStatus.CONFLICT):  # Very unlikely
-                exec_update(SyncStatus.NOSYNC, target)  # Clear invalid status
-            return
-
-        uri, user_id = target.uri, target.user_id
-        filters = [JDRecordLink.uri == uri, JDRecordLink.user_id != user_id]
-        other = crud.jd_link.get_paginated(db, 0, None, *filters)
-        other_active = any(ln.status in SYNC_ACTIVE for ln in other.data)
-        if target.status in SYNC_ACTIVE and other_active:  # resolve conflict
-            log.error(f"Sync Conflict Detected. {target=}\n{other=}")
-            active = [lnk for lnk in [target, *other.data] if lnk.status in SYNC_ACTIVE]
-            active.sort(key=lambda x: cast(datetime, x.connection.first_established))
-            active.pop(0)  # Let the oldest connection keep the active state.
-            for lnk in active:
-                await unsync_link(db, lnk)
-                exec_update(SyncStatus.CONFLICT, lnk)
-        else:
-            no_conflict = target.status not in SYNC_ACTIVE and not other_active
-            for lnk in [target, *other.data]:
-                if no_conflict:
-                    to = SyncStatus.NORG if await still_norg(lnk) else SyncStatus.NOSYNC
-                    if lnk.status != to:
-                        exec_update(to, lnk)
-                elif not no_conflict and lnk.status == SyncStatus.NOSYNC:
-                    exec_update(SyncStatus.CONFLICT, lnk)
 
     match (link.status, to_status):  # NOTE: choose action based on transition
-        case (_, SyncStatus.NORG | SyncStatus.CONFLICT):  # Invalid for manual update
+        case (_, err) if err in ORG_SYNC_ERRORS:  # Invalid for manual update
             return
 
         case (SyncStatus.NORG, _):  # try to clear status
-            if not await still_norg():  # NORG constraint has cleared
-                link = exec_update(SyncStatus.NOSYNC)
-                await update_status(db, link, to_status)
+            if await org_conn_allowed(db, link):
+                link = set_status(SyncStatus.NOSYNC)
+                await change_status(db, link, to_status)
 
         case (SyncStatus.CONFLICT, _):  # try to clear status
-            await resolve_conflicts()
-            if link.status not in (SyncStatus.CONFLICT, SyncStatus.NORG):
-                await update_status(db, link, to_status)
+            await resolve_org_conflicts(db, link)
+            if link.status not in ORG_SYNC_ERRORS:
+                await change_status(db, link, to_status)
 
         case (active, SyncStatus.NOSYNC) if active in SYNC_ACTIVE:  # desync
             await unsync_link(db, link)
-            exec_update(to_status)
-            await resolve_conflicts()  # Updates status to CONFLICT if applicable
+            set_status(to_status)
+            await resolve_org_conflicts(db, link)  # May update status to CONFLICT
 
         case (SyncStatus.SYNC | SyncStatus.DIRTY, SyncStatus.PAUSE):  # pause
-            exec_update(to_status)
+            set_status(to_status)
 
         case (_, active) if active in SYNC_ACTIVE:  # sync
-            await resolve_conflicts()
-            if link.status in (SyncStatus.CONFLICT, SyncStatus.NORG):
+            await resolve_org_conflicts(db, link)
+            if link.status in ORG_SYNC_ERRORS:
                 return
 
             end_status = to_status if to_status != SyncStatus.DIRTY else SyncStatus.SYNC
-            # NOTE: # DIRTY is from sync error. _job_id caps 1 job per resuorce_path.
             if link.status != SyncStatus.DIRTY:
-                link = exec_update(SyncStatus.DIRTY)
+                link = set_status(SyncStatus.DIRTY)
                 db.commit()  # NOTE: Commit status so queries during sync show DIRTY.
-            await sync_link(db, link)
-            exec_update(end_status)
+            await try_sync(db, link)
+            set_status(end_status)
+
+
+# endregion
+# region ------------------------------ Worker Functions ------------------------------
+
+
+async def discover_orgs(ctx, user_id: UUID, member_only=True):
+    log.info(f"Discovering orgs for {user_id=}")
+    with user_session(ctx["engine"], user_id) as db:
+        client = JDClient.from_user(db, user_id)
+        links = []
+        for org in await client.orgs(member_only):
+            org_links = crud.jd_link.get_paginated(
+                db, 0, None, JDRecordLink.uri == org.uri
+            )
+            if next((v for v in org_links.data if v.user_id == user_id), None):
+                continue  # NOTE: if a link exists, just leave it be.
+
+            # Starting status
+            others = [v for v in org_links.data if v.user_id != user_id]
+            if any(v.status in SYNC_ACTIVE for v in others):
+                status = SyncStatus.CONFLICT
+            elif org.has_conn_link:
+                status = SyncStatus.NORG
+            else:
+                status = SyncStatus.NOSYNC
+
+            links.append(
+                JDRecordLink(
+                    uri=org.uri,
+                    data=org.model_dump(),
+                    status=status,
+                    local_persistent=False,
+                    table_name="org",
+                    table_key=None,
+                    parent_id=None,
+                    user_id=deepcopy(user_id),
+                )
+            )
+        return crud.jd_link.create_multiple(db, links)
 
 
 async def modify_sync(ctx, user_id: UUID, uri: str, update: JDLinkUpdate) -> None:
     with user_session(ctx["engine"], user_id) as db:
         link = crud.jd_link.get_by_user_and_uri(db, user_id, uri)
-        if not link:  # NOTE: should not happen due to check in endpoint.
-            raise ValueError(f"Cannot modify unknown resource: {uri=}")
+        if not link:
+            return
 
-        # TODO: empty `update` likely a desire for manual sync (does nothing rn).
-        if update.status:  # Decides if a sync is needed based on context.
-            await update_status(db, link, update.status)
-        crud.jd_link.update(db, link, update)  # Update other columns directly.
+        if update.status:  # Update status by whatever action is needed to do so
+            await change_status(db, link, update.status)
+
+        new_lp = update.local_persistent
+        if new_lp is not None and link.local_persistent != new_lp:
+            crud.jd_link.update(db, link, JDLinkUpdate(local_persistent=new_lp))
 
 
-# NOTE: event: clientKey, eventTypeId, targetResource, token (when provided), metadata, links
+# NOTE: event.clientKey, eventTypeId, targetResource, token (if given), metadata, links
 async def handle_webhook_event(ctx, user_id: UUID, event: dict) -> None:
     with user_session(ctx["engine"], user_id) as db:
         event_type = event.get("eventTypeId")
-        target_resource = event.get("targetResource")
+        uri = event.get("targetResource")
+        link = crud.jd_link.get_by_user_and_uri(db, user_id, uri) if uri else None
+        log.info(f"[Webhook Event] Resource {uri=} has {link=}")
         match event_type:
             case "heartbeat":
                 log.info("[Webhook Event] Ba-dum <3")
             case "subscriptionVerification":
-                log.info(f"[Webhook Event] Subscription Verified, {target_resource=}")
+                log.info(f"[Webhook Event] Subscription Verified, {uri=}")
             case "fieldOperation":
                 log.info("[Webhook Event] Update to Field Operations")
             case "farm":
@@ -390,3 +505,8 @@ async def handle_webhook_event(ctx, user_id: UUID, event: dict) -> None:
                 log.info("[Webhook Event] Update to Field Boundary")
             case _:
                 log.info(f"[Webhook Event] Cannot Handle {event_type=}")
+
+
+# TODO: I need a function that I can run at startup/periodically to validate sync trees.
+
+# endregion

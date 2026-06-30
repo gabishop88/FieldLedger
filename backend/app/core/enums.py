@@ -93,13 +93,12 @@ class SyncStatus(StrEnum):
     DIRTY = "Unsynced"  # Sync enabled, data maybe old/loading. filled yellow checkbox
     PAUSE = "Paused"  # previously synced, currently not updating. empty yellow checkbox
     NOSYNC = "Not Synced"  # Found in heirarchy, not synced. empty gray checkbox
-    # Status options for orgs only
-    # NOTE: https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
     NORG = "No Org Access"  # User is authenticated in jd, but hasn't enabled org access
     CONFLICT = "Synced by Another User"
 
 
 SYNC_ACTIVE = {SyncStatus.SYNC, SyncStatus.DIRTY, SyncStatus.PAUSE}
+ORG_SYNC_ERRORS = {SyncStatus.NORG, SyncStatus.CONFLICT}  # Org link-only err statuses
 
 
 class LoadStrEnumMeta(EnumMeta):

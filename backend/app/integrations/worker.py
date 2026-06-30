@@ -18,20 +18,28 @@ REDIS_SETTINGS = RedisSettings(host=settings.REDIS_HOST, port=settings.REDIS_POR
 # NOTE: I can use _job_id in enqueue_job to make sure syncs are run once?
 # TODO: Use dep function or something else to make the pool that I can enqueue to
 
+
 async def health_check(ctx) -> bool:
     log.info("Worker Healthy!")
     return "engine" in ctx
 
 
+# TODO: remove keep_result=10 and find another way to allow retries but not conflicts.
 class WorkerSettings:
     redis_settings = REDIS_SETTINGS
-    # NOTE: restart the sync-worker service after a function is added or modified.
-    functions = [health_check, jd.modify_sync, jd.handle_webhook_event]
+    keep_result = 10
+    # NOTE: restart sync-worker service after a function is added or modified.
+    functions = [
+        health_check,
+        jd.discover_orgs,
+        jd.modify_sync,
+        jd.handle_webhook_event,
+    ]
 
     @staticmethod
     async def on_startup(ctx):
-        ctx["engine"] = get_engine()
         log.info("Arq Worker Starting Up.")
+        ctx["engine"] = get_engine()
 
     @staticmethod
     async def on_shutdown(ctx):
