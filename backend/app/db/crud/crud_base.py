@@ -59,21 +59,25 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             # delete fails for any other reason
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
+    def _validate(self, obj: ModelType | CreateType | UpdateType) -> ModelType:
+        """Make sure that an object is an instance of ModelType."""
+        assert self.model is not None, "Cannot validate object without model."
+        if isinstance(obj, self.model):
+            return obj
+        return self.model.model_validate(obj)
+
     # ---------------- CREATE ----------------
 
     def create(self, db: Session, new_record: CreateType) -> ModelType:
-        assert self.model is not None, "Cannot create record: model is not set."
-        db_obj = self.model.model_validate(new_record)
-        self._safe_add(db, [db_obj])
-        return db_obj
+        return self.create_multiple(db, [new_record])[0]
 
     def create_multiple(
         self, db: Session, new_records: Sequence[CreateType]
     ) -> Sequence[ModelType]:
         assert self.model is not None, "Cannot create records: model is not set."
-        db_objs = [self.model.model_validate(rec) for rec in new_records]
-        self._safe_add(db, db_objs)
-        return db_objs
+        model_objs = [self._validate(obj) for obj in new_records]
+        self._safe_add(db, model_objs)
+        return model_objs
 
     # ----------------- READ -----------------
 
