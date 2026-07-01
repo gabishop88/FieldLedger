@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import (
     TIMESTAMP,
     Column,
+    DateTime,
     ForeignKey,
     Relationship,
     SQLModel,
@@ -414,8 +415,12 @@ class Equipment(EquipmentBase, table=True):
 class FieldOpBase(SQLModel):
     type: OpType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     season: int
-    start: datetime | None = None
-    end: datetime | None = None
+    start: datetime | None = ColInfo(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    end: datetime | None = ColInfo(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     crop_id: UUID | None = None
     area: float | None = None
     area_unit: str | None = unit_fk()
@@ -452,6 +457,7 @@ class FieldOp(FieldOpBase, table=True):
 
 # TODO: Could I merge inputs and outputs into op_product or something since I only ever
 # have either inputs OR outptus in an operation? Is there a case I would have both?
+
 
 class OpInputBase(SQLModel):
     area: float | None = None
@@ -598,8 +604,12 @@ class JDConnection(SQLModel, table=True):
 
     access_token: str | None = None
     refresh_token: str | None = None
-    access_expires_at: datetime | None = None
-    first_established: datetime | None = None
+    access_expires_at: datetime | None = ColInfo(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    first_established: datetime | None = ColInfo(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     user_id: UUID = ColInfo(
         foreign_key="iam.app_user.id", ondelete="CASCADE", primary_key=True
     )
