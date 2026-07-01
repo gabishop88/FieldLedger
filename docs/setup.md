@@ -168,6 +168,12 @@ These are short guides on how to properly edit different things.
 
 If you want to update the database structure, i.e. make changes to tables, functions, schemas, extensions, or really anything that is not just updating the data stored by the database, then you can follow these steps to make database changes in a way that they will be safe and properly versioned.
 
+> #### Note on naming conventions
+>
+> I am using a specific naming scheme for my revisions, so I hope that all future revisions stick with this naming scheme. First, go look at the list of revisions in `backend/app/alembic/versions` and look at the number at the bottom of the list. If the last version looks like `11_add_integration_tables_2f7c5455d318.py`, then your next revision should be version 12. to name your alembic revision, you should use the number plus a short (~3-5 words) description of what the revision is doing. If you can't summarize what it is doing in a few words, you may want to split it into multiple revisions.
+>
+> Then, you name it like: `alembic revision --autogenerate -m "12 edit user table"` Where `--autogenerate` is optional and I generally keep the words lower-case and separated by spaces for consistency.
+
 New Updates:
 
 0. For each of the commands shown below, the shortest version that can work is shown. These can all be run through uv and/or docker using the following modifications:
@@ -192,6 +198,18 @@ New Updates:
     4. Once the alembic revision has been thouroughly checked, you can use `alembic upgrade head` to apply the newest update.
     5. This upgrade should keep the data from previous revisions, but I highly recommend looking at most of the tables to make sure the data is still in tact and then making a new backup that is compatible with the new revision using `python -m app.db.backup`. If there is something wrong with the data, you can downgrade to the previous revision code, clear/reload the data from the dump, and try again with the new revision, or you can delete the container and/or volume and edit `backend/app/db/prestart.py` to (temporarily) upgrade to a specific version instead of the latest revision by replacing `"head"` in `["alembic", "upgrade", "head"]` with the revision code (the number at the beginning of the revision filename).
     6. Now that the changes have been applied to the database, make sure to update any CRUD functions, endpoint functions, and tests based on those changes.
+
+> #### Fixing Mistakes
+>
+> This is not exactly what you are 'supposed' to do, but if you make an alembic revision, upgrade to it, and make a backup before realizing you forgot something or made a mistake, there is a way to fix that. You can't just edit the revision script because if you were to try to restore that version of the database, your backup would no longer match the structure of the database (well, you can do this for some changes that wouldn't affect the backup, but it's easier to have one workflow that will always work).
+>
+> 1. run `alembic downgrade <version>` where version is the first few characters of the revision number. For example, for a revision called `05_first_tables_2030eaf24e49.py`, using `2030` for version is enough (assuming there is not another revision that starts with `2030`). There is no need to go back more than one revision past the one you are editing.
+> 2. Now, make the edits to your current revision. If you are editing a previous revision, then downgrade one past the one you want to edit, then edit it.
+> 3. Delete all backups associated with the revision you are editing.
+> 4. Run `alembic upgrade head` or `alembic upgrade <version>` to go back to the newly edited revision.
+> 5. Create a new backup with `python -m app.db.backup` (you have to be in `/backend` for this, so you may need to `cd backend` first).
+>
+> It is strongly recommended not to perform this sequence for much older revisions, or revisions with many backups, etc.. Basically, this is a band aid to go back and make simple changes, not the best way to make edits to the database. For those older revisions or major changes, please just go through the normal process of creating a new revision.
 
 ## 6. The Process
 
