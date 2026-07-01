@@ -8,7 +8,7 @@ from sqlmodel import Session, func, inspect, select
 from app.api.deps import ReadSession, SuperuserSession
 from app.core import enums
 from app.core.config import settings
-from app.core.enums import ErrMsg, LoadStrEnumMeta, TypeEnum
+from app.core.enums import ColEnum, ErrMsg, LoadStrEnumMeta
 from app.db import crud, models
 from app.db.connection import get_engine
 from app.db.models import (
@@ -41,7 +41,7 @@ def list_db_ref_tables() -> list[str]:
 
 
 def list_enum_ref_tables() -> list[str]:
-    return [c.__name__ for c in TypeEnum.__subclasses__()]
+    return [c.__name__ for c in ColEnum.__subclasses__()]
 
 
 db_refs = list_db_ref_tables()

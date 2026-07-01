@@ -6,9 +6,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
 from app.core.config import settings
-from app.core.enums import SYNC_ACTIVE, DocTag, ErrMsg, SyncStatus
+from app.core.enums import SYNC_ACTIVE, SYNC_ORG_ERR, DocTag, ErrMsg
 from app.db import crud
-from app.db.models import AppUser, AuthPublic, JDLinkUpdate, Paginated, SyncTreeNode
+from app.db.models import AuthPublic, JDLinkUpdate, Paginated, SyncTreeNode
 from app.integrations.jd.requests import JDClient
 
 LIM = settings.DEFAULT_PAGE_LIMIT
@@ -85,7 +85,7 @@ async def jd_modify_sync(
     resource_path: str = Path(description="e.g. `organizations/{id}/farms/{id}`"),
 ):
     """### Modifies the Sync State of a John Deere Resource Link."""
-    if data_in.status and data_in.status in (SyncStatus.NORG, SyncStatus.CONFLICT):
+    if data_in.status and data_in.status in SYNC_ORG_ERR:
         msg = ErrMsg.INVLD_STATUS.format(data_in.status)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 

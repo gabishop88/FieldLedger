@@ -86,21 +86,6 @@ class ErrMsg(StrEnum):
     NO_WORKER = "Worker health check timed out."
 
 
-# NOTE: See for info on the NORG status:
-# https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
-class SyncStatus(StrEnum):
-    SYNC = "Synced"  # Completely synced and up-to-date. filled green checkbox
-    DIRTY = "Unsynced"  # Sync enabled, data maybe old/loading. filled yellow checkbox
-    PAUSE = "Paused"  # previously synced, currently not updating. empty yellow checkbox
-    NOSYNC = "Not Synced"  # Found in heirarchy, not synced. empty gray checkbox
-    NORG = "No Org Access"  # User is authenticated in jd, but hasn't enabled org access
-    CONFLICT = "Synced by Another User"
-
-
-SYNC_ACTIVE = {SyncStatus.SYNC, SyncStatus.DIRTY, SyncStatus.PAUSE}
-ORG_SYNC_ERRORS = {SyncStatus.NORG, SyncStatus.CONFLICT}  # Org link-only err statuses
-
-
 class LoadStrEnumMeta(EnumMeta):
     """### StrEnum metaclass dynamically filled at runtime.
     E.g. `class MyEnum(StrEnum, metaclass=RuntimeStrEnumMeta, vals=value_list): ...`
@@ -112,11 +97,11 @@ class LoadStrEnumMeta(EnumMeta):
         return super().__new__(mcls, name, bases, dct)
 
 
-class TypeEnum(StrEnum):
+class ColEnum(StrEnum):
     """### A StrEnum designed to constrain a table column to predefined values.
     Create a TableEnum like:
     ```
-    class TestType(TypeEnum):
+    class TestType(ColEnum):
         Label = ("name", "description)
         Next Label = ("other name")
     ```
@@ -124,7 +109,7 @@ class TypeEnum(StrEnum):
 
     To get the values (e.g. for an endpoint response): `TestType.asdict()`
 
-    NOTE: When using a TypeEnum subclass as a type annotation in `models.py`,
+    NOTE: When using a ColEnum subclass as a type annotation in `models.py`,
     it is recommended to set the column type to a string (VARCHAR) to let pydantic
     handle type checking, not the database (also because otherwise you would have to
     make an alembic revision every time you changed an enum value to update the db enum)
@@ -146,10 +131,10 @@ class TypeEnum(StrEnum):
 
     @classmethod
     def asdict(cls) -> list[dict[str, str | None]]:
-        return [{"name": t.value, "description": t.description} for t in cls]
+        return [{"value": t.value, "description": t.description} for t in cls]
 
 
-class FieldType(TypeEnum):
+class FieldType(ColEnum):
     FieldCrops = ("Field Crops", "Row Crops, Specialty Crops, Hay or Forage, etc.")
     Forest = ("Agroforestry", "Perennials; Orchard, Alley Cropping, Silvopasture, etc.")
     Pasture = ("Pasture", "Permanent Pasture or Grazed Area, but not Silvopasture.")
@@ -159,7 +144,7 @@ class FieldType(TypeEnum):
     Misc = ("Miscellaneous", "Last resort for a field that does not fit another type.")
 
 
-class BoundaryType(TypeEnum):
+class BoundaryType(ColEnum):
     Primary = ("Primary", "Main field boundary. One active Primary is allowed.")
     Subfield = ("Subfield", "Field section such as for trials or alternate management.")
     Obstacle = ("Obstacle", "Impassable feature; Tree, Boulder, Tile Control, etc.")
@@ -173,7 +158,7 @@ class BoundaryType(TypeEnum):
 # I could also add a prefix just to the enum name and use it to sort them?
 # like BioCultivar or ChemHerbicide, or maybe BIO_Cultivar or something
 # TODO: Is biochar a bio-input or an ammendment?
-class ProductType(TypeEnum):
+class ProductType(ColEnum):
     Seed = ("Seed", "Specific crop to be planted or otherwise propogated.")
     Crop = ("Crop", "Plant products not for planting; grain, biomass, forage, etc.")
     Animal = ("Animal", "Animal products to be harvested or applied.")  # TODO: graze?
@@ -194,7 +179,7 @@ class ProductType(TypeEnum):
     Misc = ("Miscellaneous", "Last resort for products that do not fit another type.")
 
 
-class EquipmentType(TypeEnum):
+class EquipmentType(ColEnum):
     """A machine is self propelled, an implement is operated by a machine."""
 
     Tractor = ("Tractor", "Attaches to, moves, or operates other equipment.")
@@ -214,7 +199,7 @@ class EquipmentType(TypeEnum):
     Misc = ("Miscellaneous", "Last resort for equipment in no other category.")
 
 
-class OrgFarmType(TypeEnum):
+class OrgFarmType(ColEnum):
     Own = "Owner"
     Operate = ("Operator", "Manages day-to-day operations, does not own")
     Lease = ("Lessee", "Leases the farm from an owner, but manages production.")
@@ -225,7 +210,7 @@ class OrgFarmType(TypeEnum):
     Consult = ("Consultant", "Consults for the owner/operator of the farm.")
 
 
-class OpType(TypeEnum):
+class OpType(ColEnum):
     Seed = ("Seeding", "Planting, Transplanting, Drilling, or Flying on seed.")
     Harvest = ("Harvest", "Harvesting Grain/Biomass, Baling Hay, etc.")
     App = ("Application", "Water, Compost/Fertilizer, Ammendment, Pesticide, etc.")
@@ -233,3 +218,21 @@ class OpType(TypeEnum):
     NoTill = ("Non-Tillage", "No-Till Physical Disturbance; Mowing, Zapping, Raking.")
     Livestock = ("Livestock", "Moving Livestock on a Field; Grazing, Moving, Clearing.")
     Misc = ("Miscellaneous", "Any operation that does not belong in another category.")
+
+
+# NOTE: See for info on the NORG status:
+# https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
+class SyncStatus(ColEnum):
+    # Active Link
+    Synced = ("Synced", "Resource linked; up to date.")  # filled green
+    Pending = ("Pending", "Resource linked; not up to date.")  # filled yellow
+    Paused = ("Paused", "Resource linked; updates paused.")  # green/yellow outline
+
+    # Inactive Link
+    Unsynced = ("Unsynced", "Resource discovered; not linked.")  # gray outline
+    Inaccessible = ("Inaccessible", "Organization discovered; access not enabled.")  # filled orange/red
+    Conflict = ("Conflict", "Organization discovered; linked by another user.")  # filled black
+
+
+SYNC_ACTIVE = {SyncStatus.Synced, SyncStatus.Pending, SyncStatus.Paused}
+SYNC_ORG_ERR = {SyncStatus.Inaccessible, SyncStatus.Conflict}  # Org-link-only errs

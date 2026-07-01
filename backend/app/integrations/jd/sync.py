@@ -10,8 +10,8 @@ from sqlalchemy import Engine
 from sqlmodel import Session, select, text
 
 from app.core.enums import (
-    ORG_SYNC_ERRORS,
     SYNC_ACTIVE,
+    SYNC_ORG_ERR,
     BoundaryType,
     FieldType,
     OpType,
@@ -113,7 +113,7 @@ def child_links[T: JDModel](
         JDRecordLink(
             uri=x.uri,
             data=x.model_dump(),
-            status=SyncStatus.NOSYNC,
+            status=SyncStatus.Unsynced,
             local_persistent=False,
             table_name=table,
             table_key=None,
@@ -330,7 +330,7 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
 # region ------------------------------- Status Helpers -------------------------------
 
 
-async def org_conn_allowed(db: Session, link: JDRecordLink) -> bool:
+async def accessible(db: Session, link: JDRecordLink) -> bool:
     if link.table_name != "org":
         return True  # If not an org link, assume conn was allowed to make current link
 
@@ -361,19 +361,20 @@ async def resolve_org_conflicts(db: Session, link: JDRecordLink) -> None:
         active.pop(0)  # Oldest connection keeps the active state.
         for bad_link in active:
             await unsync_link(db, bad_link)
-            crud.jd_link.update(db, bad_link, JDLinkUpdate(status=SyncStatus.CONFLICT))
+            crud.jd_link.update(db, bad_link, JDLinkUpdate(status=SyncStatus.Conflict))
     else:
         no_conflict = link.status not in SYNC_ACTIVE and not another_active
         for x in [link, *others]:
             if no_conflict:
-                to = (SyncStatus.NORG, SyncStatus.NOSYNC)[await org_conn_allowed(db, x)]
+                is_accessible = await accessible(db, x)
+                to = SyncStatus.Unsynced if is_accessible else SyncStatus.Inaccessible
                 if x.status != to:
                     crud.jd_link.update(db, x, JDLinkUpdate(status=to))
-            elif not no_conflict and x.status == SyncStatus.NOSYNC:
-                crud.jd_link.update(db, x, JDLinkUpdate(status=SyncStatus.CONFLICT))
+            elif not no_conflict and x.status == SyncStatus.Unsynced:
+                crud.jd_link.update(db, x, JDLinkUpdate(status=SyncStatus.Conflict))
 
 
-async def change_status(db: Session, link: JDRecordLink, to_status: SyncStatus):
+async def change_status(db: Session, link: JDRecordLink, to_stat: SyncStatus):
     """### Change JDRecordLink.status.
     Behavior differs depending on requirements to go from current status to `to_status`.
     Primarily, that is calling `sync_link` or `unsync_link` for applicable transitions.
@@ -389,44 +390,44 @@ async def change_status(db: Session, link: JDRecordLink, to_status: SyncStatus):
             return crud.jd_link.update(db, _lnk, JDLinkUpdate(status=new_status))
         return _lnk
 
-    if link.table_name != "org" and link.status in ORG_SYNC_ERRORS:
-        set_status(SyncStatus.NOSYNC)  # Unlikely, but clear org-only status on non-org
-    if link.status == to_status:
+    if link.table_name != "org" and link.status in SYNC_ORG_ERR:
+        set_status(SyncStatus.Unsynced)  # Unlikely; clear org-only status from non-org
+    if link.status == to_stat:
         return
 
-    match (link.status, to_status):  # NOTE: choose action based on transition
-        case (_, err) if err in ORG_SYNC_ERRORS:  # Invalid for manual update
+    match (link.status, to_stat):  # NOTE: choose action based on transition
+        case (_, err) if err in SYNC_ORG_ERR:  # Invalid for manual update
             return
 
-        case (SyncStatus.NORG, _):  # try to clear status
-            if await org_conn_allowed(db, link):
-                link = set_status(SyncStatus.NOSYNC)
-                await change_status(db, link, to_status)
+        case (SyncStatus.Inaccessible, _):  # try to clear status
+            if await accessible(db, link):
+                link = set_status(SyncStatus.Unsynced)
+                await change_status(db, link, to_stat)
 
-        case (SyncStatus.CONFLICT, _):  # try to clear status
+        case (SyncStatus.Conflict, _):  # try to clear status
             await resolve_org_conflicts(db, link)
-            if link.status not in ORG_SYNC_ERRORS:
-                await change_status(db, link, to_status)
+            if link.status not in SYNC_ORG_ERR:
+                await change_status(db, link, to_stat)
 
-        case (active, SyncStatus.NOSYNC) if active in SYNC_ACTIVE:  # desync
+        case (active, SyncStatus.Unsynced) if active in SYNC_ACTIVE:  # desync
             await unsync_link(db, link)
-            set_status(to_status)
+            set_status(to_stat)
             await resolve_org_conflicts(db, link)  # May update status to CONFLICT
 
-        case (SyncStatus.SYNC | SyncStatus.DIRTY, SyncStatus.PAUSE):  # pause
-            set_status(to_status)
+        case (SyncStatus.Synced | SyncStatus.Pending, SyncStatus.Paused):  # pause
+            set_status(to_stat)
 
         case (_, active) if active in SYNC_ACTIVE:  # sync
             await resolve_org_conflicts(db, link)
-            if link.status in ORG_SYNC_ERRORS:
+            if link.status in SYNC_ORG_ERR:
                 return
 
-            end_status = to_status if to_status != SyncStatus.DIRTY else SyncStatus.SYNC
-            if link.status != SyncStatus.DIRTY:
-                link = set_status(SyncStatus.DIRTY)
+            end_stat = to_stat if to_stat != SyncStatus.Pending else SyncStatus.Synced
+            if link.status != SyncStatus.Pending:
+                link = set_status(SyncStatus.Pending)
                 db.commit()  # NOTE: Commit status so queries during sync show DIRTY.
             await try_sync(db, link)
-            set_status(end_status)
+            set_status(end_stat)
 
 
 # endregion
@@ -448,11 +449,11 @@ async def discover_orgs(ctx, user_id: UUID, member_only=True):
             # Starting status
             others = [v for v in org_links.data if v.user_id != user_id]
             if any(v.status in SYNC_ACTIVE for v in others):
-                status = SyncStatus.CONFLICT
+                status = SyncStatus.Conflict
             elif org.has_conn_link:
-                status = SyncStatus.NORG
+                status = SyncStatus.Inaccessible
             else:
-                status = SyncStatus.NOSYNC
+                status = SyncStatus.Unsynced
 
             links.append(
                 JDRecordLink(
