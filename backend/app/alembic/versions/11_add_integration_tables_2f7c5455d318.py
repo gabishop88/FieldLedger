@@ -55,7 +55,7 @@ def upgrade() -> None:
         "jd_record_link",
         sa.Column("uri", sm.AutoString(), nullable=False),
         sa.Column("data", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("type", sa.String(length=32), nullable=False),
+        sa.Column("sync_status", sa.String(length=32), nullable=False),
         sa.Column("local_persistent", sa.Boolean(), nullable=False),
         sa.Column("table_name", sm.AutoString(), nullable=False),
         sa.Column("table_key", postgresql.JSONB(astext_type=sa.Text()), nullable=True),

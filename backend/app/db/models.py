@@ -646,7 +646,7 @@ class JDRecordLink(SQLModel, table=True):
     uri: str
     data: dict[str, Any] = ColInfo(sa_column=Column(JSONB, nullable=False))
     status: SyncStatus = ColInfo(
-        SyncStatus.NOSYNC, sa_column=Column("type", String(32), nullable=False)
+        SyncStatus.Unsynced, sa_column=Column("sync_status", String(32), nullable=False)
     )
     local_persistent: bool = False
     # last_sync: datetime
