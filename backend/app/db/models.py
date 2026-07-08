@@ -620,6 +620,7 @@ class JDConnection(SQLModel, table=True):
     )
 
 
+# TODO: Reduce this down to just what the frontend needs?
 class SyncTreeNode(SQLModel):
     uri: str
     data: dict[str, Any]
@@ -649,6 +650,8 @@ class SyncLinkUpdate(SQLModel):
     local_persistent: bool | None = None
 
 
+# TODO: Is is possible to add a type parameter like JDRecordLink[Org] but still only
+# store model.__tablename__ in table_name?
 class JDRecordLink(SQLModel, table=True):
     __tablename__: ClassVar[str] = "jd_record_link"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "integration"}
