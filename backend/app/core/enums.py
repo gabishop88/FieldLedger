@@ -224,14 +224,14 @@ class OpType(ColEnum):
 # https://developer.deere.com/dev-docs/webhook#events:~:text=Post%20authorization%20redirect%20to%20enable%20organization%20access
 class SyncStatus(ColEnum):
     # Active Link
-    Synced = ("Synced", "Resource linked; up to date.")  # filled green
-    Pending = ("Pending", "Resource linked; not up to date.")  # filled yellow
-    Paused = ("Paused", "Resource linked; updates paused.")  # green/yellow outline
+    Synced = ("Synced", "Resource linked; up to date.")
+    Pending = ("Pending", "Resource linked; not up to date.")
+    Paused = ("Paused", "Resource linked; updates paused.")
 
     # Inactive Link
-    Unsynced = ("Unsynced", "Resource discovered; not linked.")  # gray outline
-    Inaccessible = ("Inaccessible", "Organization discovered; access not enabled.")  # filled orange/red
-    Conflict = ("Conflict", "Organization discovered; linked by another user.")  # filled black
+    Unsynced = ("Unsynced", "Resource discovered; not linked.")
+    Inaccessible = ("Inaccessible", "Organization discovered; access not enabled.")
+    Conflict = ("Conflict", "Organization discovered; linked by another user.")
 
 
 SYNC_ACTIVE = {SyncStatus.Synced, SyncStatus.Pending, SyncStatus.Paused}
