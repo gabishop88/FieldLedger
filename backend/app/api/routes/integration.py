@@ -1,7 +1,17 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Path, Request, Response, status
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
@@ -19,6 +29,42 @@ log = logging.getLogger(__name__)
 jd_router = APIRouter(tags=[DocTag.INTEG])
 
 router = APIRouter()  # Combine routers at the end (after endpoints are added)
+
+# region ----------------------------- General Endpoints ------------------------------
+
+
+# TODO: restrict logs by user? consider splitting into streams and/or using on_job_start
+@router.websocket("/worker-logs")
+async def worker_logs(
+    ws: WebSocket, limit: int = Query(default=100, ge=1, le=settings.REDIS_KEEP_LOGS)
+):
+    await ws.accept()
+    redis = Redis(
+        host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True
+    )
+
+    stream = "worker_logs"
+    try:
+        history = await redis.xrevrange(stream, count=limit)
+        for _, data in reversed(history):
+            await ws.send_text(data["message"])
+
+        last_id = "$"
+        while True:
+            messages = await redis.xread({stream: last_id}, block=5000)
+            for _, entries in messages:
+                for entry_id, data in entries:
+                    last_id = entry_id
+                    await ws.send_text(data["message"])
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await redis.aclose()
+
+
+# endregion
+# region ----------------------------- JD Sync Endpoints ------------------------------
 
 
 @jd_router.get(
