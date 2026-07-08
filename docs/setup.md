@@ -402,3 +402,31 @@ Loose Notes and TODOs:
 * Should I have op_inputs and op_outputs? If I only ever have inputs OR outputs for a given operation, it would kind of make sense to just have op_product and op_equipment?
 
 Could I take a dataset from Dryad, ideally from UIUC, that has a location component and use it to illustrate the tool's capabilities?
+
+## Stuff to remember or do in sync_dashboard
+
+I need to maybe return just what is needed for the sync tree instead of using the translate function
+
+Can I change my handleClick or useUpdateSync mutate so that it gives a notification about the change? It should notify that a change was made and if that change is not the requested one, it should point that out.
+
+For links that are unsynced but marked persistent, I should have a way to indicate that they are sticking around because they were discovered during sync and are persistent?
+    Maybe replace the dashed unsynced circle with a solid border empty circle?
+    Further, should I only show the 'Pause' button for persistent links and not the unsync button?
+
+I want to change Paginated.data to Paginated.values
+
+I should figure out why the mutate button stays disabled.
+
+I think I should make an unsynced but persistent link 'Unsynced' when you unsync it, not just paused. That way someone else could actually sync it?
+    Basically, the whole process would look the same for persistent and not persistent links, the only change is whether it deletes the data, not the link.
+
+If the status becomes pending, I should disable the buttons until the refresh button has been tried at least once?
+
+Maybe add something that refreshes the sync tree or at least the one node on a regular interval if a node is pending?
+
+Can (and how?) I add a button or context menu to each tree item to send you to the john deere page to fix it?
+
+I need to build the details panel.
+
+Turn the ActionIcon button group into a reusable component.
+

@@ -34,6 +34,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
     async function refresh() {
         await queryClient.refetchQueries({ queryKey: ["currentUser"] })
+        await queryClient.refetchQueries({ queryKey: ["jd"] })
     }
 
     async function login(data: LoginData) {

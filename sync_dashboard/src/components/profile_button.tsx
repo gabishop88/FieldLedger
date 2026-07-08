@@ -3,14 +3,13 @@ import {
     Button,
     Group,
     Menu,
-    Modal,
     Skeleton,
-    Stack,
     Text,
 } from "@mantine/core";
 
 import { type User } from "../api/auth";
 import { useState } from "react";
+import ConfirmationModal from "./confirm_modal";
 
 interface Props {
     user: User | null;
@@ -26,16 +25,19 @@ export default function AccountMenu({ user, loading, onLogin, onLogout, onDelete
     if (loading) return <Skeleton h={32} w={180} />;
     if (!user) return <Button onClick={onLogin}>Log In</Button>;
     return <>
-        <Modal opened={confirmOpen} onClose={() => setConfirmOpen(false)} title="Are you sure?" centered size="xs">
-            <Stack ms="auto">
-                <Text>This is permanent.</Text>
-
-                <Button color="red" onClick={async () => {
-                    await onDeleteAccount();
-                    setConfirmOpen(false);
-                }}>Delete Account</Button>
-            </Stack>
-        </Modal>
+        <ConfirmationModal
+            opened={confirmOpen}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={async () => {
+                await onDeleteAccount();
+                setConfirmOpen(false);
+            }}
+            loading={false}
+            title="Are you sure?"
+            buttonLabel="Delete Account"
+        >
+            <Text>This is permanent.</Text>
+        </ConfirmationModal>
 
         <Menu shadow="md">
             <Menu.Target>

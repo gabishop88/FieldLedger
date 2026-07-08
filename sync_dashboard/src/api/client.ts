@@ -1,7 +1,9 @@
 import axios from "axios";
 
+export const API_PREFIX = "/api/v1"
+
 const client = axios.create({
-    baseURL: "/api/v1",
+    baseURL: API_PREFIX,
     withCredentials: true,
 });
 

@@ -8,9 +8,10 @@ import { useAuth } from "../hooks/use_auth";
 import { useJDAuth } from "../hooks/use_jd_auth";
 import { useSyncTree } from "../hooks/use_sync_tree";
 
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { notifications } from "@mantine/notifications";
+import { useState } from "react";
+import LogViewer from "../components/log_viewer";
+import { type SyncTreeNode } from "../api/jd";
+import FieldDetailsPanel from "../components/details_panel";
 
 export default function Dashboard() {
     const { user, loading, logout, deleteAccount } = useAuth();
@@ -18,27 +19,13 @@ export default function Dashboard() {
     const tree = useSyncTree(jdAuth.data?.authorized ?? false)
 
     const [loginOpened, setLoginOpened] = useState(false);
+    const [selectedField, setSelectedField] = useState<SyncTreeNode | null>(null);
+    const [selectedOp, setSelectedOp] = useState<SyncTreeNode | null>(null);
 
-    const queryClient = useQueryClient();
-    useEffect(() => {
-        const handleFocus = () => queryClient.refetchQueries({ queryKey: ["jd"] });
-        window.addEventListener("focus", handleFocus);
-
-        const params = new URLSearchParams(window.location.search);
-        const result = params.get("jd-connected");
-        if (result) {
-            handleFocus();
-            notifications.show({
-                color: result == "authorized" ? "green" : "red",
-                title: `Connection ${result[0].toUpperCase()}${result.slice(1)}`,
-                message: result == "authorized"
-                    ? "John Deere authorization completed successfully."
-                    : "Unable to connect to your John Deere account."
-            });
-            window.history.replaceState({}, "", window.location.pathname);
-        }
-        return () => window.removeEventListener("focus", handleFocus)
-    }, [queryClient])
+    function selectField(field: SyncTreeNode | null) {
+        setSelectedField(field);
+        setSelectedOp(null);
+    }
 
     return (
         <AppShell header={{ height: 80 }} padding="md">
@@ -49,29 +36,36 @@ export default function Dashboard() {
                 onLogout={logout}
                 onDeleteAccount={deleteAccount}
             />
+
             <AppShell.Main>
                 <div style={{
                     display: "grid",
-                    gridTemplateColumns: "300px 1fr",
+                    gridTemplateColumns: "18vw 1fr",
                     gap: "1rem",
                     height: "70vh",
                 }}
                 >
-                    <Paper withBorder>
+                    <Paper withBorder style={{ overflow: "auto" }}>
                         <SyncTreeSidebar
                             loggedIn={!!user}
                             jdAuth={jdAuth.data ?? null}
                             trees={tree.data ?? []}
+                            selectedField={selectedField}
+                            onSelectField={selectField}
                         />
                     </Paper>
 
-                    <Paper withBorder p="md">
-                        Detail Panel
+                    <Paper withBorder p="md" mih={0}>
+                        <FieldDetailsPanel 
+                            field={selectedField}
+                            selectedOperation={selectedOp}
+                            onSelectOperation={setSelectedOp}
+                        />
                     </Paper>
                 </div>
 
-                <Paper withBorder p="md" mt="md" h={180}>
-                    Worker Log
+                <Paper withBorder p="md" mt="md" h="20vh">
+                    <LogViewer />
                 </Paper>
             </AppShell.Main>
 
