@@ -7,7 +7,7 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import Engine
-from sqlmodel import Session, select, text
+from sqlmodel import Session, SQLModel, select, text
 
 from app.core.enums import (
     SYNC_ACTIVE,
@@ -19,6 +19,7 @@ from app.core.enums import (
     SyncStatus,
 )
 from app.db import crud
+from app.db.crud.crud_base import CRUDBase
 from app.db.models import (
     Farm,
     FarmCreate,
@@ -46,6 +47,7 @@ from app.integrations.jd.requests import JDClient
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
+
 # TODO: probably move to be shared by all integrations, but this is the only one for now
 @contextmanager
 def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
@@ -62,43 +64,72 @@ def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
 # region ------------------------------- Unsync Helpers -------------------------------
 
 
-def remove_linked(db: Session, link: JDRecordLink) -> None:
-    """### Deletes link and referenced local data.
+def get_local_record(db: Session, _lnk: JDRecordLink) -> SQLModel | None:
+    if _lnk.table_key is None:
+        return None
+
+    relevant_crud: CRUDBase | None = getattr(crud, _lnk.table_name, None)
+    if relevant_crud is None or relevant_crud.model is None:
+        return None
+
+    return db.get(relevant_crud.model, _lnk.table_key)
+
+
+def delete_local_data(db: Session, _lnk: JDRecordLink) -> None:
+    """### Deletes the local data referenced by the link.
     Does NOT check if it *should*, only if it *can*.
+
+    Does not remove the actual link, just the data it points to.
     """
-    if not hasattr(crud, link.table_name):
-        log.error(f"No crud class found for {link.table_name=}")
+    record = get_local_record(db, _lnk)
+    if record is None:
         return
 
-    table_crud = getattr(crud, link.table_name)
-    record = table_crud.get_or_raise(db, link.table_key)
-    table_crud.delete(db, record)
+    crud_cls = getattr(crud, _lnk.table_name)
+    log.info(f"Deleting {crud_cls.model=} {record=}")
+    crud_cls.delete(db, record)
 
-    if link.table_name == "field_op":
-        pass  # TODO: delete the rest of the stuff created by a field op sync.
-
-    crud.jd_link.delete(db, link)
+    if _lnk.table_name == "field_op":
+        pass  # TODO: delete the rest of the stuff created by a field op sync?
 
 
-async def unsync_link(db: Session, link: JDRecordLink) -> bool:
+async def try_unsync(db: Session, _lnk: JDRecordLink) -> None:
     """
-    Guarantees:
-    - non-persistent local resources are deleted
-    - children are unsynced and links are deleted, if applicable.
+    Attempts to unsync all children by calling `change_status` on them.
 
-    Returns: whether the local resource and link was deleted (True) or disabled (False)
+    Deletes all child links that are not connected to persistent data.
 
-    DOES NOT MODIFY link.status!
+    Deletes the data referred to by _lnk if `_lnk.local_persistent` is False.
+
+    If the local data does not exist even though local_persistent is True,
+    local_perssistent will become false.
+
+    If the link has children that are persistent, but it is not, then local_persistent
+    will become True.
     """
-    children_removed = all([await unsync_link(db, child) for child in link.children])
-    # TODO: modify webhook
-    is_removable = children_removed and not link.local_persistent
-    if is_removable:
-        remove_linked(db, link)
-    elif not link.local_persistent:  # If children exist, link becomes persistent.
-        link = crud.jd_link.update(db, link, JDLinkUpdate(local_persistent=True))
+    remove_children = []
+    for child in _lnk.children:
+        await change_status(db, child, SyncStatus.Unsynced)
+        if not child.local_persistent:
+            remove_children.append(child)
 
-    return is_removable
+    children_remain = len(remove_children) < len(_lnk.children)
+    if remove_children:
+        log.info(f"Deleting Links: {[c.uri for c in remove_children]}")
+        crud.jd_link.delete_multiple(db, remove_children)
+
+    # TODO: Modify webhook.
+
+    should_persist = _lnk.local_persistent and get_local_record(db, _lnk) is not None
+    should_persist |= children_remain
+    # TODO: check for local data that relies on linked data but is not in children?
+    if _lnk.local_persistent != should_persist:
+        log.info(f"Persistence Mismatch {_lnk.local_persistent=} -> {should_persist=}")
+        log.info(f"{bool(get_local_record(db, _lnk))=} {children_remain=}")
+        crud.jd_link.update(db, _lnk, JDLinkUpdate(local_persistent=should_persist))
+
+    if not _lnk.local_persistent:
+        delete_local_data(db, _lnk)
 
 
 # endregion
@@ -159,8 +190,8 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
             # NOTE: Discover children
-            children = await client.get(jd_org.get_uri("farms"), JDMulti[JDFarm])
-            crud.jd_link.create_multiple(db, child_links(link, "farm", children))
+            farms = await client.get(jd_org.get_link("farms").uri, JDMulti[JDFarm])
+            crud.jd_link.create_multiple(db, child_links(link, "farm", farms))
 
             # TODO: update webhook
 
@@ -192,8 +223,8 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
             # NOTE: Discover Children
-            children = await client.get(jd_farm.get_uri("fields"), JDMulti[JDField])
-            crud.jd_link.create_multiple(db, child_links(link, "field", children))
+            fields = await client.get(jd_farm.get_link("fields").uri, JDMulti[JDField])
+            crud.jd_link.create_multiple(db, child_links(link, "field", fields))
 
             # TODO: update webhook
 
@@ -226,11 +257,13 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             crud.jd_link.update(db, link, SyncLinkUpdate(**changes))
 
             # NOTE: Discover Children
-            bds = await client.get(jd_field.get_uri("boundaries"), JDMulti[JDBoundary])
+            bds = await client.get(
+                jd_field.get_link("boundaries").uri, JDMulti[JDBoundary]
+            )
             ops = await client.get(
-                jd_field.get_uri("fieldOperation"),
+                jd_field.get_link("fieldOperation").uri,
                 JDMulti[JDFieldOp],
-                embed="measurementTypes",
+                params={"embed": "measurementTypes"},
             )
             crud.jd_link.create_multiple(db, child_links(link, "boundary", bds))
             crud.jd_link.create_multiple(db, child_links(link, "field_op", ops))
@@ -360,7 +393,7 @@ async def resolve_org_conflicts(db: Session, link: JDRecordLink) -> None:
         active.sort(key=lambda x: cast(datetime, x.connection.first_established))
         active.pop(0)  # Oldest connection keeps the active state.
         for bad_link in active:
-            await unsync_link(db, bad_link)
+            await try_unsync(db, bad_link)
             crud.jd_link.update(db, bad_link, JDLinkUpdate(status=SyncStatus.Conflict))
     else:
         no_conflict = link.status not in SYNC_ACTIVE and not another_active
@@ -410,8 +443,9 @@ async def change_status(db: Session, link: JDRecordLink, to_stat: SyncStatus):
                 await change_status(db, link, to_stat)
 
         case (active, SyncStatus.Unsynced) if active in SYNC_ACTIVE:  # desync
-            await unsync_link(db, link)
-            set_status(to_stat)
+            log.info(f"Desyncing <JDRecordLink {link.uri}>")
+            await try_unsync(db, link)
+            set_status(to_stat, link)
             await resolve_org_conflicts(db, link)  # May update status to CONFLICT
 
         case (SyncStatus.Synced | SyncStatus.Pending, SyncStatus.Paused):  # pause
@@ -421,6 +455,9 @@ async def change_status(db: Session, link: JDRecordLink, to_stat: SyncStatus):
             await resolve_org_conflicts(db, link)
             if link.status in SYNC_ORG_ERR:
                 return
+
+            if link.parent and link.parent.status not in SYNC_ACTIVE:
+                return  # if it has a parent, it must be active
 
             end_stat = to_stat if to_stat != SyncStatus.Pending else SyncStatus.Synced
             if link.status != SyncStatus.Pending:

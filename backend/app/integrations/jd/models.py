@@ -7,6 +7,8 @@ from pydantic import AliasChoices, BaseModel, field_validator
 from pydantic import Field as ColInfo
 from shapely import MultiPolygon, Point, Polygon
 
+from app.core.config import settings
+
 # region -------------------------------- Core Models ---------------------------------
 
 
@@ -24,21 +26,25 @@ class JDLink(JDBaseModel):
 
 class Meas(JDBaseModel):
     value: float = ColInfo(validation_alias=AliasChoices("value", "valueAsDouble"))
-    unit: str
+    unit: str | None = None
 
 
 class JDModel(JDBaseModel):
     keep_links: ClassVar[set[str]] = {"self", "owningOrganization", "organization"}
     links: list[JDLink]
 
-    def get_uri(self, rel: str) -> str:
-        """Get the uri of a link in `self.links`."""
+    def get_link(self, rel: str) -> JDLink:
+        """Get a link from `self.links` by rel. Some options in `self.keep_links`."""
         assert rel in self.keep_links, f"{rel=} not in {self.keep_links}."
-        return next(link for link in self.links if link.rel == rel).uri
+        return next(link for link in self.links if link.rel == rel)
 
     @cached_property
     def uri(self) -> str:
-        return self.get_uri("self")
+        """This is a resource's identifier: 'self' link except protocol/domain."""
+        uri = self.get_link("self").uri
+        if uri.startswith(settings.JD_API_BASE):
+            uri = uri[len(settings.JD_API_BASE):].lstrip("/")
+        return uri
 
     @field_validator("links", mode="before")
     @classmethod
@@ -263,7 +269,7 @@ class JDOpMachine(JDBaseModel):
     name: str | None = None
     vin: str | None = None
     GUID: str
-    machineId: str | None = None
+    machineId: int | None = None
 
 
 class JDTillageProduct(JDBaseModel):
