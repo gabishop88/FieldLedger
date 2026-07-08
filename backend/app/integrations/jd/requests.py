@@ -108,7 +108,7 @@ class JDClient:
         if not self.has_token():
             return False
         try:
-            await self.get(f"{settings.JD_API_BASE}/organizations")
+            await self.get(f"{settings.JD_API_BASE}/platform/organizations")
             return True
         except httpx.HTTPStatusError:
             return False
@@ -121,6 +121,8 @@ class JDClient:
             "Accept-Language": "en",
         }
         headers.update(kwargs.pop("headers", {}))
+        if not uri.startswith(("http://", "https://")):
+            uri = f"{settings.JD_API_BASE}/{uri.lstrip('/')}"
         async with httpx.AsyncClient() as client:
             response = await client.request(method, uri, headers=headers, **kwargs)
         return response.raise_for_status()
@@ -148,5 +150,7 @@ class JDClient:
         return (await self.request("POST", uri, **kwargs)).json()
 
     async def orgs(self, member_only=True) -> list[JDOrg]:
-        orgs = await self.get(f"{settings.JD_API_BASE}/organizations", JDMulti[JDOrg])
+        orgs = await self.get(
+            f"{settings.JD_API_BASE}/platform/organizations", JDMulti[JDOrg]
+        )
         return [o for o in orgs.values if not member_only or o.member]
