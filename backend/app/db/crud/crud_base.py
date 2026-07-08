@@ -10,6 +10,20 @@ from sqlmodel import Session, SQLModel, func, select
 from app.core.enums import ErrMsg
 from app.db.models import Paginated
 
+# TODO: improved/standalone create/delete functions that take 1+ objs:
+# def create(self, db: Session, *objs: CreateType) -> tuple[ModelType, ...]:
+#     try:
+#         obj_models = tuple(self._validate(o) for o in objs)
+#         db.add_all(obj_models)
+#         db.flush()
+#         return obj_models
+#     except (IntegrityError, InternalError) as e:
+#         db.rollback()
+#         # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
+#         msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
+#         if "already exists" in msg:  # Unique/exclusion violation
+#             raise HTTPException(status.HTTP_409_CONFLICT, msg)
+#         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
 class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     """### Superclass for CRUD Operations on tables.
@@ -23,6 +37,11 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
 
     def __init__(self, model: type[ModelType] | None = None):
         self.model: type[ModelType] | None = model
+
+    def _ensure_model_exists(self) -> type[ModelType]:
+        if self.model is None:
+            raise RuntimeError("CRUD functions cannot be executed without a model.")
+        return self.model
 
     def _safe_add(
         self, db: Session, objs: Sequence[ModelType], refresh=False
@@ -38,30 +57,29 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
             db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
-            # TODO: Relying on msg contents to detect unique violation is unstable.
-            # However, I can't find the "pgcode" or similar to do this properly.
             if "already exists" in msg:  # Unique/exclusion violation
                 raise HTTPException(status.HTTP_409_CONFLICT, msg)
-            # FK, NOTNULL, Check, etc.
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
-    def _safe_delete(self, db: Session, obj: ModelType) -> ModelType:
+    def _safe_delete(
+        self, db: Session, objs: Sequence[ModelType]
+    ) -> Sequence[ModelType]:
         try:
-            db.delete(obj)
+            for obj in objs:
+                db.delete(obj)
             db.flush()
-            return obj
+            return objs
         except (IntegrityError, InternalError) as e:
             db.rollback()
             # Safely get e.orig.diag.message_detail, or fall back to str(e.orig)
             msg = str(getattr(getattr(e.orig, "diag", None), "message_detail", e.orig))
             if getattr(e.orig, "pgcode", None) in ("23503",):  # FK constraint
                 raise HTTPException(status.HTTP_409_CONFLICT, msg)
-            # delete fails for any other reason
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
     def _validate(self, obj: ModelType | CreateType | UpdateType) -> ModelType:
         """Make sure that an object is an instance of ModelType."""
-        assert self.model is not None, "Cannot validate object without model."
+        self.model = self._ensure_model_exists()
         if isinstance(obj, self.model):
             return obj
         return self.model.model_validate(obj)
@@ -71,10 +89,8 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     def create(self, db: Session, new_record: CreateType) -> ModelType:
         return self.create_multiple(db, [new_record])[0]
 
-    def create_multiple(
-        self, db: Session, new_records: Sequence[CreateType]
+    def create_multiple(self, db: Session, new_records: Sequence[CreateType]
     ) -> Sequence[ModelType]:
-        assert self.model is not None, "Cannot create records: model is not set."
         model_objs = [self._validate(obj) for obj in new_records]
         self._safe_add(db, model_objs)
         return model_objs
@@ -83,18 +99,16 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
 
     def get_or_raise(self, db: Session, key: Any) -> ModelType:
         """### Get one record or raise HTTPException(404) if not found."""
-        assert self.model is not None, "Cannot get record: model is not set."
+        self.model = self._ensure_model_exists()
         record = db.get(self.model, key)
         if not record:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                ErrMsg.NF.format(self.model.__name__, key),
-            )
+            table = self.model.__name__
+            raise HTTPException(status.HTTP_404_NOT_FOUND, ErrMsg.NF.format(table, key))
         return record
 
     def get_first(self, db: Session, *filters, order_by=None) -> ModelType | None:
         """Similar to `get_paginated` but only get the first record, if it exists."""
-        assert self.model is not None, "Cannot get record, model is not set."
+        self.model = self._ensure_model_exists()
         query = select(self.model).where(*filters)
         query = query if order_by is None else query.order_by(order_by)
         return db.exec(query).first()
@@ -102,7 +116,7 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     def get_paginated(
         self, db: Session, skip: int, limit: int | None, *filters, order_by=None
     ) -> Paginated[ModelType]:
-        assert self.model is not None, "Cannot get paginated records: model is not set."
+        self.model = self._ensure_model_exists()
         query = select(self.model).where(*filters).offset(skip).limit(limit)
         if order_by is not None:
             query = query.order_by(order_by)
@@ -120,11 +134,16 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         """### Modify the selected `record` with the provided `changes`."""
         update_dict = changes.model_dump(exclude_unset=True)
         record.sqlmodel_update(update_dict)
-        self._safe_add(db, [record], refresh=True)
+        db.flush()
         return record
 
     # ---------------- DELETE ----------------
 
     def delete(self, db: Session, record: ModelType) -> ModelType:
         """### Deletes the given `record` and returns it (as it was before deletion)."""
-        return self._safe_delete(db, record)
+        return self._safe_delete(db, [record])[0]
+
+    def delete_multiple(
+        self, db: Session, records: Sequence[ModelType]
+    ) -> Sequence[ModelType]:
+        return self._safe_delete(db, records)
