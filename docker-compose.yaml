@@ -89,6 +89,7 @@ services:
     build:
       context: ./sync_dashboard
     container_name: fieldledger_sync_dashboard
+    restart: unless-stopped
     volumes:
       - ./sync_dashboard:/app
       - /app/node_modules
