@@ -3,6 +3,7 @@ import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
+from arq.connections import RedisSettings
 from dotenv import load_dotenv
 from pydantic import (
     AnyUrl,
@@ -142,11 +143,18 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
-    # John Deere Integration
+    # Arq / Redis settings:
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
+    REDIS_KEEP_LOGS: int = 1000
 
-    JD_API_BASE: str = "https://sandboxapi.deere.com/platform"
+    @computed_field
+    @property
+    def REDIS_SETTINGS(self) -> RedisSettings:
+        return RedisSettings(host=self.REDIS_HOST, port=self.REDIS_PORT)
+
+    # John Deere Integration
+    JD_API_BASE: str = "https://api.deere.com"
     JD_AUTH_BASE: str = "https://signin.johndeere.com/oauth2/aus78tnlaysMraFhC1t7/v1"
     JD_CLIENT_ID: str
     JD_CLIENT_SECRET: str
@@ -172,9 +180,9 @@ class Settings(BaseSettings):
 
 # TODO: Should I make this a cached function that will not run at import time?
 try:
-    settings = Settings() # pyright: ignore[reportCallIssue]
+    settings = Settings()  # pyright: ignore[reportCallIssue]
 except ValueError:
     # Attempt to load dotenv if critical settings are missing
     env_path = Path(__file__).parents[3] / ".env"
     load_dotenv(env_path)
-    settings = Settings() # pyright: ignore[reportCallIssue]
+    settings = Settings()  # pyright: ignore[reportCallIssue]

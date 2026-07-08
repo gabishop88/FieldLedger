@@ -10,7 +10,6 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.enums import DocTag
-from app.integrations.worker import REDIS_SETTINGS
 
 SNAKIFIER = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
@@ -24,7 +23,7 @@ def custom_route_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app):
-    app.state.job_pool = await create_pool(REDIS_SETTINGS)
+    app.state.job_pool = await create_pool(settings.REDIS_SETTINGS)
     yield
     await app.state.job_pool.close()
 
