@@ -134,8 +134,14 @@ class JDClient:
     async def get[T: JDModel](
         self, uri: str, model: type[T] | None = None, **kwargs
     ) -> dict[str, Any] | T:
-        """Get data at url. If you pass `model`, data is returned validated by it."""
-        data = (await self.request("GET", uri, **kwargs)).json()
+        """### Get data at url.
+        If you pass `model`, data is returned validated by it.
+
+        Includes default params: itemLimit=5000
+        """
+        params = {"itemLimit": 5000}
+        params.update(kwargs.pop("params", {}))
+        data = (await self.request("GET", uri, params=params, **kwargs)).json()
         return data if model is None else model.model_validate(data)
 
     async def post(self, uri: str, **kwargs) -> dict[str, Any]:
