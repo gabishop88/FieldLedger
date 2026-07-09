@@ -3,15 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 
 import {
-    type User,
-    type LoginData,
-    type RegisterData,
-    getCurrentUser,
+    currentUserRequest,
     loginRequest,
     createAccountRequest,
     logoutRequest,
     deleteAccountRequest,
 } from "../api/auth";
+import type { LoginData, RegisterData, User } from "../types/fl";
 
 interface AuthContextType {
     user: User | null;
@@ -29,7 +27,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
     const query = useQuery({
         queryKey: ["currentUser"],
-        queryFn: getCurrentUser,
+        queryFn: currentUserRequest,
     });
 
     async function refresh() {

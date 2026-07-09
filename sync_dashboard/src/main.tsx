@@ -4,6 +4,8 @@ import ReactDOM from "react-dom/client";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 
+import "leaflet/dist/leaflet.css";
+
 import { createTheme, MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 

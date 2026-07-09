@@ -12,7 +12,7 @@ interface ConfirmModalProps {
     buttonLabel?: string;
 }
 
-export default function ConfirmationModal({
+export default function ConfirmModal({
     opened, onClose, onConfirm, loading, title, children, buttonLabel = "Confirm"
 }: ConfirmModalProps) {
     return <Modal opened={opened} onClose={onClose} title={title} transitionProps={{ transition: 'fade-down' }}>

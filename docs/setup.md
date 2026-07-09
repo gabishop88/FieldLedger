@@ -428,5 +428,6 @@ Can (and how?) I add a button or context menu to each tree item to send you to t
 
 I need to build the details panel.
 
-Turn the ActionIcon button group into a reusable component.
+I would like to use flex components for the AppShell rather than the grid, but it is being annoying so I am putting it off.
 
+I want to rename SyncTreeNode and SyncTreeData, it just is too confusing.

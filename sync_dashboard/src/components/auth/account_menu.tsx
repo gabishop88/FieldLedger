@@ -7,9 +7,9 @@ import {
     Text,
 } from "@mantine/core";
 
-import { type User } from "../api/auth";
 import { useState } from "react";
 import ConfirmationModal from "./confirm_modal";
+import type { User } from "../../types/fl";
 
 interface Props {
     user: User | null;

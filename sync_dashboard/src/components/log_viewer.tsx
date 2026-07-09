@@ -1,4 +1,4 @@
-import { ActionIcon, Group, ScrollArea, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, ScrollArea, Stack, Text, Tooltip } from "@mantine/core";
 import { IconArrowDown, IconTrashFilled } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { useWorkerLogs } from "../hooks/use_worker_logs";
@@ -15,8 +15,8 @@ export default function LogViewer() {
 
     useEffect(() => { if (atBottom) scrollToBottom(); }, [logs, atBottom]);
 
-    return <Stack h="100%" p="xs">
-        <Group align="flex-end">
+    return <Stack h="100%">
+        <Group align="baseline">
             <Tooltip label="Scroll to End">
                 <ActionIcon onClick={scrollToBottom} variant="subtle" disabled={atBottom}>
                     <IconArrowDown size={16} />
@@ -42,9 +42,7 @@ export default function LogViewer() {
             }}
         >
             {logs.map((log, i) => 
-                <Text key={i} ff="monospace" fz="xs">
-                    {log}
-                </Text>
+                <Text key={i} ff="monospace" fz="xs">{log}</Text>
             )}
         </ScrollArea>
     </Stack>

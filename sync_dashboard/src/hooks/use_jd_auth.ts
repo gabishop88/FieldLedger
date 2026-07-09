@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteJDAuth, getJDAuth } from "../api/jd";
+import { jdDeleteSyncRequest, jdAuthLinkRequest } from "../api/jd";
 
 export function useJDAuth(enabled: boolean) {
     return useQuery({
         queryKey: ["jd", "auth"],
-        queryFn: getJDAuth,
+        queryFn: jdAuthLinkRequest,
         enabled,
     });
 }
@@ -12,7 +12,7 @@ export function useJDAuth(enabled: boolean) {
 export function useDeleteJDAuth() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: deleteJDAuth,
+        mutationFn: jdDeleteSyncRequest,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jd"] }),
     })
 }

@@ -1,13 +1,14 @@
 import { ActionIcon, Group, Tooltip } from "@mantine/core";
-import { statusDetails, type SyncStatus, type SyncTreeNode } from "../api/jd";
-import { useSyncTree, useUpdateSync } from "../hooks/use_sync_tree";
+import { useSyncTree, useUpdateSync } from "../../hooks/use_sync_tree";
 import { useEffect, useState } from "react";
+import type { SyncStatus, SyncLink } from "../../types/fl";
+import { statusDetails } from "./status_info";
 
 interface Props {
-    node: SyncTreeNode;
+    node: SyncLink;
 }
 
-export default function UpdateStatusButtons({ node }: Props) {
+export default function UpdateStatusActions({ node }: Props) {
     const { mutate } = useUpdateSync();
     const { isFetching } = useSyncTree(true);
     const [disabledButtons, setDisabledButtons] = useState(new Set<string>());

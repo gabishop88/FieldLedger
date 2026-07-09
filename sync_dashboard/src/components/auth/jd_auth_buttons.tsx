@@ -1,17 +1,17 @@
 import { Button, Group, Tooltip } from "@mantine/core";
-import type { JDAuthInfo } from "../api/jd";
 import { IconTrash } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDeleteJDAuth } from "../hooks/use_jd_auth";
+import { useDeleteJDAuth } from "../../hooks/use_jd_auth";
 import ConfirmationModal from "./confirm_modal";
+import type { JDAuthInfo } from "../../types/jd";
 
 interface Props {
     loggedIn: boolean;
     jdAuth: JDAuthInfo | null;
 }
 
-export default function JDAuthButtonGroup({ loggedIn, jdAuth }: Props) {
+export default function JDAuthButtons({ loggedIn, jdAuth }: Props) {
     const queryClient = useQueryClient();
     useEffect(() => {
         queryClient.invalidateQueries({ queryKey: ["jd", "syncTree"] });

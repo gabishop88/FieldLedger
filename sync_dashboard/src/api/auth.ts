@@ -1,24 +1,7 @@
+import type { LoginData, RegisterData, User } from "../types/fl";
 import client from "./client";
 
-export interface User {
-    id: string;
-    email: string;
-    full_name: string | null;
-    is_superuser: boolean;
-}
-
-export interface LoginData {
-    username: string;
-    password: string;
-}
-
-export interface RegisterData {
-    email: string;
-    password: string;
-    full_name: string;
-}
-
-export async function getCurrentUser(): Promise<User | null> {
+export async function currentUserRequest(): Promise<User | null> {
     try {
         const { data } = await client.get<User>("/account");
         return data;

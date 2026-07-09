@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSyncTrees, updateSyncStatus, type SyncStatus } from "../api/jd";
+import { jdSyncTreesRequest, jdUpdateSyncStatusRequest } from "../api/jd";
+import type { SyncStatus } from "../types/fl";
 
 export function useSyncTree(enabled: boolean) {
     return useQuery({
         queryKey: ["jd", "syncTree"],
-        queryFn: getSyncTrees,
+        queryFn: jdSyncTreesRequest,
         enabled,
         staleTime: Infinity,
         refetchOnWindowFocus: false,
@@ -20,7 +21,7 @@ export function useUpdateSync() {
     return useMutation({
         mutationFn: (
             { uri, newStatus }: { uri: string, newStatus: SyncStatus }
-        ) => updateSyncStatus(uri, newStatus),
+        ) => jdUpdateSyncStatusRequest(uri, newStatus),
 
         onSuccess: () => {
             clearTimeout(refreshTimeout);

@@ -1,38 +1,32 @@
-import { Badge, Box, Card, Center, Divider, Group, ScrollArea, Scroller, Stack, Text, Textarea, Timeline } from "@mantine/core";
-import { statusDetails, type SyncTreeNode } from "../api/jd";
+import { Box, Button, Card, Center, Code, Divider, Group, ScrollArea, Scroller, Stack, Text, Timeline } from "@mantine/core";
 import { useMemo, useState } from "react";
-import UpdateStatusButtons from "./status_buttons";
+import UpdateStatusActions from "./status_actions";
 import BoundaryModal from "./boundary_modal";
-
-interface Props {
-    field: SyncTreeNode | null;
-    selectedOperation: SyncTreeNode | null;
-    onSelectOperation: (op: SyncTreeNode | null) => void;
-}
+import type { JDBoundary, JDField, JDFieldOp } from "../../types/jd";
+import type { SyncLink } from "../../types/fl";
+import { statusDetails } from "./status_info";
 
 interface ChipProps {
-    boundary: SyncTreeNode;
+    boundary: SyncLink<JDBoundary>;
     onClick: () => void;
     children: React.ReactNode;
 }
 
 function BoundaryChip({ boundary, onClick, children }: ChipProps) {
     const statusInfo = statusDetails[boundary.status];
-    return <Badge 
+    return <Button 
         leftSection={<statusInfo.icon size={18} color={statusInfo.color} />}
         onClick={onClick}
         variant="outline"
-        size="lg"
-        radius="md"
         color="blue"
     >
         {children}
-    </Badge>
+    </Button>
 }
 
 
 interface OpCardProps {
-    op: SyncTreeNode;
+    op: SyncLink<JDFieldOp>;
     selected: boolean;
     onClick: () => void;
     children: React.ReactNode | null;
@@ -40,7 +34,8 @@ interface OpCardProps {
 
 function TimelineOpCard({ op, selected, onClick, children }: OpCardProps) {
     const statusInfo = statusDetails[op.status];
-    const title = `${op.data.cropSeason} ${op.data.fieldOperationType}`;
+    const opType = String(op.data.fieldOperationType);
+    const title = `${op.data.cropSeason} ${opType[0].toUpperCase()}${opType.slice(1)}`;
     const bullet = <statusInfo.icon color={statusInfo.color} size={16} />;
 
     return <Timeline.Item 
@@ -75,16 +70,22 @@ function EmptyFieldCard() {
     </Center>
 }
 
+interface Props {
+    field: SyncLink<JDField> | null;
+    selectedOperation: SyncLink<JDFieldOp> | null;
+    onSelectOperation: (op: SyncLink<JDFieldOp> | null) => void;
+}
+
 export default function FieldDetailsPanel({ field, selectedOperation, onSelectOperation }: Props) {
-    const [selectedBoundary, setSelectedBoundary] = useState<SyncTreeNode | null>(null);
+    const [selectedBoundary, setSelectedBoundary] = useState<SyncLink<JDBoundary> | null>(null);
 
     const boundaries = useMemo(
-        () => field?.children.filter((c) => c.table_name == "boundary") ?? [],
+        () => field?.children.filter((c): c is SyncLink<JDBoundary> => c.table_name == "boundary") ?? [],
         [field]
     );
     const operations = useMemo(
         () => field?.children.filter(
-            (c) => c.table_name == "field_op"
+            (c): c is SyncLink<JDFieldOp> => c.table_name == "field_op"
         ).sort(
             (a, b) => Date.parse(String(a.data.startDate)) - Date.parse(String(b.data.startDate))
         ).reverse() ?? [],
@@ -99,17 +100,17 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
         />
 
         <Stack h="100%" gap={0}>
-            <Group wrap="nowrap" align="stretch" mih={0}>
-                <ScrollArea>
-                    <Timeline>
+            <Group wrap="nowrap" align="stretch" flex={1} mih={0}>
+                <ScrollArea dir="rtl" scrollbarSize={5} px="xs">
+                    <Timeline dir="ltr">
                         {operations.map((op) => {
                             const selected = selectedOperation?.uri === op.uri;
-                            const boundary = op.children?.find((c) => c.table_name === "boundary");
+                            const boundary = op.children?.find((c): c is SyncLink<JDBoundary> => c.table_name === "boundary");
 
                             return <TimelineOpCard 
                                 op={op}
                                 selected={selected}
-                                onClick={() => onSelectOperation(op)}
+                                onClick={() => onSelectOperation(selected ? null : op)}
                             >
                                 <Text size="xs" c="dimmed">
                                     {new Date(String(op.data.startDate ?? "")).toDateString()}
@@ -117,7 +118,7 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
 
                                 {selected &&
                                     <Group flex={1} justify="space-around">
-                                        <UpdateStatusButtons node={op} />
+                                        <UpdateStatusActions node={op} />
 
                                         {!!boundary &&
                                             <BoundaryChip
@@ -138,12 +139,7 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
 
                 <Box p="md" flex={1} mih={0} style={{ overflow: "auto" }}>
                     {selectedOperation 
-                        ? <Textarea 
-                            readOnly
-                            autosize
-                            minRows={28}
-                            value={JSON.stringify(selectedOperation.data, null, 2)}
-                        />
+                        ? <Code bdrs="md" block>{JSON.stringify(selectedOperation.data, null, 2)}</Code>
                         : <Text c="dimmed">Select an operation.</Text>
                     }
                 </Box>
@@ -151,8 +147,8 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
 
             <Divider />
 
-            <Group p="sm">
-                <Text fw={600} mb="xs">Boundaries</Text>
+            <Group mt="lg" align="center">
+                <Text fw={600}>Field Boundaries:</Text>
 
                 <Scroller>
                     {boundaries.map((boundary, ix) => 
@@ -161,7 +157,7 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
                             boundary={boundary}
                             onClick={() => setSelectedBoundary(boundary)}
                         >
-                            Field Boundary {ix + 1}
+                            {boundary?.data.name ?? `Boundary ${ix + 1}`}
                         </BoundaryChip>
                     )}
                 </Scroller>
