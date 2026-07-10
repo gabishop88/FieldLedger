@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActionIcon, AppShell, Box, Center, Group, Paper, Stack, Title, useMantineColorScheme } from "@mantine/core";
 
 import SyncExplorerPanel from "../components/sync/sync_explorer";
@@ -24,12 +24,29 @@ export default function Dashboard() {
     const tree = useSyncTree(jdAuth.data?.authorized ?? false)
 
     const [loginOpened, setLoginOpened] = useState(false);
-    const [selectedField, setSelectedField] = useState<SyncLink<JDField> | null>(null);
-    const [selectedOp, setSelectedOp] = useState<SyncLink<JDFieldOp> | null>(null);
+    const [selectedFieldUri, setSelectedFieldUri] = useState<string | null>(null);
+    const [selectedOpUri, setSelectedOpUri] = useState<string | null>(null);
+
+    const selectedField = useMemo(
+        () => !selectedFieldUri ? null : (
+            tree.data?.flatMap(org => org.children).flatMap(farm => farm.children)
+                .find(field => field.uri === selectedFieldUri)
+        ) as SyncLink<JDField> | null,
+        [selectedFieldUri, tree]
+    );
+    const selectedOp = useMemo(
+        () => !selectedField ? null : (
+            selectedField?.children.find(op => op.uri === selectedOpUri)
+        ) as SyncLink<JDFieldOp> | null,
+        [selectedOpUri, selectedField]
+    );
 
     function selectField(field: SyncLink<JDField> | null) {
-        setSelectedField(field);
-        setSelectedOp(null);
+        setSelectedFieldUri(field?.uri ?? null);
+        setSelectedOpUri(null);
+    }
+    function selectOp(op: SyncLink<JDFieldOp> | null) {
+        setSelectedOpUri(op?.uri ?? null);
     }
 
     return (
@@ -83,7 +100,7 @@ export default function Dashboard() {
                             <FieldDetailsPanel 
                                 field={selectedField}
                                 selectedOperation={selectedOp}
-                                onSelectOperation={setSelectedOp}
+                                onSelectOperation={selectOp}
                                 />
                         </Paper>
                     </Box>

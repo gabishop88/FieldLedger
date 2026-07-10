@@ -77,7 +77,14 @@ interface Props {
 }
 
 export default function FieldDetailsPanel({ field, selectedOperation, onSelectOperation }: Props) {
-    const [selectedBoundary, setSelectedBoundary] = useState<SyncLink<JDBoundary> | null>(null);
+    const [selectedBoundaryUri, setSelectedBoundaryUri] = useState<string | null>(null);
+    const selectedBoundary = useMemo(
+        () => !selectedBoundaryUri ? null : (
+            field?.children.find(b => b.uri === selectedBoundaryUri) ??
+            selectedOperation?.children.find(b => b.uri === selectedBoundaryUri)
+        ) as SyncLink<JDBoundary> | null,
+        [field, selectedOperation, selectedBoundaryUri]
+    );
 
     const boundaries = useMemo(
         () => field?.children.filter((c): c is SyncLink<JDBoundary> => c.table_name == "boundary") ?? [],
@@ -96,7 +103,7 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
     return <>
         <BoundaryModal
             boundary={selectedBoundary}
-            onClose={() => setSelectedBoundary(null)}
+            onClose={() => setSelectedBoundaryUri(null)}
         />
 
         <Stack h="100%" gap={0}>
@@ -123,7 +130,7 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
                                         {!!boundary &&
                                             <BoundaryChip
                                             boundary={boundary}
-                                            onClick={() => setSelectedBoundary(boundary)}
+                                            onClick={() => setSelectedBoundaryUri(boundary.uri)}
                                             >
                                                 Operation Boundary
                                             </BoundaryChip>
@@ -148,14 +155,14 @@ export default function FieldDetailsPanel({ field, selectedOperation, onSelectOp
             <Divider />
 
             <Group mt="lg" align="center">
-                <Text fw={600}>Field Boundaries:</Text>
+                <Text fw={600}>{field.data.name} Boundaries:</Text>
 
                 <Scroller>
                     {boundaries.map((boundary, ix) => 
                         <BoundaryChip 
                             key={boundary.uri}
                             boundary={boundary}
-                            onClick={() => setSelectedBoundary(boundary)}
+                            onClick={() => setSelectedBoundaryUri(boundary.uri)}
                         >
                             {boundary?.data.name ?? `Boundary ${ix + 1}`}
                         </BoundaryChip>
