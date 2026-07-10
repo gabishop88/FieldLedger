@@ -186,7 +186,7 @@ async def jd_modify_sync(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
     # TODO: remove once completed
-    if link.table_name in ("boundary", "field_op"):
+    if link.table_name in ("field_op",):
         raise HTTPException(
             status.HTTP_501_NOT_IMPLEMENTED, f"{link.table_name} sync is unimplemneted."
         )

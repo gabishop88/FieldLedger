@@ -6,6 +6,13 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
+from geoalchemy2.functions import (
+    ST_Area,
+    ST_Intersection,
+    ST_Intersects,
+    ST_Union,
+)
+from geoalchemy2.shape import from_shape
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, select, text
 
@@ -278,6 +285,7 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             ):
                 log.error(f"Sync Error, Invalid Parent.{link=}\n{link.parent=}")
                 return False
+            # NOTE: get parent field or parent op's parent field.
             fl_op = None
             field_id = link.parent.table_key["id"]
             if link.parent.table_name == "field_op":
@@ -289,8 +297,18 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             # NOTE: Update the link
             jd_bound = await client.get(link.uri, JDBoundary)
             fl_bound = db.get(FieldBoundary, link.table_key) if link.table_key else None
-            # TODO: If parent is op, look for exactly matching boundary as op
-            # TODO: If parent is field, should I look for near or exact boundary match?
+            if fl_bound is None:
+                geom = from_shape(jd_bound.as_shapely(), srid=4326)
+                iou = ST_Area(ST_Intersection(FieldBoundary.geom, geom)) / ST_Area(
+                    ST_Union(FieldBoundary.geom, geom)
+                )
+                # TODO: move magic number somewhere?
+                filters = [
+                    FieldBoundary.field_id == field_id,
+                    ST_Intersects(FieldBoundary.geom, geom),
+                    iou > 0.995,  # Boundaries have high overlap (Jaccard Index)
+                ]
+                fl_bound = crud.boundary.get_first(db, *filters, order_by=iou.desc())
             if fl_bound is None:
                 data = FieldBoundary(
                     type=BoundaryType.Subfield if fl_op else BoundaryType.Primary,
