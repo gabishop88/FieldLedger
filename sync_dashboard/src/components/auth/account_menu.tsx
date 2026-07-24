@@ -36,14 +36,14 @@ export default function AccountMenu({ user, loading, onLogin, onLogout, onDelete
     <Menu shadow="md" withArrow offset={0} transitionProps={{ transition: "scale" }}>
       <Menu.Target>
         <Button 
-          variant="subtle" size="lg" px="sm"
+          variant="subtle" size="lg" p={0}
           leftSection={
             <ThemeIcon variant="outline" size="lg" bdrs="lg">
               {user?.is_superuser ? <IconUserBolt /> : <IconUser />}
             </ThemeIcon>
           }
         >
-          <Stack gap={0}>
+          <Stack gap={0} visibleFrom="sm">
             <Text size="sm">{user.full_name || `${user.is_superuser ? "Super ": ""}User`}</Text>
             <Text size="xs" c="dimmed">{user.email}</Text>
           </Stack>

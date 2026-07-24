@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { AppShell, Button, Divider, Group, Paper, Splitter, Stack, ThemeIcon, Title, useMantineColorScheme } from "@mantine/core";
+import { AppShell, Button, Divider, Group, Image, Paper, Splitter, Stack, ThemeIcon, Title, useMantineColorScheme } from "@mantine/core";
 import { type UseSplitterReturnValue } from "@mantine/hooks";
 
 import AccountMenu from "../components/auth/account_menu";
@@ -28,22 +28,20 @@ export default function Dashboard() {
   const [loginOpened, setLoginOpened] = useState(false);
   const [selectedFieldUri, setSelectedFieldUri] = useState<string | null>(null);
   const [selectedOpUri, setSelectedOpUri] = useState<string | null>(null);
-  const activeSelectedFieldFilter = (node: AnySyncLink | null): SyncLink<"field"> | null => {
-    if (!node) return null;
-    if (node.table_name === "field" && node.uri === selectedFieldUri && isActive(node)) return node;
-    return node.children.find(activeSelectedFieldFilter) as SyncLink<"field"> | null;
-  }
-  const selectedField = useMemo(() => {
-    const field = !selectedFieldUri ? null : tree.data?.flatMap(org => org.children).find(activeSelectedFieldFilter) as SyncLink<"field"> | null;
-    if (selectedFieldUri && !field) setSelectedFieldUri(null);
-    return field;
-  }, [selectedFieldUri, tree]);
 
+  const findField = (links?: AnySyncLink[]): SyncLink<"field"> | null => {
+    for (const link of links ?? []) {
+      if (link.table_name === "field" && link.uri === selectedFieldUri && isActive(link)) return link;
+      const found = findField(link.children);
+      if (found) return found;
+    }
+    return null;
+  }
+  const selectedField = useMemo(() => selectedFieldUri ? findField(tree.data) : null, [selectedFieldUri, tree.data]);
   const selectedOp = useMemo(() => 
-    selectedField ? selectedField?.children
-      .filter(c => c.table_name === "field_op")
-      .find(op => op.uri === selectedOpUri)
-    ?? null : null,
+    selectedField
+      ? selectedField?.children.filter(c => c.table_name === "field_op").find(op => op.uri === selectedOpUri)
+      ?? null : null,
     [selectedOpUri, selectedField]
   );
 
@@ -52,26 +50,27 @@ export default function Dashboard() {
     
     {/* Page Header: Title, Account Management, Color Scheme Toggle */}
     <AppShell.Header>
-      <Group w="100%" h="100%" justify="space-between" align="center" px="lg">
-        <Title>FieldLedger Sync</Title>
-        <Group h="100%">
-          <AccountMenu
-            user={user}
-            loading={loading}
-            onLogin={() => setLoginOpened(true)}
-            onLogout={logout}
-            onDeleteAccount={deleteAccount}
-          />
-          <Button
-            color="cyan"
-            size="compact-lg"
-            variant="light"
-            radius="lg"
-            leftSection={<ThemeIcon lightHidden radius="xl" color="gray"><IconMoonFilled /></ThemeIcon>}
-            rightSection={<ThemeIcon darkHidden radius="xl" color="yellow.6" variant="subtle"><IconSunFilled /></ThemeIcon>}
-            onClick={toggleColorScheme}
-          />
+      <Group justify="space-between" align="center" wrap="nowrap" w="100%" h="100%" px="lg">
+        <Group wrap="nowrap" gap="sm">
+          <ThemeIcon size="xl" variant="subtle"><Image src="public/favicon.svg" /></ThemeIcon>
+          <Title visibleFrom="sm" mt="xs">FieldLedger</Title><Title mt="xs">Sync</Title>
         </Group>
+        <Button
+          color="cyan"
+          size="compact-lg"
+          variant="light"
+          radius="lg"
+          leftSection={<ThemeIcon lightHidden radius="xl" color="gray"><IconMoonFilled /></ThemeIcon>}
+          rightSection={<ThemeIcon darkHidden radius="xl" color="yellow.6" variant="subtle"><IconSunFilled /></ThemeIcon>}
+          onClick={toggleColorScheme}
+        />
+        <AccountMenu
+          user={user}
+          loading={loading}
+          onLogin={() => setLoginOpened(true)}
+          onLogout={logout}
+          onDeleteAccount={deleteAccount}
+        />
       </Group>
     </AppShell.Header>
 

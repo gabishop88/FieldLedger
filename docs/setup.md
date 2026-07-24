@@ -400,6 +400,8 @@ Loose Notes and TODOs:
 * Is there any way that I could use simulations like SCE to help with decision on crop rotations? Could I use a farm's historical data to train a simulation to be much more accurate for their farm so that they can simulate new scenarios, and maybe even export APSIM files that would allow them to use other simulation tools with that higher accuracy?
 * Before this tool is published, I should add a table to the `audit` schema for bug reports and user feedback and put into place a feedback system?
 * Should I have op_inputs and op_outputs? If I only ever have inputs OR outputs for a given operation, it would kind of make sense to just have op_product and op_equipment?
+* Put API_PREFIX in .env
+* Use .env in the sync_dashboard wherever I can (ideally everything to do with networking can be adjusted there and propogated?)
 
 Could I take a dataset from Dryad, ideally from UIUC, that has a location component and use it to illustrate the tool's capabilities?
 

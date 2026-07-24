@@ -7,6 +7,8 @@ import { useMemo } from "react";
 import L from "leaflet";
 import { MapContainer, GeoJSON, TileLayer } from "react-leaflet";
 
+const notNull = (v: any) => v != null;
+
 function formatMeasurement(val: JDMeas | null, precision: number = 2) {
   return val ? `${val.value.toFixed(precision)} ${val.unit}` : null;
 }
@@ -57,8 +59,8 @@ function FieldOpCard({ selectedOp, title }: OpCardProps) {
   function machinesInfo() {
     const machines = selectedOp?.data.fieldOperationMachines;
     const machineType = selectedOp?.data.adaptMachineType;
-    return machines && machineType && <Stack>
-      {machineType && <Text>{machineType}</Text>}
+    return machines && machineType && <Stack gap={0}>
+      {machineType && <Text>Type: {machineType}</Text>}
       {machines?.map(m => <Text key={m.GUID}>{m.name || m.vin || m.machineId || m.GUID}</Text>)}
     </Stack>;
   }
@@ -67,8 +69,8 @@ function FieldOpCard({ selectedOp, title }: OpCardProps) {
     const products = selectedOp?.data.products;
     const ingredients = (p: JDProduct) => [p.carrier, ...(p.components ?? [])].map(c => c?.name).join(", ");
     return products && <Stack>
-      {products.map(p =>
-        <Stack gap={0}>
+      {products.map(p => p.name &&
+        <Stack key={p.guid} gap={0}>
           <Text>{p.brand} "{p.name}"</Text>
           {p.tankMix && <Text size="xs" c="dimmed">Contains: {ingredients(p)}</Text>}
         </Stack>
@@ -76,19 +78,22 @@ function FieldOpCard({ selectedOp, title }: OpCardProps) {
     </Stack>;
   }
 
+  function varieitesInfo() {
+    const varieties = selectedOp?.data.varieties;
+    return varieties?.map(v => v.name && <Text key={v.guid}>{v.brand} "{v.name}"</Text>).filter(v => v != null)
+  }
+
   const data = selectedOp?.data ?? null;
-  const items = [
+  return data && <DataCard items={[
     { label: <Text fw={700} fz="lg">Operation</Text>, value: title },
     { label: "Crop", value: data?.cropName },
     { label: "Started", value: formatDate(data?.startDate) },
     { label: "Ended", value: formatDate(data?.endDate) },
     { label: "Machines", value: machinesInfo() },
     { label: "Products", value: productsInfo() },
-    { label: "Varieties", value: data?.varieties?.map(v => <Text key={v.guid}>{v.brand} "{v.name}"</Text>) },
+    { label: "Varieties", value: varieitesInfo() },
     { label: "Tillage Type(s)", value: data?.tillageProducts?.map(t => t.tillageType) },
-  ].filter(i => i.value != null);
-
-  return <DataCard items={items} />
+  ].filter(i => i.value != null)} />
 }
 
 // #endregion -------------------------------------------------------------------------------------
@@ -100,33 +105,40 @@ interface BoundaryCardProps {
   mapH?: number;
 }
 
-export function BoundaryCard({ link, mapH=150 }: BoundaryCardProps) {
+export function BoundaryCard({ link, mapH = 150 }: BoundaryCardProps) {
   const baseMapUrl = "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
-  const data = link.data;
 
   const exteriorFirst = (a: JDRing, b: JDRing) => Number(b.type === "exterior") - Number(a.type === "exterior");
-  const geometry = useMemo(() => 
-    !data ? null : {
+  const geometry = useMemo(() =>
+    !link.data ? null : {
       type: "MultiPolygon",
-      coordinates: data.multipolygons.map(
+      coordinates: link.data.multipolygons.map(
         pgon => pgon.rings.toSorted(exteriorFirst).map(ring => ring.points.map(p => [p.lon, p.lat]))
       ),
     } as GeoJSON.MultiPolygon,
-    [data]
+    [link.data]
   );
-
   const bounds = useMemo(() => L.geoJSON(geometry).getBounds(), [geometry]);
 
-  const items = [
-    { label: <Text fw={700} fz="lg">Boundary</Text>, value: data.name },
-    { label: "Centroid", value: data.centroid ? `${data.centroid.lat.toFixed(6)}, ${data.centroid.lon.toFixed(6)}` : null },
-    { label: "Area", value: formatMeasurement(data.area) },
-    { label: "Workable Area", value: formatMeasurement(data.workableArea?.value === data.area?.value ? null : data.workableArea) },
-    { label: "Active", value: data.active ? <IconMap2 color="var(--mantine-color-green-7)" /> : <IconMapOff color="var(--mantine-color-gray-6)" /> },
-    { label: "Irrigated", value: data.irrigated ? <IconDroplet color="var(--mantine-color-cyan-7)" /> : <IconDropletOff color="var(--mantine-color-gray-6)" /> },
-    { label: "Archived", value: data.archived ? <IconArchive color="var(--mantine-color-yellow-7)" /> : <IconArchiveOff color="var(--mantine-color-gray-6)" /> },
-  ].filter(i => i.value != null);
-  return <DataCard items={items}>
+  const activeIcon = link.data.active
+    ? <IconMap2 color="var(--mantine-color-green-7)" />
+    : <IconMapOff color="var(--mantine-color-gray-6)" />;
+  const irrigatedIcon = link.data.irrigated
+    ? <IconDroplet color="var(--mantine-color-cyan-7)" />
+    : <IconDropletOff color="var(--mantine-color-gray-6)" />
+  const archivedIcon = link.data.archived
+    ? <IconArchive color="var(--mantine-color-yellow-7)" />
+    : <IconArchiveOff color="var(--mantine-color-gray-6)" />
+
+  return <DataCard items={[
+    { label: <Text fw={700} fz="lg">Boundary</Text>, value: link.data.name },
+    { label: "Centroid", value: link.data.centroid ? `${link.data.centroid.lat.toFixed(6)}, ${link.data.centroid.lon.toFixed(6)}` : null },
+    { label: "Area", value: formatMeasurement(link.data.area) },
+    { label: "Workable Area", value: formatMeasurement(link.data.workableArea?.value === link.data.area?.value ? null : link.data.workableArea) },
+    { label: "Active", value: activeIcon },
+    { label: "Irrigated", value: irrigatedIcon },
+    { label: "Archived", value: archivedIcon },
+  ].filter(i => i.value != null)}>
     <Card.Section pb="sm">
       {geometry &&
         <MapContainer
@@ -148,18 +160,21 @@ export function BoundaryCard({ link, mapH=150 }: BoundaryCardProps) {
 // #region ------------------------------------ ProductUseCard ------------------------------------
 // ------------------------------------------------------------------------------------------------
 
-function ProductUseCard({ link, names }: { link: SyncLink<"op_input" | "op_output">, names: Map<string, string> }) {
+interface ProductUseCardProps {
+  link: SyncLink<"op_input" | "op_output">;
+  names: Map<string, string>;
+}
+
+function ProductUseCard({ link, names }: ProductUseCardProps) {
   // TODO: I need to get the product name from the product info. It should either be in the new_org_children list
   //     OR it will be a child of the parent org, hopefully.
   const inOut = link.table_name === "op_input" ? "Input" : "Output";
-  const data = link.data;
-  const items = [
-    { label: <Text fw={700} fz="lg">{inOut}</Text>, value: names.get(data.guid) ?? "NAME NOT FOUND" },
-    { label: "Area", value: formatMeasurement(data.area) },
-    { label: "Total", value: formatMeasurement("total" in data ? data.total : null) },
-    { label: "Rate", value: formatMeasurement("rate" in data ? data.rate : null) },
-  ].filter(i => i.value != null);
-  return <DataCard items={items} />
+  return <DataCard items={[
+    { label: <Text fw={700} fz="lg">{inOut}</Text>, value: names.get(link.data.guid) ?? "NAME NOT FOUND" },
+    { label: "Area", value: formatMeasurement(link.data.area) },
+    { label: "Total", value: formatMeasurement("total" in link.data ? link.data.total : null) },
+    { label: "Rate", value: formatMeasurement("rate" in link.data ? link.data.rate : null) },
+  ].filter(i => i.value != null)} />
 }
 
 
@@ -168,17 +183,22 @@ function ProductUseCard({ link, names }: { link: SyncLink<"op_input" | "op_outpu
 // ------------------------------------------------------------------------------------------------
 
 function ProductInfoCard({ link }: { link: SyncLink<"product"> }) {
-  const data = link.data;
-  const items = [
-    { label: <Text fw={700} fz="lg">Product</Text>, value: data.name },
-    { label: "Brand", value: data.companyName },
-    { label: "Category", value: data.category },
-    { label: "Specific Type", value: data.type },
-    { label: "Registration", value: data.registration },
-    { label: "Restricted", value: data.restrictedUse ? <IconLock color="var(--mantine-color-red-7)" /> : <IconLockOff color="var(--mantine-color-gray-6)" /> },
-    { label: "Archived", value: data.archived ? <IconArchive color="var(--mantine-color-yellow-7)" /> : <IconArchiveOff color="var(--mantine-color-gray-6)" /> }
-  ].filter(i => i.value != null);
-  return <DataCard items={items} />
+  const restrictedIcon = link.data.restrictedUse 
+    ? <IconLock color="var(--mantine-color-red-7)" />
+    : <IconLockOff color="var(--mantine-color-gray-6)" />;
+  const archivedIcon = link.data.archived
+    ? <IconArchive color="var(--mantine-color-yellow-7)" />
+    : <IconArchiveOff color="var(--mantine-color-gray-6)" />;
+
+  return <DataCard items={[
+    { label: <Text fw={700} fz="lg">Product</Text>, value: link.data.name },
+    { label: "Brand", value: link.data.companyName },
+    { label: "Category", value: link.data.category },
+    { label: "Specific Type", value: link.data.type },
+    { label: "Registration", value: link.data.registration },
+    { label: "Restricted", value: restrictedIcon },
+    { label: "Archived", value: archivedIcon }
+  ].filter(i => i.value != null)} />
 }
 
 // #endregion -------------------------------------------------------------------------------------
