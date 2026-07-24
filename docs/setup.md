@@ -431,3 +431,15 @@ I need to build the details panel.
 I would like to use flex components for the AppShell rather than the grid, but it is being annoying so I am putting it off.
 
 I want to rename SyncTreeNode and SyncTreeData, it just is too confusing.
+
+Add a button to expand the log viewer. Would maybe also help to use flex values for the height of the component
+
+I want to add the products/equipment nodes as children of the org, not show them on the tree, but show them in the details panel when you click an org instead of field details.
+
+replace my bootstrap expand logs thing with a mantine `<Splitter>`
+
+Add config maps that I can edit for things like the custom_maps that I used in MJD_Exploration, except make it so that I can edit them from the dashboard, and if you make a request that needs a value, it will give a relevant error so you can edit the maps and then the request will work? Or something like that. I should only really do this for things that can't be fixed by data cleanliness, though.
+
+Can I do something to make sure that I don't send plaintext passwords over the network to be verified? Encryption options?
+
+I should make a help popup info thing next to the FieldLedger Sync title that walks you through how to use the dashboard and what it is for.

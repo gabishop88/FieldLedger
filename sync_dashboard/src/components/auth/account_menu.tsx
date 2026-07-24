@@ -1,66 +1,61 @@
-import {
-    Avatar,
-    Button,
-    Group,
-    Menu,
-    Skeleton,
-    Text,
-} from "@mantine/core";
+import { Button, Menu, Stack, Text, ThemeIcon } from "@mantine/core";
 
 import { useState } from "react";
 import ConfirmationModal from "./confirm_modal";
 import type { User } from "../../types/fl";
+import { IconUser, IconUserBolt } from "@tabler/icons-react";
 
 interface Props {
-    user: User | null;
-    loading: boolean;
-    onLogin: () => void;
-    onLogout: () => void;
-    onDeleteAccount: () => Promise<void>;
+  user: User | null;
+  loading: boolean;
+  onLogin: () => void;
+  onLogout: () => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
 export default function AccountMenu({ user, loading, onLogin, onLogout, onDeleteAccount }: Props) {
-    const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-    if (loading) return <Skeleton h={32} w={180} />;
-    if (!user) return <Button onClick={onLogin}>Log In</Button>;
-    return <>
-        <ConfirmationModal
-            opened={confirmOpen}
-            onClose={() => setConfirmOpen(false)}
-            onConfirm={async () => {
-                await onDeleteAccount();
-                setConfirmOpen(false);
-            }}
-            loading={false}
-            title="Are you sure?"
-            buttonLabel="Delete Account"
+  return !user 
+    ? <Button loading={loading} onClick={onLogin}>Log In</Button>
+    : <>
+    <ConfirmationModal
+      opened={confirmOpen}
+      onClose={() => setConfirmOpen(false)}
+      onConfirm={async () => {
+        await onDeleteAccount();
+        setConfirmOpen(false);
+      }}
+      loading={false}
+      title="Are you sure?"
+      buttonLabel="Delete Account"
+    >
+      <Text>This is permanent.</Text>
+    </ConfirmationModal>
+
+    <Menu shadow="md" withArrow offset={0} transitionProps={{ transition: "scale" }}>
+      <Menu.Target>
+        <Button 
+          variant="subtle" size="lg" px="sm"
+          leftSection={
+            <ThemeIcon variant="outline" size="lg" bdrs="lg">
+              {user?.is_superuser ? <IconUserBolt /> : <IconUser />}
+            </ThemeIcon>
+          }
         >
-            <Text>This is permanent.</Text>
-        </ConfirmationModal>
+          <Stack gap={0}>
+            <Text size="sm">{user.full_name || `${user.is_superuser ? "Super ": ""}User`}</Text>
+            <Text size="xs" c="dimmed">{user.email}</Text>
+          </Stack>
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item color="orange" onClick={onLogout}>Log Out</Menu.Item>
 
-        <Menu shadow="md">
-            <Menu.Target>
-                <Button variant="subtle" size="lg" px="sm">
-                    <Group>
-                        <Avatar radius="lg">
-                            {user.full_name?.[0] ?? user.email[0].toUpperCase()}
-                        </Avatar>
+        <Menu.Divider />
 
-                        <div>
-                            <Text size="sm">{user.full_name || `${user.is_superuser ? "Super ": ""}User`}</Text>
-                            <Text size="xs" c="dimmed">{user.email}</Text>
-                        </div>
-                    </Group>
-                </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-                <Menu.Item color="orange" onClick={onLogout}>Log Out</Menu.Item>
-
-                <Menu.Divider />
-
-                <Menu.Item color="red" onClick={() => setConfirmOpen(true)}>Delete Account</Menu.Item>
-            </Menu.Dropdown>
-        </Menu>
-    </>;
+        <Menu.Item color="red" onClick={() => setConfirmOpen(true)}>Delete Account</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  </>;
 }

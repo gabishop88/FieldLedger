@@ -3,22 +3,22 @@
 // -----------------------------------------------------------------------------
 
 export interface JDLink {
-    rel: string;
-    uri: string;
+  rel: string;
+  uri: string;
 }
 
 export interface JDMeas {
-    value: number;
-    unit: string | null;
+  value: number;
+  unit: string | null;
 }
 
 export interface JDModel {
-    links: JDLink[];
+  links: JDLink[];
 }
 
 export interface JDAuthInfo {
-    authorized: boolean;
-    auth_uri: string;
+  authorized: boolean;
+  auth_uri: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -26,21 +26,21 @@ export interface JDAuthInfo {
 // -----------------------------------------------------------------------------
 
 export interface JDOrg extends JDModel {
-    id: string;
-    name: string;
-    member: boolean;
+  id: string;
+  name: string;
+  member: boolean;
 }
 
 export interface JDFarm extends JDModel {
-    id: string;
-    name: string;
-    archived: boolean;
+  id: string;
+  name: string;
+  archived: boolean;
 }
 
 export interface JDField extends JDModel {
-    id: string;
-    name: string;
-    archived: boolean;
+  id: string;
+  name: string;
+  archived: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -48,33 +48,33 @@ export interface JDField extends JDModel {
 // -----------------------------------------------------------------------------
 
 export interface JDPoint {
-    lat: number;
-    lon: number;
+  lat: number;
+  lon: number;
 }
 
 export interface JDRing {
-    type: "interior" | "exterior";
-    points: JDPoint[];
+  type: "interior" | "exterior";
+  points: JDPoint[];
 }
 
 export interface JDPolygon {
-    rings: JDRing[];
+  rings: JDRing[];
 }
 
 export interface JDBoundary extends JDModel {
-    id: string;
-    name: string | null;
+  id: string;
+  name: string | null;
 
-    area: JDMeas | null;
-    workableArea: JDMeas | null;
+  area: JDMeas | null;
+  workableArea: JDMeas | null;
 
-    multipolygons: JDPolygon[];
+  multipolygons: JDPolygon[];
 
-    centroid: JDPoint | null;
+  centroid: JDPoint | null;
 
-    archived: boolean;
-    active: boolean;
-    irrigated: boolean;
+  archived: boolean;
+  active: boolean;
+  irrigated: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -82,169 +82,172 @@ export interface JDBoundary extends JDModel {
 // -----------------------------------------------------------------------------
 
 export interface JDVarietyTotal {
-    varietyId: string;
-    name: string | null;
+  varietyId: string;
+  name: string | null;
 
-    area: JDMeas;
+  area: JDMeas;
 
-    yield: JDMeas | null;
-    averageYield: JDMeas | null;
+  yield: JDMeas | null;
+  averageYield: JDMeas | null;
 
-    averageMoisture: JDMeas | null;
+  averageMoisture: JDMeas | null;
 
-    wetMass: JDMeas | null;
-    averageWetMass: JDMeas | null;
+  wetMass: JDMeas | null;
+  averageWetMass: JDMeas | null;
 
-    totalMaterial: JDMeas | null;
-    averageMaterial: JDMeas | null;
+  totalMaterial: JDMeas | null;
+  averageMaterial: JDMeas | null;
 }
 
 export interface JDProductTotal {
-    productId: string;
-    name: string | null;
-    brand: string | null;
+  productId: string;
+  name: string | null;
+  brand: string | null;
 
-    totalMaterial: JDMeas;
-    averageMaterial: JDMeas;
+  totalMaterial: JDMeas;
+  averageMaterial: JDMeas;
 }
 
 export interface JDApplicationTotal {
-    productId: string;
-    name: string | null;
+  productId: string;
+  name: string | null;
 
-    area: JDMeas;
+  area: JDMeas;
 
-    averageSpeed: JDMeas;
+  averageSpeed: JDMeas;
 
-    totalMaterial: JDMeas;
-    averageMaterial: JDMeas;
+  totalMaterial: JDMeas;
+  averageMaterial: JDMeas;
 
-    appliedArea: JDMeas | null;
+  appliedArea: JDMeas | null;
 
-    productTotals: JDProductTotal[];
+  productTotals: JDProductTotal[];
 }
 
 export interface JDMeasurementType {
-    measurementName: string;
+  measurementName: string;
 
-    area: JDMeas | null;
+  area: JDMeas | null;
 
-    applicationProductTotals: JDApplicationTotal[] | null;
+  applicationProductTotals: JDApplicationTotal[] | null;
 
-    totalMaterial: JDMeas | null;
-    averageMaterial: JDMeas | null;
+  totalMaterial: JDMeas | null;
+  averageMaterial: JDMeas | null;
 
-    yield: JDMeas | null;
-    averageYield: JDMeas | null;
+  yield: JDMeas | null;
+  averageYield: JDMeas | null;
 
-    averageMoisture: JDMeas | null;
+  averageMoisture: JDMeas | null;
 
-    wetMass: JDMeas | null;
-    averageWetMass: JDMeas | null;
+  wetMass: JDMeas | null;
+  averageWetMass: JDMeas | null;
 
-    averageSpeed: JDMeas | null;
+  averageSpeed: JDMeas | null;
 
-    averageDepth: JDMeas | null;
-    averagePressure: JDMeas | null;
+  averageDepth: JDMeas | null;
+  averagePressure: JDMeas | null;
 
-    varietyTotals: JDVarietyTotal[] | null;
-    productTotals: JDProductTotal[] | null;
+  varietyTotals: JDVarietyTotal[] | null;
+  productTotals: JDProductTotal[] | null;
 }
 
 export interface InputMeasurements {
-    area: JDMeas | null;
-    total: JDMeas | null;
-    rate: JDMeas | null;
+  guid: string;
+  area: JDMeas | null;
+  total: JDMeas | null;
+  rate: JDMeas | null;
 }
 
 export interface OutputMeasurements {
-    area: JDMeas | null;
-
-    wet_mass: JDMeas | null;
-    wet_mass_rate: JDMeas | null;
-
-    yield: JDMeas | null;
-    yield_rate: JDMeas | null;
-
-    moisture: JDMeas | null;
+  guid: string;
+  area: JDMeas | null;
+  wet_mass: JDMeas | null;
+  wet_mass_rate: JDMeas | null;
+  yield: JDMeas | null;
+  yield_rate: JDMeas | null;
+  moisture: JDMeas | null;
 }
 
 export interface JDMeasurements {
-    area: JDMeas | null;
-    speed: JDMeas | null;
-    pressure: JDMeas | null;
-    depth: JDMeas | null;
+  area: JDMeas | null;
+  speed: JDMeas | null;
+  pressure: JDMeas | null;
+  depth: JDMeas | null;
 
-    inputs: Record<string, InputMeasurements>;
-    outputs: Record<string, OutputMeasurements>;
+  inputs: Record<string, InputMeasurements>;
+  outputs: Record<string, OutputMeasurements>;
 }
 
 export interface JDComponent {
-    name: string;
-    guid: string;
-    productType: string;
+  name: string;
+  guid: string;
+  productType: string;
 
-    rate: JDMeas;
+  rate: JDMeas;
 }
 
 export interface JDProduct {
-    guid: string;
+  guid: string;
 
-    productType: string | null;
+  productType: string | null;
 
-    productId: string;
+  productId: string | null;
 
-    name: string | null;
-    brand: string | null;
+  name: string | null;
+  brand: string | null;
 
-    tankMix: boolean;
+  tankMix: boolean;
 
-    rate: JDMeas | null;
+  rate: JDMeas | null;
 
-    carrier: JDComponent | null;
-    components: JDComponent[] | null;
+  carrier: JDComponent | null;
+  components: JDComponent[] | null;
 }
 
 export interface JDOperationMachine {
-    GUID: string;
+  GUID: string;
 
-    name: string | null;
-    vin: string | null;
+  name: string | null;
+  vin: string | null;
 
-    machineId: number | null;
+  machineId: number | null;
 }
 
 export interface JDTillageProduct {
-    tillageType: string;
+  tillageType: string;
 }
 
 export interface JDFieldOp extends JDModel {
-    id: string;
+  id: string;
 
-    fieldOperationType: string;
-    adaptMachineType: string | null;
+  fieldOperationType: string;
+  adaptMachineType: string | null;
 
-    cropSeason: number;
+  cropSeason: number;
 
-    startDate: string;
-    endDate: string;
+  startDate: string;
+  endDate: string;
 
-    cropName: string | null;
+  cropName: string | null;
 
-    products: JDProduct[] | null;
-    measurementTypes: JDMeasurementType[] | null;
-    fieldOperationMachines: JDOperationMachine[] | null;
-    tillageProducts: JDTillageProduct[] | null;
-    varieties: JDProduct[] | null;
+  products: JDProduct[] | null;
+  measurementTypes: JDMeasurementType[] | null;
+  fieldOperationMachines: JDOperationMachine[] | null;
+  tillageProducts: JDTillageProduct[] | null;
+  varieties: JDProduct[] | null;
 }
 
 // -----------------------------------------------------------------------------
-// Tree Models
+// Resource Models
 // -----------------------------------------------------------------------------
 
-export type JDLinkedData =
-    | JDOrg
-    | JDFarm
-    | JDField
-    | JDBoundary
-    | JDFieldOp;
+export interface JDProductDetails {
+  id: string;
+  name: string;
+  companyName?: string;
+  registration?: string;
+  category: string;
+  type?: string;
+  restrictedUse?: boolean;
+  archived?: boolean;
+}

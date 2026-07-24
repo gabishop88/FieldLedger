@@ -1,174 +1,178 @@
-import { Box, Button, Card, Center, Code, Divider, Group, ScrollArea, Scroller, Stack, Text, Timeline } from "@mantine/core";
-import { useMemo, useState } from "react";
-import UpdateStatusActions from "./status_actions";
+import { Button, Card, Divider, Group, ScrollArea, Scroller, Stack, Text, Timeline } from "@mantine/core";
+import { useMemo, useRef, useState } from "react";
+
 import BoundaryModal from "./boundary_modal";
-import type { JDBoundary, JDField, JDFieldOp } from "../../types/jd";
 import type { SyncLink } from "../../types/fl";
-import { statusDetails } from "./status_info";
+import { isActive, SyncActions, SyncIcon } from "./status_info";
+import OperationDetails from "./op_details";
+import { EmptyOpCard } from "../instruction_cards";
+import { useUpdateSync } from "../../hooks/use_sync_tree";
+
+function opTitle(op: SyncLink<"field_op"> | null): string {
+  if (!op) return "";
+  const opType = String(op.data.fieldOperationType);
+  return `${op.data.cropSeason} ${opType[0].toUpperCase()}${opType.slice(1)}`;
+}
+
+// ------------------------------------------------------------------------------------------------
+// #region ------------------------------------- BoundaryChip -------------------------------------
+// ------------------------------------------------------------------------------------------------
 
 interface ChipProps {
-    boundary: SyncLink<JDBoundary>;
-    onClick: () => void;
-    children: React.ReactNode;
+  boundary: SyncLink<"boundary">;
+  onClick: () => void;
+  children?: React.ReactNode;
 }
 
 function BoundaryChip({ boundary, onClick, children }: ChipProps) {
-    const statusInfo = statusDetails[boundary.status];
-    return <Button 
-        leftSection={<statusInfo.icon size={18} color={statusInfo.color} />}
-        onClick={onClick}
-        variant="outline"
-        color="blue"
-    >
+  return <Button
+    variant="outline"
+    color="blue"
+    onClick={onClick} 
+    size="sm"
+    leftSection={<SyncIcon status={boundary.status} size="xs" />}
+  >
+    {children}
+  </Button>;
+}
+
+// #endregion -------------------------------------------------------------------------------------
+// #region ------------------------------------- TimelineCard -------------------------------------
+// ------------------------------------------------------------------------------------------------
+
+interface TimelineCardProps {
+  op: SyncLink<"field_op">;
+  selected: boolean;
+  onClick: () => void;
+  children?: React.ReactNode | null;
+}
+
+function TimelineOpCard({ op, selected, onClick, children }: TimelineCardProps) {
+  return <Timeline.Item
+    key={op.uri}
+    style={{ cursor: "pointer" }}
+    title={opTitle(op)}
+    onClick={onClick}
+    bullet={<SyncIcon status={op.status} size="xs" />}
+  >
+    <Card withBorder={selected} p="xs">
+      <Group justify="center">
         {children}
-    </Button>
+      </Group>
+    </Card>
+  </Timeline.Item>;
 }
 
-
-interface OpCardProps {
-    op: SyncLink<JDFieldOp>;
-    selected: boolean;
-    onClick: () => void;
-    children: React.ReactNode | null;
-}
-
-function TimelineOpCard({ op, selected, onClick, children }: OpCardProps) {
-    const statusInfo = statusDetails[op.status];
-    const opType = String(op.data.fieldOperationType);
-    const title = `${op.data.cropSeason} ${opType[0].toUpperCase()}${opType.slice(1)}`;
-    const bullet = <statusInfo.icon color={statusInfo.color} size={16} />;
-
-    return <Timeline.Item 
-        key={op.uri}
-        title={title}
-        bullet={bullet}
-        onClick={onClick}
-        style={{ cursor: "pointer" }}
-    >
-        <Card withBorder={selected} p="xs">
-            <Stack gap="xs">
-                {children}
-            </Stack>
-        </Card>
-    </Timeline.Item>
-}
-
-function EmptyFieldCard() {
-    return <Center h="100%">
-        <Card withBorder shadow="md" maw={420}>
-            <Stack gap="xs" align="center">
-                <Text fw={600}>
-                    No Field Selected
-                </Text>
-
-                <Text c="dimmed" ta="center">
-                    Select a synced field from the sync tree to browse
-                    field operations and boundaries.
-                </Text>
-            </Stack>
-        </Card>
-    </Center>
-}
+// #endregion -------------------------------------------------------------------------------------
+// #region ---------------------------------- FieldDetailsPanel -----------------------------------
+// ------------------------------------------------------------------------------------------------
 
 interface Props {
-    field: SyncLink<JDField> | null;
-    selectedOperation: SyncLink<JDFieldOp> | null;
-    onSelectOperation: (op: SyncLink<JDFieldOp> | null) => void;
+  field: SyncLink<"field"> | null;
+  selectedOp: SyncLink<"field_op"> | null;
+  onSelectOp: (opUri: string | null) => void;
 }
 
-export default function FieldDetailsPanel({ field, selectedOperation, onSelectOperation }: Props) {
-    const [selectedBoundaryUri, setSelectedBoundaryUri] = useState<string | null>(null);
-    const selectedBoundary = useMemo(
-        () => !selectedBoundaryUri ? null : (
-            field?.children.find(b => b.uri === selectedBoundaryUri) ??
-            selectedOperation?.children.find(b => b.uri === selectedBoundaryUri)
-        ) as SyncLink<JDBoundary> | null,
-        [field, selectedOperation, selectedBoundaryUri]
-    );
+export default function FieldDetailsPanel({ field, selectedOp: selOp, onSelectOp }: Props) {
+  const [pointerTop, setPointerTop] = useState<boolean | null>(null);
+  const dividerRef = useRef<HTMLHRElement>(null);
+  const dividerY = dividerRef.current?.getBoundingClientRect().top;
 
-    const boundaries = useMemo(
-        () => field?.children.filter((c): c is SyncLink<JDBoundary> => c.table_name == "boundary") ?? [],
-        [field]
-    );
-    const operations = useMemo(
-        () => field?.children.filter(
-            (c): c is SyncLink<JDFieldOp> => c.table_name == "field_op"
-        ).sort(
-            (a, b) => Date.parse(String(a.data.startDate)) - Date.parse(String(b.data.startDate))
-        ).reverse() ?? [],
-        [field]
-    );
+  const sortOps = (a: SyncLink<"field_op">, b: SyncLink<"field_op">) => b.data.startDate.localeCompare(a.data.startDate);
+  const boundaries = useMemo(() => field?.children.filter(c => c.table_name === "boundary") ?? [], [field]);
+  const ops = useMemo(() => field?.children.filter(c => c.table_name === "field_op").toSorted(sortOps) ?? [], [field]);
+  const opBoundary = selOp?.children?.find(c => c.table_name === "boundary");
+  const syncableOps = ops.filter(op => !isActive(op)).length;
 
-    if (!field) return <EmptyFieldCard />
-    return <>
-        <BoundaryModal
-            boundary={selectedBoundary}
-            onClose={() => setSelectedBoundaryUri(null)}
-        />
+  const [selectedBoundaryUri, setSelectedBoundaryUri] = useState<string | null>(null);
+  const selectedBoundary = selectedBoundaryUri 
+    ? boundaries.find(c => c.uri === selectedBoundaryUri)
+    ?? (opBoundary?.uri === selectedBoundaryUri ? opBoundary : null) : null;
 
-        <Stack h="100%" gap={0}>
-            <Group wrap="nowrap" align="stretch" flex={1} mih={0}>
-                <ScrollArea dir="rtl" scrollbarSize={5} px="xs">
-                    <Timeline dir="ltr">
-                        {operations.map((op) => {
-                            const selected = selectedOperation?.uri === op.uri;
-                            const boundary = op.children?.find((c): c is SyncLink<JDBoundary> => c.table_name === "boundary");
+  // Either here or in request Fn, I need to rate limit or something because this sends too many requests too fast.
+  // Or, I could make another endpoint to bulk sync/unsync by field?
+  const { mutate, isPending } = useUpdateSync();
+  const syncAll = () => ops
+    .filter(op => !isActive(op))
+    .forEach(op => mutate({ uri: op.uri, newStatus: "Synced" }));
+  
+  return <>
+    <BoundaryModal boundary={selectedBoundary} onClose={() => setSelectedBoundaryUri(null)}/>
 
-                            return <TimelineOpCard 
-                                op={op}
-                                selected={selected}
-                                onClick={() => onSelectOperation(selected ? null : op)}
-                            >
-                                <Text size="xs" c="dimmed">
-                                    {new Date(String(op.data.startDate ?? "")).toDateString()}
-                                </Text>
+    <Stack
+      h="100%"
+      onPointerLeave={() => setPointerTop(null)}
+      onPointerMove={e => setPointerTop(!dividerY ? null : e.clientY < dividerY)}
+    >
+      {/* Chips to Open BoundaryModal to sync Boundaries */}
+      <Group gap="sm">
+        <Card withBorder p="sm">
+          <Text fw={600}>{field?.data.name} Boundaries:</Text>
+          <Scroller>
+            {boundaries.map((boundary, ix) => 
+              <BoundaryChip key={boundary.uri} boundary={boundary} onClick={() => setSelectedBoundaryUri(boundary.uri)}>
+                {boundary?.data.name ?? `Boundary ${ix + 1} (unnamed)`}
+              </BoundaryChip>
+            )}
+          </Scroller>
+        </Card>
 
-                                {selected &&
-                                    <Group flex={1} justify="space-around">
-                                        <UpdateStatusActions node={op} />
+        {opBoundary && 
+          <Card withBorder p="sm">
+            <Text fw={600}>{opTitle(selOp)} Boundary:</Text>
 
-                                        {!!boundary &&
-                                            <BoundaryChip
-                                            boundary={boundary}
-                                            onClick={() => setSelectedBoundaryUri(boundary.uri)}
-                                            >
-                                                Operation Boundary
-                                            </BoundaryChip>
-                                        }
-                                    </Group>
-                                }
-                            </TimelineOpCard>
-                        })}
-                    </Timeline>
-                </ScrollArea>
+            <BoundaryChip key={opBoundary.uri} boundary={opBoundary} onClick={() => setSelectedBoundaryUri(opBoundary.uri)}>
+              {opBoundary.data.name ?? `Operation Boundary`}
+            </BoundaryChip>
+          </Card>
+        }
+      </Group>
 
-                <Divider orientation="vertical" />
+      {/* Divider highlights whether cursor is over top (boundary) or bottom (operations) section. */}
+      <Stack gap={0}>
+        <Text size="xs" pl="md" fw={pointerTop ? "bold" : "normal"} ff="monospace">Boundaries</Text>
+        <Divider ref={dividerRef} />
+        <Text size="xs" pl="md" fw={pointerTop === false  ? "bold" : "normal" } ff="monospace">Operations</Text>
+      </Stack>
 
-                <Box p="md" flex={1} mih={0} style={{ overflow: "auto" }}>
-                    {selectedOperation 
-                        ? <Code bdrs="md" block>{JSON.stringify(selectedOperation.data, null, 2)}</Code>
-                        : <Text c="dimmed">Select an operation.</Text>
-                    }
-                </Box>
-            </Group>
+      {/* Operation Timeline and details when an op is selected. */}
+      <Group flex={1} mih={0}>
+        <Card withBorder py={0} pl={0} h="100%">
+          <ScrollArea type="never" pl="sm">
+            <Stack pt="sm">
+              <Button 
+                fullWidth
+                variant="light"
+                size="compact-sm"
+                leftSection={<SyncIcon status="Synced"/>}
+                disabled={!syncableOps}
+                loading={isPending}
+                onClick={syncAll}
+              >
+                Sync {syncableOps} Operation(s)
+              </Button>
+              <Timeline>
+                {ops.map(op =>
+                  <TimelineOpCard op={op} selected={selOp?.uri === op.uri} onClick={() => onSelectOp(selOp?.uri === op.uri ? null : op.uri)}>
+                    <Text size="xs" c="dimmed">{new Date(String(op.data.startDate)).toDateString()}</Text>
+                    {selOp?.uri === op.uri && <SyncActions node={op} />}
+                  </TimelineOpCard>
+                )}
+              </Timeline>
+            </Stack>
+          </ScrollArea>
+        </Card>
 
-            <Divider />
-
-            <Group mt="lg" align="center">
-                <Text fw={600}>{field.data.name} Boundaries:</Text>
-
-                <Scroller>
-                    {boundaries.map((boundary, ix) => 
-                        <BoundaryChip 
-                            key={boundary.uri}
-                            boundary={boundary}
-                            onClick={() => setSelectedBoundaryUri(boundary.uri)}
-                        >
-                            {boundary?.data.name ?? `Boundary ${ix + 1}`}
-                        </BoundaryChip>
-                    )}
-                </Scroller>
-            </Group>
-        </Stack>
-    </>
+        <Card withBorder h="100%" flex={1} p={0}>
+          {
+            !selOp ? <EmptyOpCard /> :
+            <OperationDetails selectedOp={selOp} title={opTitle(selOp)}/>
+          }
+        </Card>
+      </Group>
+    </Stack>
+  </>;
 }
+
+// #endregion -------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
