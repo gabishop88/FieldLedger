@@ -4,7 +4,7 @@ from datetime import datetime
 from functools import cached_property
 from typing import Any, ClassVar, Literal
 
-from pydantic import AliasChoices, BaseModel, field_validator
+from pydantic import AliasChoices, BaseModel, field_validator, model_validator
 from pydantic import Field as ColInfo
 from shapely import MultiPolygon, Point, Polygon
 
@@ -26,6 +26,14 @@ class JDBaseModel(BaseModel):
         kwargs.setdefault("exclude_unset", True)
         kwargs.setdefault("exclude_defaults", True)
         return super().model_dump(**kwargs)
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_placeholders(cls, data: Any) -> Any:
+        placeholders = ("---", "unknown")
+        if isinstance(data, dict):
+            return {k: None if v in placeholders else v for k, v in data.items()}
+        return data
 
 
 class JDLink(JDBaseModel):
@@ -317,8 +325,7 @@ class JDTillageProduct(JDBaseModel):
 
 
 class JDFieldOp(JDModel):
-    # Maybe keep: "field" (should I keep parent links?)
-    # NOTE: using self link + '/boundary' generates a boundary for the op.
+    # Maybe keep: rel "field" (should I keep parent links?)
     keep_links: ClassVar[set[str]] = {"self", "organization", "shapeFileAsync"}
     fieldOperationType: str
     adaptMachineType: str | None = None
@@ -334,11 +341,6 @@ class JDFieldOp(JDModel):
     varieties: list[JDProduct] | None = None
     id: str
     links: list[JDLink]
-
-    @field_validator("adaptMachineType", mode="before")
-    @classmethod
-    def remove_machine_type_unknown(cls, value):
-        return None if value == "unknown" else value
 
     @cached_property
     def measurements(self) -> JDMeasurement:
