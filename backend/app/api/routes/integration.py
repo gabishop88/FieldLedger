@@ -12,7 +12,7 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 
 from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
@@ -79,11 +79,11 @@ async def worker_logs(
     response_model=AuthPublic,
     responses={307: {"description": "Redirect to John Deere Sign-in."}},
 )
-async def authorize_jd(db: UserSession, user: CurrentUser, redirect: bool = False):
+async def authorize_jd(db: UserSession, redirect: bool = False):
     """### Provides authorization status and a link to John Deere sign-in page.
     Use `redirect=true` to return a RedirectResponse to the sign-in page, instead.
     """
-    client = JDClient.from_user(db, user.id)
+    client = JDClient.from_session(db)
     if await client.check_connection():
         return AuthPublic(authorized=True, auth_uri=client.auth_uri())
     if redirect:
@@ -136,9 +136,6 @@ async def capture_jd_auth_code(
 #   or recent results).
 
 
-# TODO: Can I replace request with just the events body? maybe need pydantic?
-# TODO: Should I use the Authorization header (CurrentUser) or token in body for user?
-# TODO: try to reject these if the user is not authorized? Does it matter for this?
 @jd_router.post("/recieve-webhook-events", include_in_schema=False)
 async def recieve_jd_webhook(request: Request, user: CurrentUser, pool: JobPool):
     """Handle webhook callback. Must return status 204 within 5s as per JD docs."""
@@ -149,9 +146,13 @@ async def recieve_jd_webhook(request: Request, user: CurrentUser, pool: JobPool)
 
 
 @jd_router.get("/sync-trees", response_model=Paginated[SyncTreeNode])
-def get_sync_trees(db: UserSession, user: CurrentUser, skip=0, limit: int | None = LIM):
+async def get_sync_trees(db: UserSession, skip=0, limit: int | None = LIM):
     """Get the sync trees for each org the user can access."""
-    trees = crud.jd_link.get_trees_paginated(db, user.id, skip, limit)
+    client = JDClient.from_session(db)
+    if not await client.check_connection():
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
+
+    trees = crud.jd_link.get_trees_paginated(db, client.conn.user_id, skip, limit)
     return Paginated[SyncTreeNode](
         count=trees.count, data=[SyncTreeNode.model_validate(t) for t in trees.data]
     )
@@ -161,10 +162,9 @@ def get_sync_trees(db: UserSession, user: CurrentUser, skip=0, limit: int | None
 @jd_router.patch("/resource/{resource_uri:path}")
 async def jd_modify_sync(
     db: UserSession,
-    user: CurrentUser,
     pool: JobPool,
     data_in: JDLinkUpdate,
-    resource_uri: str = Path(description="e.g. `organizations/{id}/farms/{id}`"),
+    resource_uri: str = Path(description="e.g. `platform/organizations/{id}`"),
 ):
     """### Modifies the Sync State of a John Deere Resource Link."""
     log.info("Modifying a Sync Resource.")
@@ -174,10 +174,11 @@ async def jd_modify_sync(
         msg = ErrMsg.INVLD_STATUS.format(data_in.status)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
-    if not await JDClient.from_user(db, user.id).check_connection():
+    client = JDClient.from_session(db)
+    if not await client.check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
 
-    link = crud.jd_link.get_by_user_and_uri(db, user.id, resource_uri)
+    link = crud.jd_link.get_by_user_and_uri(db, client.conn.user_id, resource_uri)
     if not link:
         msg = ErrMsg.NF.format("Resource Link", resource_uri)
         raise HTTPException(status.HTTP_404_NOT_FOUND, msg)
@@ -186,17 +187,45 @@ async def jd_modify_sync(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
     # TODO: remove once completed
-    if link.table_name in ("field_op",):
-        raise HTTPException(
-            status.HTTP_501_NOT_IMPLEMENTED, f"{link.table_name} sync is unimplemneted."
-        )
+    # if link.table_name in ("field_op",):
+    #     raise HTTPException(
+    #         status.HTTP_501_NOT_IMPLEMENTED, f"{link.table_name} sync unimplemneted."
+    #     )
 
-    args = {"user_id": user.id, "uri": resource_uri, "update": data_in}
-    await pool.enqueue_job("modify_sync", **args, _job_id=f"modify:{resource_uri}")
-    return JSONResponse(
-        {"action": "modify_sync", "accepted": True, "resource": resource_uri},
-        status.HTTP_202_ACCEPTED,
-    )
+    args = {"user_id": client.conn.user_id, "uri": resource_uri, "update": data_in}
+    j = await pool.enqueue_job("modify_sync", **args, _job_id=f"modify:{resource_uri}")
+    if j is None:
+        msg = ErrMsg.JOB_EXISTS.format(resource_uri)
+        raise HTTPException(status.HTTP_409_CONFLICT, msg)
+    return status.HTTP_202_ACCEPTED
+
+
+@jd_router.get("/resource/prepare-operation/{op_uri:path}")
+async def jd_prepare_operation_for_sync(db: UserSession, pool: JobPool, op_uri: str):
+    """### Get data that syncing an operation would produce.
+    Useful for checking the operation data before calling `PATCH /resource/{path}` on it
+
+    Returns the new links that would be created as a result of syncing this op.
+    """
+    log.info("Preparing operation sync data.")
+    client = JDClient.from_session(db)
+    if not await client.check_connection():
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
+
+    link = crud.jd_link.get_by_user_and_uri(db, client.conn.user_id, op_uri)
+    if not link:
+        msg = ErrMsg.NF.format("Resource Link", op_uri)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, msg)
+    if link.table_name != "field_op":
+        msg = ErrMsg.LINK_TYPE.format(op_uri, "Field Operation.")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
+
+    args = {"user_id": client.conn.user_id, "uri": op_uri}
+    job = await pool.enqueue_job("prepare_op", **args, _job_id=f"prepare:{op_uri}")
+    if job is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, ErrMsg.JOB_EXISTS.format(op_uri))
+    org_children, op_children = await job.result()
+    return {"new_org_children": org_children, "new_op_children": op_children}
 
 
 # endregion

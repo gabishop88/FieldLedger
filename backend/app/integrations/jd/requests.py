@@ -1,20 +1,40 @@
+import json
 import logging
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from typing import Any, Literal, Self, overload
 from uuid import UUID
+from zipfile import is_zipfile
 
-import httpx
 from fastapi import HTTPException, status
+from httpx import AsyncClient, HTTPStatusError, Request, Response
+from pydantic import ValidationError
 from rich.logging import RichHandler
-from sqlmodel import Session
+from sqlmodel import Session, func, select
+from tenacity import (
+    after_log,
+    before_log,
+    retry,
+    retry_if_result,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.core.config import settings
 from app.core.enums import ErrMsg
 from app.db import crud
 from app.db.models import AppUser, JDConnection, JDConnectionUpdate
-from app.integrations.jd.models import JDModel, JDMulti, JDOrg
+from app.integrations.jd.models import (
+    JDChemical,
+    JDFertilizer,
+    JDModel,
+    JDMulti,
+    JDOrg,
+    JDProductType,
+    JDVariety,
+)
 
-log_handler = RichHandler(rich_tracebacks=True, show_time=False)
+log_handler = RichHandler(show_time=False)
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
 log = logging.getLogger(__name__)
 
@@ -25,6 +45,7 @@ GrantType = Literal["authorization_code", "refresh_token"]
 REDIRECT_URI = f"http://localhost:8000{settings.API_PREFIX}/jd/oauth-capture"
 
 
+# TODO: Implement RCA Events? https://developer.deere.com/dev-docs/products#/organizations/{organizationId}/chemicals/{erid}/get:~:text=Required%20Customer%20Action%20%28RCA%29%20Events
 class JDClient:
     """### A Client for handling requests to John Deere servers.
     `client = JDClient(db, connection)` is valid as long as the Session (db) is active.
@@ -59,6 +80,16 @@ class JDClient:
         conn = db.get(JDConnection, user_id) or crud.jd_connection.create(db, new_conn)
         return cls(db, conn)
 
+    @classmethod
+    def from_session(cls: type[Self], db: Session) -> Self:
+        """Get the Client connection using the Session. Only works if app.current_user
+        is set, which typcially means the session came from the UserSession dependency.
+        """
+        user_id = db.scalar(select(func.current_setting("app.current_user", True)))
+        if not user_id:
+            raise RuntimeError("app.current_user is not set in current session.")
+        return cls.from_user(db, UUID(user_id))
+
     async def _request_token(self, grant: GrantType, code: str | None) -> None:
         assert self.conn.refresh_token if (refr := grant == "refresh_token") else code
         head = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -69,7 +100,7 @@ class JDClient:
             "client_secret": settings.JD_CLIENT_SECRET,
             **({"refresh_token": self.conn.refresh_token} if refr else {"code": code}),
         }
-        async with httpx.AsyncClient() as cli:
+        async with AsyncClient() as cli:
             url = f"{settings.JD_AUTH_BASE}/token"
             res = await cli.request("POST", url, headers=head, data=data)
         tkn = res.raise_for_status().json()
@@ -88,7 +119,7 @@ class JDClient:
             "state": self.conn.user_id,
             "redirect_uri": REDIRECT_URI,
         }
-        req = httpx.Request("GET", f"{settings.JD_AUTH_BASE}/authorize", params=params)
+        req = Request("GET", f"{settings.JD_AUTH_BASE}/authorize", params=params)
         return str(req.url)
 
     async def access_from_auth_code(self, code: str) -> None:
@@ -110,10 +141,10 @@ class JDClient:
         try:
             await self.get(f"{settings.JD_API_BASE}/platform/organizations")
             return True
-        except httpx.HTTPStatusError:
+        except HTTPStatusError:
             return False
 
-    async def request(self, method: str, uri: str, **kwargs) -> httpx.Response:
+    async def request(self, method: str, uri: str, _raise=True, **kwargs) -> Response:
         await self.ensure_fresh_access()
         headers = {
             "Authorization": f"Bearer {self.conn.access_token}",
@@ -121,11 +152,13 @@ class JDClient:
             "Accept-Language": "en",
         }
         headers.update(kwargs.pop("headers", {}))
+
         if not uri.startswith(("http://", "https://")):
             uri = f"{settings.JD_API_BASE}/{uri.lstrip('/')}"
-        async with httpx.AsyncClient() as client:
+
+        async with AsyncClient() as client:
             response = await client.request(method, uri, headers=headers, **kwargs)
-        return response.raise_for_status()
+        return response.raise_for_status() if _raise else response
 
     @overload
     async def get(self, uri: str, **kwargs) -> dict[str, Any]: ...
@@ -141,7 +174,9 @@ class JDClient:
 
         Includes default params: itemLimit=5000
         """
-        params = {"itemLimit": 5000}
+        params: dict[str, Any] = {"itemLimit": 5000}
+        # if model:  # TODO: Does this filter the lists of child models, too?
+        #     params["showLinks"] = list(model.keep_links)
         params.update(kwargs.pop("params", {}))
         data = (await self.request("GET", uri, params=params, **kwargs)).json()
         return data if model is None else model.model_validate(data)
@@ -154,3 +189,66 @@ class JDClient:
             f"{settings.JD_API_BASE}/platform/organizations", JDMulti[JDOrg]
         )
         return [o for o in orgs.values if not member_only or o.member]
+
+    @retry(
+        retry=retry_if_result(lambda r: r.status_code == 202),
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=5),
+        reraise=True,
+        before=before_log(log, logging.INFO),
+        before_sleep=before_log(log, logging.INFO),
+        after=after_log(log, logging.INFO),
+    )
+    async def _wait_for_shapefile(self, uri: str) -> Response:
+        return await self.request(
+            "GET", uri, _raise=False, params={"resolution": "OneHertz"}
+        )
+
+    async def get_shp_zip(self, uri: str) -> bytes:
+        res = await self._wait_for_shapefile(uri)
+        download_url = res.headers.get("Location")
+        if not download_url:
+            raise RuntimeError("JD did not return the shapefile Location.")
+        async with AsyncClient() as client:
+            shp_zip = (await client.get(download_url)).raise_for_status()
+
+        if not is_zipfile(BytesIO(shp_zip.content)):
+            raise RuntimeError("Downloaded shapefile was not a ZIP archive.")
+        return shp_zip.content
+
+    async def get_parent_product(
+        self, org_uri: str, prod_type: JDProductType | None, id: str
+    ) -> JDVariety | JDChemical | JDFertilizer | None:
+        if prod_type is None:
+            return None
+
+        type_map: dict[
+            JDProductType, tuple[str, type[JDVariety | JDChemical | JDFertilizer]]
+        ] = {
+            "SEED": ("varieties", JDVariety),
+            "CHEMICAL": ("chemicals", JDChemical),
+            "FERTILIZER": ("fertilizers", JDFertilizer),
+        }
+        endpoint, model = type_map[prod_type]
+        params = {"embed": "showMergedProducts"}
+        try:
+            prod = await self.get(f"{org_uri}/{endpoint}/{id}", model, params=params)
+        except HTTPStatusError as err:
+            if err.response.status_code != 404:
+                raise err
+            log.warning(f"Could not find [{prod_type}] {id}")
+            return None
+        except ValidationError as err:
+            log.error(err)
+            log.error(
+                json.dumps(
+                    await self.get(f"{org_uri}/{endpoint}/{id}", params=params),
+                    indent=2,
+                )
+            )
+            raise err
+
+        if prod.parentErid:
+            log.info(f"Found parent for {prod.name=}.")
+            return await self.get_parent_product(org_uri, prod_type, prod.parentErid)
+        return prod

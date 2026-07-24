@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from datetime import datetime
 from functools import cached_property
@@ -8,6 +9,14 @@ from pydantic import Field as ColInfo
 from shapely import MultiPolygon, Point, Polygon
 
 from app.core.config import settings
+
+# TODO: Go through and remove all fields that I don't need/use?
+# TODO: Go through and remove "---" placeholder values (often in companyName, name, etc)
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+JDProductType = Literal["SEED", "CHEMICAL", "FERTILIZER"]
 
 # region -------------------------------- Core Models ---------------------------------
 
@@ -25,8 +34,10 @@ class JDLink(JDBaseModel):
 
 
 class Meas(JDBaseModel):
-    value: float = ColInfo(validation_alias=AliasChoices("value", "valueAsDouble"))
-    unit: str | None = None
+    value: float = ColInfo(
+        validation_alias=AliasChoices("value", "Value", "valueAsDouble")
+    )
+    unit: str = ColInfo(validation_alias=AliasChoices("unit", "Unit", "unitId"))
 
 
 class JDModel(JDBaseModel):
@@ -43,7 +54,7 @@ class JDModel(JDBaseModel):
         """This is a resource's identifier: 'self' link except protocol/domain."""
         uri = self.get_link("self").uri
         if uri.startswith(settings.JD_API_BASE):
-            uri = uri[len(settings.JD_API_BASE):].lstrip("/")
+            uri = uri[len(settings.JD_API_BASE) :].lstrip("/")
         return uri
 
     @field_validator("links", mode="before")
@@ -108,6 +119,11 @@ class JDPoint(JDBaseModel):
         return Point(self.lon, self.lat)
 
 
+class JDExtent(JDBaseModel):
+    topLeft: JDPoint
+    bottomRight: JDPoint
+
+
 class JDRing(JDBaseModel):
     points: list[JDPoint]
     type: Literal["interior", "exterior"]
@@ -133,9 +149,10 @@ class JDBoundary(JDModel):
     area: Meas | None = None
     workableArea: Meas | None = None
     multipolygons: list[JDPolygon]
-    centroid: JDPoint
+    centroid: JDPoint | None = None
+    extent: JDExtent | None = None
     archived: bool
-    id: str
+    id: str | None = None
     links: list[JDLink]
     active: bool
     irrigated: bool
@@ -147,6 +164,12 @@ class JDBoundary(JDModel):
     def wkt(self) -> str:
         """Well-Known-Text representation of the boundary geometry."""
         return self.as_shapely().wkt
+
+        return super().uri
+        uri = self.get_link("self").uri
+        if uri.startswith(settings.JD_API_BASE):
+            uri = uri[len(settings.JD_API_BASE) :].lstrip("/")
+        return uri
 
 
 # endregion
@@ -218,13 +241,15 @@ class JDMeasType(JDBaseModel):
         return super().model_dump(**kwargs)
 
 
-class InputMeasurements(JDBaseModel):
+class InputMeasurement(JDBaseModel):
+    guid: str
     area: Meas | None = None
     total: Meas | None = None
     rate: Meas | None = None
 
 
-class OutputMeasurements(JDBaseModel):
+class OutputMeasurement(JDBaseModel):
+    guid: str
     area: Meas | None = None
     wet_mass: Meas | None = None
     wet_mass_rate: Meas | None = None
@@ -235,26 +260,37 @@ class OutputMeasurements(JDBaseModel):
     moisture: Meas | None = None
 
 
-class JDMeasurements(JDBaseModel):
+class EquipmentMeasurement(JDBaseModel):
+    # some id
     area: Meas | None = None
     speed: Meas | None = None
     pressure: Meas | None = None
     depth: Meas | None = None
 
-    inputs: dict[str, InputMeasurements] = ColInfo(default_factory=dict)
-    outputs: dict[str, OutputMeasurements] = ColInfo(default_factory=dict)
+
+class JDMeasurement(JDBaseModel):
+    area: Meas | None = None
+    # speed: Meas | None = None
+    # pressure: Meas | None = None
+    # depth: Meas | None = None
+
+    inputs: list[InputMeasurement] = ColInfo(default_factory=list)
+    outputs: list[OutputMeasurement] = ColInfo(default_factory=list)
+    eq: EquipmentMeasurement | None = None
+    # inputs: dict[str, InputMeasurements] = ColInfo(default_factory=dict)
+    # outputs: dict[str, OutputMeasurements] = ColInfo(default_factory=dict)
 
 
 class JDComponent(JDBaseModel):
     name: str
     rate: Meas
     guid: str
-    productType: str
+    productType: JDProductType | None = None
 
 
 class JDProduct(JDBaseModel):
     guid: str
-    productType: str | None = None
+    productType: JDProductType | None = None
     productId: str
     name: str | None = None
     brand: str | None = None
@@ -263,6 +299,10 @@ class JDProduct(JDBaseModel):
     rate: Meas | None = None
     carrier: JDComponent | None = None
     components: list[JDComponent] | None = None
+
+    @field_validator("productType", mode="before")
+    def remove_product_type_other(cls, value):
+        return None if value == "OTHER" else value
 
 
 class JDOpMachine(JDBaseModel):
@@ -295,9 +335,109 @@ class JDFieldOp(JDModel):
     id: str
     links: list[JDLink]
 
+    @field_validator("adaptMachineType", mode="before")
+    @classmethod
+    def remove_machine_type_unknown(cls, value):
+        return None if value == "unknown" else value
+
     @cached_property
-    def measurements(self) -> JDMeasurements:
+    def measurements(self) -> JDMeasurement:
         return parse_measurements(self)
+
+    @property
+    def generate_boundary_uri(self) -> str:
+        return f"{self.get_link('self').uri}/boundary"
+
+
+# endregion
+# region ------------------------------ Shapefile Models ------------------------------
+
+
+class JDShpMetaDataAttribute(JDBaseModel):
+    Name: str
+    Unit: str | None = None
+    Description: str
+
+
+class JDShpMetaComponent(JDBaseModel):
+    Carrier: bool
+    Name: str
+    Rate: Meas
+    BrandName: str | None = None
+
+
+class JDShpMetaProduct(JDBaseModel):
+    ProductId: str
+    ProductName: str
+    BrandName: str | None = None
+    TankMix: bool
+    Rate: Meas
+    ProductUseHash: str
+    Components: list[JDShpMetaComponent]
+
+
+class JDShpMetaMachineUse(JDBaseModel):
+    MachineId: str
+    MachineSerial: str
+    PrincipalId: str | None = None
+
+
+class JDShpMeta(JDBaseModel):
+    OrgId: int
+    FarmId: str
+    FarmName: str
+    FieldId: str
+    FieldName: str
+    FieldOperationId: str
+    Operation: str
+    CropSeason: int
+    CropToken: str | None = None
+    CropName: str | None = None
+    Product: JDShpMetaProduct | None = None
+    FieldOperationStartDate: datetime
+    FileCreatedTimeStamp: datetime
+    DataAttributes: list[JDShpMetaDataAttribute]
+    MachineUsage: dict[str, JDShpMetaMachineUse]
+    # Implements
+    # Products
+
+    @field_validator("Product", mode="before")
+    @classmethod
+    def check_products(cls, v):
+        if "Products" in v and v["Product"] != v["Products"]:
+            raise ValueError("'Products' exists and is different from 'Product'")
+
+
+# endregion
+# region -------------------------- Product/Equipment Models --------------------------
+
+
+class JDVariety(JDModel):
+    id: str
+    name: str
+    category: str
+    cropName: str
+    companyName: str
+    archived: bool
+    parentErid: str | None = None
+    cleanupStatus: str | None = None
+
+
+class JDChemical(JDModel):
+    id: str
+    name: str
+    companyName: str
+    registration: str | None = None
+    category: str
+    type: str
+    restrictedUse: bool
+    archived: bool
+    parentErid: str | None = None
+    cleanupStatus: str | None = None
+
+
+class JDFertilizer(JDChemical):
+    pass
 
 
 # endregion
@@ -367,45 +507,58 @@ def merge_measurements(ms: list[JDMeasType]) -> JDMeasType:
     return merged
 
 
-def parse_measurements(op: JDFieldOp) -> JDMeasurements:
-    result = JDMeasurements()
+def parse_measurements(op: JDFieldOp) -> JDMeasurement:
+    meas = JDMeasurement()
     mts = op.measurementTypes or []
     if not mts:
-        return result
+        return meas
 
     merged = merge_measurements(mts)
-    result.area = merged.area
-    result.speed = merged.averageSpeed
-    result.pressure = merged.averagePressure
-    result.depth = merged.averageDepth
+    meas.area = merged.area
+    meas.eq = EquipmentMeasurement(
+        # TODO: add the id field here.
+        area=merged.area,
+        speed=merged.averageSpeed,
+        pressure=merged.averagePressure,
+        depth=merged.averageDepth,
+    )
+    # result.area = merged.area
+    # result.speed = merged.averageSpeed
+    # result.pressure = merged.averagePressure
+    # result.depth = merged.averageDepth
 
     match op.fieldOperationType.lower():
         case "application":
             app = next(iter(merged.applicationProductTotals or []), None)
             if app:
-                result.area = app.appliedArea or app.area or result.area
-                result.speed = app.averageSpeed or result.speed
-                result.inputs = {
-                    p.productId: InputMeasurements(
-                        area=result.area,
+                meas.area = meas.eq.area = app.appliedArea or app.area or meas.area
+                meas.eq.speed = app.averageSpeed or meas.eq.speed
+                # result.area = app.appliedArea or app.area or result.area
+                # result.speed = app.averageSpeed or result.speed
+                meas.inputs = [
+                    InputMeasurement(
+                        guid=p.productId,
+                        area=meas.area,
                         total=p.totalMaterial or app.totalMaterial,
                         rate=p.averageMaterial or app.averageMaterial,
                     )
                     for p in app.productTotals
-                }
+                ]
         case "seeding":
-            result.inputs = {
-                v.varietyId: InputMeasurements(
-                    area=v.area or result.area,
+            meas.inputs = [
+                InputMeasurement(
+                    guid=v.varietyId,
+                    area=v.area or meas.area,
                     total=v.totalMaterial or merged.totalMaterial,
                     rate=v.averageMaterial or merged.averageMaterial,
                 )
                 for v in merged.varietyTotals or []
-            }
+            ]
         case "harvest":
-            result.outputs = {
-                v.varietyId: OutputMeasurements(
-                    area=v.area or result.area,
+            meas.outputs = [
+                OutputMeasurement(
+                    guid=v.varietyId,
+                    area=v.area or meas.area,
                     wet_mass=v.wetMass or merged.wetMass,
                     wet_mass_rate=v.averageWetMass or merged.averageWetMass,
                     yield_=v.yield_ or merged.yield_,
@@ -413,8 +566,8 @@ def parse_measurements(op: JDFieldOp) -> JDMeasurements:
                     moisture=v.averageMoisture or merged.averageMoisture,
                 )
                 for v in merged.varietyTotals or []
-            }
-    return result
+            ]
+    return meas
 
 
 # endregion

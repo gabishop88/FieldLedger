@@ -4,11 +4,14 @@ import logging
 from typing import cast
 
 from redis.asyncio import Redis
+from rich.logging import RichHandler
 
 import app.integrations.jd.sync as jd
 from app.core.config import settings
 from app.db.connection import get_engine
 
+log_handler = RichHandler(show_time=False)
+logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
 log = logging.getLogger(__name__)
 
 # NOTE: https://arq-docs.helpmanual.io/
@@ -45,12 +48,13 @@ class RedisLogHandler(logging.Handler):
 # TODO: remove keep_result=10 and find another way to allow retries but not conflicts.
 class WorkerSettings:
     redis_settings = settings.REDIS_SETTINGS
-    keep_result = 10
+    keep_result = 5
     # NOTE: restart sync-worker service after a function is added or modified.
     functions = [
         health_check,
         jd.discover_orgs,
         jd.modify_sync,
+        jd.prepare_op,
         jd.handle_webhook_event,
     ]
 

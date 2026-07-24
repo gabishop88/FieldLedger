@@ -16,6 +16,7 @@ __all__ = [
     "field",
     "jd_connection",
     "jd_link",
+    "jd_shp",
     "field_op",
     "op_equipment",
     "op_input",
@@ -28,7 +29,7 @@ __all__ = [
 ]
 
 from .crud_iam import user
-from .crud_integration import jd_connection, jd_link
+from .crud_integration import jd_connection, jd_link, jd_shp
 from .crud_operation import field_op, op_equipment, op_input, op_output
 from .crud_ref import crop, unit
 from .crud_resource import equipment, product

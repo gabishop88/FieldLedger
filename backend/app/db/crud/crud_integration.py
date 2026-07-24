@@ -12,6 +12,7 @@ from app.db.models import (
     JDConnectionUpdate,
     JDLinkUpdate,
     JDRecordLink,
+    JDShapefile,
     SyncLinkUpdate,
 )
 
@@ -60,5 +61,9 @@ class CRUDJDRecordLink(CRUDBase[JDRecordLink, JDRecordLink, LinkUpdate]):
         return super().update(db, record, changes)
 
 
+class CRUDJDShapefile(CRUDBase[JDShapefile, JDShapefile, JDShapefile]):
+    pass
+
 jd_connection = CRUDJDConnection(JDConnection)
 jd_link = CRUDJDRecordLink(JDRecordLink)
+jd_shp = CRUDJDShapefile(JDShapefile)

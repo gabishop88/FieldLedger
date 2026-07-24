@@ -23,6 +23,7 @@ dependencies = [
     "uuid6>=2025.0.1",
     "requests>=2.33.1",
     "arq>=0.28.0",
+    "geopandas>=1.1.4",
 ]
 
 [dependency-groups]

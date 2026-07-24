@@ -72,6 +72,7 @@ class ErrMsg(StrEnum):
 
     # HTTP_409_CONFLICT (Matches the detail sent by the DB when violating constraints)
     KEY_EXISTS = "Key ({0})=({1}) already exists."
+    JOB_EXISTS = "<Resource Link {0}> already has a job running."
 
     # HTTP_422_UNPROCESSABLE_ENTITY
     INVLD_WKT = "'geom' is not valid WKT."
@@ -80,6 +81,7 @@ class ErrMsg(StrEnum):
     INACTIVE_PARENT = (
         "<Resource Link {0}> cannot update unless parent <Resource Link {1}> is active."
     )
+    LINK_TYPE = "<Resource Link {0}> is not a {1}."
 
     # HTTP_503_SERVICE_UNAVAILABLE
     NO_QUEUE = "Unable to enqueue job to check on worker."

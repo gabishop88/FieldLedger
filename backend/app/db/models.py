@@ -1,8 +1,15 @@
+import json
 from collections.abc import Sequence
 from datetime import datetime
+from functools import cached_property
+from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Annotated, Any, ClassVar, Optional, TypeVar
 from uuid import UUID
+from zipfile import ZipFile
 
+import geopandas
 from geoalchemy2 import Geometry, WKBElement, WKTElement
 from geoalchemy2.shape import to_shape
 from pydantic import EmailStr, field_serializer, field_validator
@@ -13,10 +20,12 @@ from sqlmodel import (
     Column,
     DateTime,
     ForeignKey,
+    LargeBinary,
     Relationship,
     SQLModel,
     String,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlmodel import Field as ColInfo  # NOTE: `Field as ColInfo` bc of `Field` model.
@@ -680,6 +689,44 @@ class JDRecordLink(SQLModel, table=True):
         sa_relationship_kwargs={"remote_side": "JDRecordLink.id"},
     )
     children: list["JDRecordLink"] = Relationship(back_populates="parent")
+    # NOTE: Shapefile only used for table_name == "field_op"
+    shapefile: Optional["JDShapefile"] = Relationship(
+        back_populates="record_link",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+    @cached_property
+    def child_uris(self) -> set[str]:
+        return {x.uri for x in self.children}
+
+
+class JDShapefile(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "jd_shapefile"  # type: ignore
+    __table_args__: ClassVar[dict] = {"schema": "integration"}
+
+    zip_data: bytes = ColInfo(sa_type=LargeBinary)
+    link_id: UUID = ColInfo(
+        foreign_key="integration.jd_record_link.id",
+        ondelete="CASCADE",
+        primary_key=True,
+    )
+    record_link: JDRecordLink = Relationship(back_populates="shapefile")
+
+    # TODO: Is this potentially too large to cache if there are many?
+    @cached_property
+    def gdf(self) -> geopandas.GeoDataFrame:
+        """Extract and return the shapefile as a geopandas GeoDataFrame."""
+        with TemporaryDirectory() as tmp:
+            ZipFile(BytesIO(self.zip_data)).extractall(tmp)
+            return geopandas.read_file(next(Path(tmp).rglob("*.shp")))
+
+    @cached_property
+    def shp_meta(self) -> dict:
+        """Extract and return the metadata .json attached to the shapefile."""
+        with TemporaryDirectory() as tmp:
+            ZipFile(BytesIO(self.zip_data)).extractall(tmp)
+            path = next(Path(tmp).rglob("*.json"))
+            return json.load(path.open())
 
 
 # endregion
@@ -693,7 +740,7 @@ class Changelog(SQLModel, table=True):
 
     timestamp: datetime = ColInfo(
         sa_column=Column(
-            TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+            TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
         )
     )
     revision: str = ColInfo(max_length=32)
