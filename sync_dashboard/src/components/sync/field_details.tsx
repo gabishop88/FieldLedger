@@ -144,7 +144,7 @@ export default function FieldDetailsPanel({ field, selectedOp: selOp, onSelectOp
                 fullWidth
                 variant="light"
                 size="compact-sm"
-                leftSection={<SyncIcon status="Synced"/>}
+                rightSection={<SyncIcon status="Synced"/>}
                 disabled={!syncableOps}
                 loading={isPending}
                 onClick={syncAll}
