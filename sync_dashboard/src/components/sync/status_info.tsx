@@ -78,9 +78,9 @@ interface SyncIconProps {
   variant?: ThemeIconProps["variant"];
 }
 
-export function SyncIcon({ status, size="sm", variant="subtle" }: SyncIconProps) {
+export function SyncIcon({ status, size = "sm", variant = "subtle" }: SyncIconProps) {
   const info = statusDetails[status];
-  return <ThemeIcon size={size} variant={variant}  c={info.color}>
+  return <ThemeIcon size={size} variant={variant} c={info.color}>
     <info.icon />
   </ThemeIcon>;
 }
@@ -95,7 +95,7 @@ interface SyncActionsProps {
   variant?: ActionIconProps["variant"];
 }
 
-export function SyncActions({ node, size="sm", variant="light" }: SyncActionsProps) {
+export function SyncActions({ node, size = "sm", variant = "light" }: SyncActionsProps) {
   const { isFetching } = useSyncTree(true);
   const [disabledBtns, setDisabledBtns] = useState(new Set<string>());
   useEffect(() => setDisabledBtns(prev => isFetching ? prev : new Set()), [isFetching]);
@@ -119,7 +119,7 @@ export function SyncActions({ node, size="sm", variant="light" }: SyncActionsPro
           variant={variant}
           color={info.color}
           disabled={disabledBtns.has(keyFn(targetStatus))}
-          onClick={() => updateStatus(targetStatus)}
+          onClick={(e) => e.stopPropagation() ?? updateStatus(targetStatus)}
         >
           <info.icon />
         </ActionIcon>
@@ -134,7 +134,7 @@ export function SyncActions({ node, size="sm", variant="light" }: SyncActionsPro
 
 export default function SyncStatusHelp() {
   const entries = Object.entries(statusDetails) as [SyncStatus, SyncStatusDetails][];
-  return <HoverCard width={900} shadow="md" position="right-end" transitionProps={{ transition: "scale-x"}} withArrow>
+  return <HoverCard width={900} shadow="md" position="right-end" transitionProps={{ transition: "scale-x" }} withArrow>
     <HoverCard.Target>
       <Button variant="transparent" size="xs">
         <IconInfoCircle size={22} />
@@ -163,7 +163,7 @@ export default function SyncStatusHelp() {
           Each synced item in the tree also has numbered badges that count different types of discovered children.
         </Text>
         <Text>
-          Once you have discovered one or more <Text span fw="bold">Fields</Text>, you may click on them to bring up 
+          Once you have discovered one or more <Text span fw="bold">Fields</Text>, you may click on them to bring up
           a list of Field Boundaries across the top, and Field Operations as a timeline that you can choose to sync.
         </Text>
         <Text>If you sync an operation, it will make the products and equipment used available for your Organization.</Text>
@@ -177,7 +177,7 @@ export default function SyncStatusHelp() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {entries.map(([ status, { description, transitions} ]) => 
+            {entries.map(([status, { description, transitions }]) =>
               <Table.Tr key={status}>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap">
@@ -192,9 +192,9 @@ export default function SyncStatusHelp() {
 
                 <Table.Td>
                   <Stack gap={4}>
-                    {Object.entries(transitions).map(([ toStatus, actionInfo]) => 
+                    {Object.entries(transitions).map(([toStatus, actionInfo]) =>
                       <Group key={toStatus} gap="xs" wrap="nowrap">
-                        <SyncIcon status={toStatus as SyncStatus} size="xs" variant="light"/>
+                        <SyncIcon status={toStatus as SyncStatus} size="xs" variant="light" />
 
                         <Text size="sm">
                           <Text span fw="bold">{toStatus}</Text>
