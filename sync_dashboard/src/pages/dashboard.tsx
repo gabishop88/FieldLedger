@@ -67,7 +67,7 @@ export default function Dashboard() {
         <AccountMenu
           user={user}
           loading={loading}
-          onLogin={() => setLoginOpened(true)}
+          openLogin={() => setLoginOpened(true)}
           onLogout={logout}
           onDeleteAccount={deleteAccount}
         />

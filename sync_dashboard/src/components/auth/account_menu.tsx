@@ -8,16 +8,16 @@ import { IconUser, IconUserBolt } from "@tabler/icons-react";
 interface Props {
   user: User | null;
   loading: boolean;
-  onLogin: () => void;
+  openLogin: () => void;
   onLogout: () => void;
   onDeleteAccount: () => Promise<void>;
 }
 
-export default function AccountMenu({ user, loading, onLogin, onLogout, onDeleteAccount }: Props) {
+export default function AccountMenu({ user, loading, openLogin, onLogout, onDeleteAccount }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return !user 
-    ? <Button loading={loading} onClick={onLogin}>Log In</Button>
+    ? <Button loading={loading} onClick={openLogin}>Log In</Button>
     : <>
     <ConfirmationModal
       opened={confirmOpen}
