@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+  <style>
+    :root {
+      --stroke: 40;
+      --outline: #783f04;
+      --field: #38761d;
+      --ledger: #bf9000;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --outline: #d98b3a;
+        --field: #69a84f;
+        --ledger: #e6c34a;
+      }
+
+      .outline,
+      .field,
+      .ledger {
+        stroke-width: var(--stroke);
+      }
+    }
+
+    .outline {
+      fill: none;
+      stroke: var(--outline);
+      stroke-width: var(--stroke);
+      stroke-linejoin: round;
+      stroke-linecap: butt;
+    }
+
+    .field {
+      fill: none;
+      stroke: var(--field);
+      stroke-width: var(--stroke);
+      stroke-linecap: butt;
+    }
+
+    .ledger {
+      fill: none;
+      stroke: var(--ledger);
+      stroke-width: var(--stroke);
+      stroke-linecap: butt;
+    }
+  </style>
+
+  <defs>
+    <clipPath id="hex">
+      <path d="M320 4.88
+               L591.81 161.73
+               L591.81 478.27
+               L320 635.12
+               L48.19 478.27
+               L48.19 161.73
+               Z"/>
+    </clipPath>
+
+    <clipPath id="ledger-area">
+      <path d="M48.19 478.27
+               L591.81 161.73
+               L591.81 478.27
+               L320 635.12
+               L48.19 478.27
+               Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Spreadsheet / ledger -->
+  <g class="ledger" clip-path="url(#ledger-area)">
+    <path d="M192 560.51 L192 392.89"/>
+    <path d="M448 563.12 L448 248.88"/>
+
+    <path d="M170.71 550.27 L467.59 550.27"/>
+    <path d="M144.61 422.27 L591.83 422.27"/>
+    <path d="M365.89 294.27 L591.83 294.27"/>
+  </g>
+  
+  <!-- Field rows and field/ledger boundary -->
+  <g class="field" clip-path="url(#hex)">
+    <path d="M48.19 478.27 L591.81 161.73"/>
+    <path d="M45.77 329.19 L335.79 161.75"/>
+  </g>
+
+
+  <!-- Clipboard outline and horizon -->
+  <g class="outline">
+    <path d="M320 4.88
+             L591.81 161.73
+             L591.81 478.27
+             L320 635.12
+             L48.19 478.27
+             L48.19 161.73
+             Z"/>
+    <path d="M48.19 161.73 L591.81 161.73"/>
+    <circle cx="320" cy="91.62" r="30"/>
+  </g>
+</svg>

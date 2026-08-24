@@ -52,7 +52,7 @@ export default function Dashboard() {
     <AppShell.Header>
       <Group justify="space-between" align="center" wrap="nowrap" w="100%" h="100%" px="lg">
         <Group wrap="nowrap" gap="sm">
-          <ThemeIcon size="xl" variant="subtle"><Image src="public/favicon.svg" /></ThemeIcon>
+          <ThemeIcon size="xl" variant="subtle"><Image src="public/favicon.v7.svg" /></ThemeIcon>
           <Title visibleFrom="sm" mt="xs">FieldLedger</Title><Title mt="xs">Sync</Title>
         </Group>
         <Button
