@@ -6,6 +6,7 @@ import type { SyncLink } from "../../types/fl";
 import { IconListTree } from "@tabler/icons-react";
 
 function compareActiveThenAlpha(a: SyncLink<"org" | "farm" | "field">, b: SyncLink<"org" | "farm" | "field">) {
+  if (a.data.name == null || b.data.name == null) return a.data.name == null ? b.data.name == null ? 0 : 1 : -1;
   if (isActive(a) !== isActive(b)) return Number(isActive(b)) - Number(isActive(a));
   return a.data.name.localeCompare(b.data.name, undefined, { sensitivity: "base", numeric: true });
 }
@@ -17,7 +18,7 @@ function linkAsTreeNode(node: SyncLink<"org" | "farm" | "field">): SyncTreeNodeD
   );
 
   return {
-    label: (node.data.name as string | undefined) ?? node.uri,
+    label: (node.data.name as string | undefined) ?? <Text span c="dimmed" fs="italic">Unnamed Farm</Text>,
     value: node.uri,
     linkData: node,
     children: isField ? undefined : children.sort(compareActiveThenAlpha).map(linkAsTreeNode),
@@ -33,9 +34,11 @@ interface SyncTreeNodeData extends TreeNodeData {
 // #region ----------------------------------- ChildCountBadges -----------------------------------
 // ------------------------------------------------------------------------------------------------
 
+const capitalize = (s?: string | null) => s?.replace(/^./, c => c.toUpperCase());
+
 interface ChildCountBadgeData {
   countFn: (node: SyncTreeNodeData) => number;
-  label?: string | ((count: number) => React.ReactNode);
+  label?: string | ((node: SyncTreeNodeData) => React.ReactNode);
   color?: BadgeProps["color"];
   variant?: BadgeProps["variant"];
   hidden?: (count: number) => boolean;
@@ -43,31 +46,44 @@ interface ChildCountBadgeData {
 
 const CHILD_COUNT_BADGES: ChildCountBadgeData[] = [
   {
-    countFn: n => n.children?.filter(c => isActive(c.linkData)).length ?? 0,
-    label: "Active Child Links",
-    variant: "outline",
-  },
-  {
     countFn: n => n.children?.filter(c => !isActive(c.linkData)).length ?? 0,
-    label: "Inactive Child Links",
+    label: n => `Unsynced ${capitalize(n.children?.at(0)?.linkData.table_name) ?? "Child Link"}s`,
     variant: "default",
   },
   {
-    countFn: n => n.linkData.children?.filter(c => c.table_name === "boundary").length ?? 0,
-    label: "Field Boundaries",
+    countFn: n => n.children?.filter(c => isActive(c.linkData)).length ?? 0,
+    label: n => `Synced ${capitalize(n.children?.at(0)?.linkData.table_name) ?? "Child Link"}s`,
+    variant: "light",
+  },
+  {
+    countFn: n => n.linkData.children?.filter(c => c.table_name === "boundary" && !isActive(c)).length ?? 0,
+    label: "Unsynced Field Boundaries",
+    color: "blue",
+    variant: "outline",
+  },
+  {
+    countFn: n => n.linkData.children?.filter(c => c.table_name === "boundary" && isActive(c)).length ?? 0,
+    label: "Synced Field Boundaries",
     color: "blue",
     variant: "light",
   },
   {
-    countFn: n => n.linkData.children?.filter(c => c.table_name === "field_op").length ?? 0,
-    label: "Field Operations",
+    countFn: n => n.linkData.children?.filter(c => c.table_name === "field_op" && !isActive(c)).length ?? 0,
+    label: "Unsynced Field Operations",
+    color: "orange",
+    variant: "outline",
+  },
+  {
+    countFn: n => n.linkData.children?.filter(c => c.table_name === "field_op" && isActive(c)).length ?? 0,
+    label: "Synced Field Operations",
     color: "orange",
     variant: "light",
   },
   {
     countFn: n => n.linkData.children?.filter(c => c.table_name == "product").length ?? 0,
     label: "Products",
-    color: "purple",
+    color: "grape",
+    variant: "outline",
   }
 ];
 
@@ -75,10 +91,10 @@ function ChildCountBadges({ node }: { node: SyncTreeNodeData }) {
   return <>
     {CHILD_COUNT_BADGES.map(badge => {
       const value = badge.countFn(node);
-      const labelText = typeof badge.label === "function" ? badge.label(value) : badge.label;
+      const labelText = typeof badge.label === "function" ? badge.label(node) : badge.label;
       const hide = badge.hidden?.(value) ?? value === 0;
       const id = `${node.value}:Count ${badge.label}`;
-      return hide ? null : <Tooltip key={id} label={labelText} hidden={!labelText}>
+      return hide ? null : <Tooltip key={id} label={labelText} hidden={!labelText} position="right">
         <Badge size="xs" pt={4} radius="sm" variant={badge.variant} color={badge.color}>
           {value}
         </Badge>
@@ -93,7 +109,7 @@ function ChildCountBadges({ node }: { node: SyncTreeNodeData }) {
 
 function Leaf({ tree, node, selected, elementProps }: RenderTreeNodePayload) {
   const syncNode = node as SyncTreeNodeData;
-  const label = `${syncNode.linkData.status}${syncNode.linkData.local_persistent ? ", Persistent" : ""}`
+  const label = `${syncNode.linkData.status}${syncNode.linkData.local_persistent ? ", Persistent" : ""} ${capitalize(syncNode.linkData.table_name)}`
   const selectable = isActive(syncNode.linkData) && syncNode.linkData.table_name === "field";
 
   return <Group wrap="nowrap" pt={2}>
@@ -105,10 +121,11 @@ function Leaf({ tree, node, selected, elementProps }: RenderTreeNodePayload) {
         elementProps.onClick?.(e);
         tree.setSelectedState(selected ? [] : selectable ? [syncNode.value] : prev);
       }}
+      style={{ cursor: selectable || node.children?.length ? "pointer" : "default" }}
     >
-      <Tooltip label={label}>
+      <Tooltip label={label} position="right">
         <Group gap="xs">
-          <SyncIcon status={syncNode.linkData.status} variant="subtle"/>
+          <SyncIcon status={syncNode.linkData.status} variant="subtle" />
           <Text size="sm">{node.label}</Text>
         </Group>
       </Tooltip>
@@ -116,8 +133,9 @@ function Leaf({ tree, node, selected, elementProps }: RenderTreeNodePayload) {
       <ChildCountBadges node={syncNode} />
 
       <Divider flex={1} variant="dashed" color="gray" />
+
+      <SyncActions node={syncNode.linkData} />
     </Group>
-    <SyncActions node={syncNode.linkData} />
   </Group>
 }
 
