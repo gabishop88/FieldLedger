@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
-from typing import Any, Literal, Self, overload
+from typing import Any, Literal, Self, cast, overload
 from uuid import UUID
 from zipfile import is_zipfile
 
@@ -65,6 +66,7 @@ class JDClient:
     Request helper functions will call `ensure_fresh_access` internally. `is_authorized`
     therefore does not check for an expired access_token, only a missing one.
     """
+    _refresh_lock = asyncio.Lock()
 
     def __init__(self, db: Session, connection: JDConnection):
         self.db = db
@@ -110,6 +112,7 @@ class JDClient:
         if not refr and self.conn.first_established is None:
             tkn["first_established"] = datetime.now(UTC)
         crud.jd_connection.update(self.db, self.conn, JDConnectionUpdate(**tkn))
+        self.db.commit()  # Commit now so reqs waiting on _refresh_lock see expiration
 
     def auth_uri(self) -> str:
         params = {
@@ -129,16 +132,25 @@ class JDClient:
         if self.conn.access_expires_at is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
         cutoff = datetime.now(UTC) + timedelta(minutes=buffer_min)
-        if self.conn.access_expires_at < cutoff:
+        if self.conn.access_expires_at >= cutoff:
+            return
+
+        async with self._refresh_lock:
+            self.db.refresh(self.conn)
+            cutoff = datetime.now(UTC) + timedelta(minutes=buffer_min)
+            if self.conn.access_expires_at >= cutoff:
+                return
             await self._request_token("refresh_token", None)
 
     def has_token(self) -> bool:
         return bool(self.conn.access_token)
 
+
     async def check_connection(self) -> bool:
         if not self.has_token():
             return False
         try:
+            # TODO: Use refresh link: same auth, keep 'hot', and smaller response
             await self.get(f"{settings.JD_API_BASE}/platform/organizations")
             return True
         except HTTPStatusError:
@@ -169,17 +181,18 @@ class JDClient:
     async def get[T: JDModel](
         self, uri: str, model: type[T] | None = None, **kwargs
     ) -> dict[str, Any] | T:
-        """### Get data at url.
-        If you pass `model`, data is returned validated by it.
+        if model is None:
+            return (await self.request("GET", uri, **kwargs)).json()
 
-        Includes default params: itemLimit=5000
-        """
-        params: dict[str, Any] = {"itemLimit": 5000}
-        # if model:  # TODO: Does this filter the lists of child models, too?
-        #     params["showLinks"] = list(model.keep_links)
-        params.update(kwargs.pop("params", {}))
-        data = (await self.request("GET", uri, params=params, **kwargs)).json()
-        return data if model is None else model.model_validate(data)
+        if issubclass(model, JDMulti):
+            kwargs.setdefault("params", {}).setdefault("itemLimit", 5000)
+
+        re = model.model_validate((await self.request("GET", uri, **kwargs)).json())
+        while issubclass(model, JDMulti) and (next := re.get_link("nextPage", None)):
+            pg = model.model_validate((await self.request("GET", next.uri)).json())
+            cast(JDMulti, re).values.extend(pg.values)
+            re.links = [re.get_link("self"), *[x for x in pg.links if x.rel != "self"]]
+        return re
 
     async def post(self, uri: str, **kwargs) -> dict[str, Any]:
         return (await self.request("POST", uri, **kwargs)).json()

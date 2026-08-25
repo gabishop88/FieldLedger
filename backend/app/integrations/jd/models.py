@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime
 from functools import cached_property
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar, Literal, overload
 
 from pydantic import AliasChoices, BaseModel, field_validator, model_validator
 from pydantic import Field as ColInfo
@@ -48,18 +48,33 @@ class Meas(JDBaseModel):
     unit: str = ColInfo(validation_alias=AliasChoices("unit", "Unit", "unitId"))
 
 
+_MISSING = object()
+
 class JDModel(JDBaseModel):
     keep_links: ClassVar[set[str]] = {"self", "owningOrganization", "organization"}
     links: list[JDLink]
 
-    def get_link(self, rel: str) -> JDLink:
-        """Get a link from `self.links` by rel. Some options in `self.keep_links`."""
-        assert rel in self.keep_links, f"{rel=} not in {self.keep_links}."
-        return next(link for link in self.links if link.rel == rel)
+    @overload
+    def get_link(self, rel: str) -> JDLink: ...
+
+    @overload
+    def get_link[T](self, rel: str, default: T) -> JDLink | T: ...
+
+    def get_link(self, rel: str, default=_MISSING):
+        """###Get a link from `self.links` by `rel`.
+        See `self.keep_links` to see the possible values of `rel`.
+
+        Raises LookupError if rel is not found,
+        unless a default value is given as a second argument.
+        """
+        link = next((x for x in self.links if x.rel == rel), default)
+        if link is _MISSING:
+            raise LookupError(f"No link with {rel=}")
+        return link
 
     @cached_property
     def uri(self) -> str:
-        """This is a resource's identifier: 'self' link except protocol/domain."""
+        """This is a resource's identifier: 'self' link minus protocol/domain."""
         uri = self.get_link("self").uri
         if uri.startswith(settings.JD_API_BASE):
             uri = uri[len(settings.JD_API_BASE) :].lstrip("/")
@@ -72,6 +87,8 @@ class JDModel(JDBaseModel):
 
 
 class JDMulti[ContentModel: JDModel](JDModel):
+    keep_links = JDModel.keep_links | {"nextPage",}
+
     total: int
     values: list[ContentModel]
 
@@ -95,7 +112,7 @@ class JDOrg(JDModel):
 
 class JDFarm(JDModel):
     keep_links: ClassVar[set[str]] = {"self", "fields", "owningOrganization"}
-    name: str
+    name: str | None
     archived: bool
     id: str
     links: list[JDLink]
@@ -173,11 +190,20 @@ class JDBoundary(JDModel):
         """Well-Known-Text representation of the boundary geometry."""
         return self.as_shapely().wkt
 
-        return super().uri
-        uri = self.get_link("self").uri
-        if uri.startswith(settings.JD_API_BASE):
-            uri = uri[len(settings.JD_API_BASE) :].lstrip("/")
-        return uri
+    @model_validator(mode="before")
+    @classmethod
+    def log_invalid_multipolygons(cls, data):
+        if (
+            isinstance(data, dict)
+            and (
+                "multipolygons" not in data
+                or not data["multipolygons"]
+                or "rings" not in data["multipolygons"][0]
+            )
+        ):
+            log.error("Invalid JDBoundary: %r", data)
+
+        return data
 
 
 # endregion
@@ -321,7 +347,7 @@ class JDOpMachine(JDBaseModel):
 
 
 class JDTillageProduct(JDBaseModel):
-    tillageType: str
+    tillageType: str | None = None
 
 
 class JDFieldOp(JDModel):
@@ -419,7 +445,7 @@ class JDVariety(JDModel):
     name: str
     category: str
     cropName: str
-    companyName: str
+    companyName: str | None = None
     archived: bool
     parentErid: str | None = None
     cleanupStatus: str | None = None
@@ -428,7 +454,7 @@ class JDVariety(JDModel):
 class JDChemical(JDModel):
     id: str
     name: str
-    companyName: str
+    companyName: str | None = None
     registration: str | None = None
     category: str
     type: str

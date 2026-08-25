@@ -18,6 +18,7 @@ and `SomeUser` can be:
 * `CurrentSuperuser`: same as `CurrentUser` but enforces user.is_superuser=True.
 """
 
+import asyncio
 import logging
 from collections.abc import Generator
 from typing import Annotated
@@ -61,6 +62,18 @@ def arq_job_pool(request: Request) -> ArqRedis:
 
 
 JobPool = Annotated[ArqRedis, Depends(arq_job_pool)]
+
+
+# TODO: Consider this magic number. app.core.config? remember, per worker
+call_semaphore = asyncio.Semaphore(3)
+
+
+async def concurrent_call_limiter():
+    async with call_semaphore:
+        yield
+
+
+ConcurrencyLimiter = Depends(concurrent_call_limiter)
 
 
 def read_session() -> Generator[Session, None, None]:
