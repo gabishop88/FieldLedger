@@ -1,16 +1,15 @@
-import re
 from enum import StrEnum
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from sqlmodel import Session, func, inspect, select
+from sqlmodel import func, select
 
 from app.api.deps import ReadSession, SuperuserSession
 from app.core import enums
 from app.core.config import settings
-from app.core.enums import ColEnum, ErrMsg, LoadStrEnumMeta
+from app.core.enums import DynamicEnumMeta, ErrMsg, list_col_enums
 from app.db import crud, models
-from app.db.connection import get_engine
+from app.db.connection import list_tables
 from app.db.models import (
     AnyReferencePublic,
     Crop,
@@ -20,46 +19,24 @@ from app.db.models import (
     UnitUpdate,
 )
 
-router = APIRouter(prefix="/ref")
-
 LIM = settings.DEFAULT_PAGE_LIMIT
-PASCALIZER = re.compile(r"(^|_)([a-z])")
+
+router = APIRouter(prefix="/ref")
+ref_tables = list_col_enums() + list_tables("ref", pascal=True)
 
 
-# TODO: This probably belongs in app/core or something?
-def pascalize(s: str) -> str:
-    """Transform a (usually snake_case) string into PascalCase."""
-    if s is None:
-        return None
-    return PASCALIZER.sub(lambda m: m.group(2).upper(), s)
-
-
-def list_db_ref_tables() -> list[str]:
-    with Session(get_engine(settings.READONLY_DATABASE_URI)) as db:
-        tables = inspect(db.bind).get_table_names(schema="ref")  # type: ignore
-        return list(map(pascalize, tables))
-
-
-def list_enum_ref_tables() -> list[str]:
-    return [c.__name__ for c in ColEnum.__subclasses__()]
-
-
-db_refs = list_db_ref_tables()
-enum_refs = list_enum_ref_tables()
-
-
-class RefTables(StrEnum, metaclass=LoadStrEnumMeta, vals=db_refs + enum_refs):
+class RefTable(StrEnum, metaclass=DynamicEnumMeta, vals=ref_tables):
     pass
 
 
 @router.get("/tables", response_model=list[str])
 def list_reference_tables():
-    return db_refs + enum_refs
+    return ref_tables
 
 
 @router.get("/{table}", response_model=Paginated[AnyReferencePublic])
 def list_reference_values(
-    db: ReadSession, table: RefTables, skip: int = 0, limit: int | None = LIM
+    db: ReadSession, table: RefTable, skip: int = 0, limit: int | None = LIM
 ):
     if table in ("Crop", "Unit"):
         sel_count = select(func.count()).select_from(getattr(models, table))

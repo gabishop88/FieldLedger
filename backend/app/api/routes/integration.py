@@ -1,4 +1,5 @@
 import logging
+from enum import StrEnum
 from uuid import UUID
 
 from fastapi import (
@@ -15,10 +16,24 @@ from fastapi import (
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 
-from app.api.deps import CurrentUser, JobPool, UserSession, WriteSession
+from app.api.deps import (
+    ConcurrencyLimiter,
+    CurrentUser,
+    JobPool,
+    UserSession,
+    WriteSession,
+)
 from app.core.config import settings
-from app.core.enums import SYNC_ACTIVE, SYNC_ORG_ERR, DocTag, ErrMsg, SyncStatus
+from app.core.enums import (
+    SYNC_ACTIVE,
+    SYNC_ORG_ERR,
+    DocTag,
+    DynamicEnumMeta,
+    ErrMsg,
+    SyncStatus,
+)
 from app.db import crud
+from app.db.connection import list_tables
 from app.db.models import (
     AuthPublic,
     JDConnection,
@@ -36,6 +51,19 @@ log = logging.getLogger(__name__)
 
 jd_router = APIRouter(tags=[DocTag.INTEG])
 router = APIRouter()  # Combine routers at the end (after endpoints are added)
+
+
+# NOTE: some of these (org/org_farm) aren't valid children, even if they're valid links
+valid_tables = list_tables("structure", "operation", "resource")
+
+
+class ChildType(StrEnum, metaclass=DynamicEnumMeta, vals=valid_tables):
+    pass
+
+
+# TODO: Make the functions that queue jobs return the job id. Then, make an endpoint
+# where the user can query a job's status. I could also make it so that it could choose
+# to wait for the job?
 
 # region ----------------------------- General Endpoints ------------------------------
 
@@ -148,28 +176,31 @@ async def recieve_jd_webhook(request: Request, user: CurrentUser, pool: JobPool)
 @jd_router.get("/sync-trees", response_model=Paginated[SyncTreeNode])
 async def get_sync_trees(db: UserSession, skip=0, limit: int | None = LIM):
     """Get the sync trees for each org the user can access."""
+    log.info("Sync Trees Requested")
+
     client = JDClient.from_session(db)
     if not await client.check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
 
     trees = crud.jd_link.get_trees_paginated(db, client.conn.user_id, skip, limit)
+    log.info("Returning Trees")
     return Paginated[SyncTreeNode](
         count=trees.count, data=[SyncTreeNode.model_validate(t) for t in trees.data]
     )
 
 
 # TODO: Change job name or id in pool using resource path and/or user.id?
-@jd_router.patch("/resource/{resource_uri:path}")
+@jd_router.patch("/resource/{uri:path}", dependencies=[ConcurrencyLimiter])
 async def jd_modify_sync(
     db: UserSession,
     pool: JobPool,
     data_in: JDLinkUpdate,
-    resource_uri: str = Path(description="e.g. `platform/organizations/{id}`"),
+    uri: str = Path(description="e.g. `platform/organizations/{id}`"),
 ):
     """### Modifies the Sync State of a John Deere Resource Link."""
     log.info("Modifying a Sync Resource.")
     log.info(f"{data_in=}")
-    log.info(f"{resource_uri=}")
+    log.info(f"{uri=}")
     if data_in.status and data_in.status in SYNC_ORG_ERR:
         msg = ErrMsg.INVLD_STATUS.format(data_in.status)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
@@ -178,9 +209,9 @@ async def jd_modify_sync(
     if not await client.check_connection():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, ErrMsg.UNAUTH_JD)
 
-    link = crud.jd_link.get_by_user_and_uri(db, client.conn.user_id, resource_uri)
+    link = crud.jd_link.get_by_user_and_uri(db, client.conn.user_id, uri)
     if not link:
-        msg = ErrMsg.NF.format("Resource Link", resource_uri)
+        msg = ErrMsg.NF.format("Resource Link", uri)
         raise HTTPException(status.HTTP_404_NOT_FOUND, msg)
     if link.parent and link.parent.status not in SYNC_ACTIVE:
         msg = ErrMsg.INACTIVE_PARENT.format(link.uri, link.parent.uri)
@@ -192,14 +223,34 @@ async def jd_modify_sync(
     #         status.HTTP_501_NOT_IMPLEMENTED, f"{link.table_name} sync unimplemneted."
     #     )
 
-    args = {"user_id": client.conn.user_id, "uri": resource_uri, "update": data_in}
-    j = await pool.enqueue_job("modify_sync", **args, _job_id=f"modify:{resource_uri}")
+    args = {"user_id": client.conn.user_id, "uri": uri, "update": data_in}
+    j = await pool.enqueue_job("modify_sync", **args, _job_id=f"modify:{uri}")
     if j is None:
-        msg = ErrMsg.JOB_EXISTS.format(resource_uri)
+        msg = ErrMsg.JOB_EXISTS.format(uri)
         raise HTTPException(status.HTTP_409_CONFLICT, msg)
     return status.HTTP_202_ACCEPTED
 
 
+@jd_router.patch("/resource/modify-children/{uri:path}")
+async def jd_modify_children(
+    db: UserSession,
+    pool: JobPool,
+    data_in: JDLinkUpdate,
+    uri: str,
+    type: list[ChildType] = Query(default_factory=list),
+):
+    """### Modifies the Sync State of each of the children of the given resource link.
+    The update provided will be applied equally to all children whose type is provided.
+
+    Each type must be provided (by table name). Omitting type will affect 0 records.
+    """
+    # TODO: Decide on the implementation. I could: dump single jobs at a reasonable pace
+    # into the queue or make a worker function that does all of the relevant children in
+    # a loop (either stopping on error or skipping, maybe make a parameter).
+    pass
+
+
+# TODO: Generalize this to prepare any resource and get the links that would be created?
 @jd_router.get("/resource/prepare-operation/{op_uri:path}")
 async def jd_prepare_operation_for_sync(db: UserSession, pool: JobPool, op_uri: str):
     """### Get data that syncing an operation would produce.

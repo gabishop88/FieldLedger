@@ -25,6 +25,8 @@ value in order to change them to a different enum value so the records remain va
 
 from enum import EnumMeta, StrEnum, _EnumDict
 
+# region ---------------------------- API Reference Enums -----------------------------
+
 
 class DocTag(StrEnum):
     # Asset Tags
@@ -88,15 +90,23 @@ class ErrMsg(StrEnum):
     NO_WORKER = "Worker health check timed out."
 
 
-class LoadStrEnumMeta(EnumMeta):
+# endregion
+# region -------------------------- Dynamically Filled Enums --------------------------
+
+
+class DynamicEnumMeta(EnumMeta):
     """### StrEnum metaclass dynamically filled at runtime.
-    E.g. `class MyEnum(StrEnum, metaclass=RuntimeStrEnumMeta, vals=value_list): ...`
+    E.g. `class MyEnum(StrEnum, metaclass=DynamicEnumMeta, vals=value_list): ...`
     """
 
     def __new__(mcls, name, bases, dct: _EnumDict, vals: list[str]):
         if vals:
             dct.update({v: v for v in vals})
         return super().__new__(mcls, name, bases, dct)
+
+
+# endregion
+# region ----------------------------- Table Column Enums -----------------------------
 
 
 class ColEnum(StrEnum):
@@ -238,3 +248,10 @@ class SyncStatus(ColEnum):
 
 SYNC_ACTIVE = {SyncStatus.Synced, SyncStatus.Pending, SyncStatus.Paused}
 SYNC_ORG_ERR = {SyncStatus.Inaccessible, SyncStatus.Conflict}  # Org-link-only errs
+
+
+def list_col_enums() -> list[str]:
+    return [c.__name__ for c in ColEnum.__subclasses__()]
+
+
+# endregion
