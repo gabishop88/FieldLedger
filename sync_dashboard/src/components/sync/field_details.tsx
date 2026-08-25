@@ -1,4 +1,4 @@
-import { Button, Card, Divider, Group, ScrollArea, Scroller, Stack, Text, Timeline } from "@mantine/core";
+import { Button, Card, Center, Divider, Group, ScrollArea, Scroller, Stack, Text, Timeline } from "@mantine/core";
 import { useMemo, useRef, useState } from "react";
 
 import BoundaryModal from "./boundary_modal";
@@ -137,10 +137,10 @@ export default function FieldDetailsPanel({ field, selectedOp: selOp, onSelectOp
 
       {/* Operation Timeline and details when an op is selected. */}
       <Group flex={1} mih={0}>
-        <Card withBorder py={0} pl={0} h="100%">
-          <ScrollArea type="never" pl="sm">
-            <Stack pt="sm">
-              <Button 
+        <Card withBorder py={0} px={0} h="100%">
+          <Stack p="xs" gap={0}>
+            <Center>Operation Timeline</Center>
+            <Button 
                 fullWidth
                 variant="light"
                 size="compact-sm"
@@ -148,9 +148,13 @@ export default function FieldDetailsPanel({ field, selectedOp: selOp, onSelectOp
                 disabled={!syncableOps}
                 loading={isPending}
                 onClick={syncAll}
-              >
+                >
                 Sync {syncableOps} Operation(s)
               </Button>
+            </Stack>
+          <Divider />
+          <ScrollArea type="hover" pl="sm">
+            <Stack pt="sm">
               <Timeline>
                 {ops.map(op =>
                   <TimelineOpCard op={op} selected={selOp?.uri === op.uri} onClick={() => onSelectOp(selOp?.uri === op.uri ? null : op.uri)}>

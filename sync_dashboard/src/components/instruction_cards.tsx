@@ -51,7 +51,7 @@ export function EmptyOpCard() {
       </Text>
 
       <Text c="dimmed" pt="md">
-        Or, select a Field Boundary below.
+        Or, select a Field Boundary above.
       </Text>
     </Card>
   </Center>
