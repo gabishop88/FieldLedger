@@ -5,7 +5,7 @@ interface ConfirmModalProps {
   opened: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  loading: boolean;
+  loading?: boolean;
 
   title: ReactNode;
   children?: ReactNode;
@@ -19,7 +19,7 @@ export default function ConfirmModal({ opened, onClose, onConfirm, loading, titl
 
       <Group justify="space-between">
         <Button variant="default" onClick={onClose}>Cancel</Button>
-        <Button color="red" loading={loading} onClick={() => { onConfirm(); onClose(); }}>
+        <Button color="red" loading={loading ?? false} onClick={() => { onConfirm(); onClose(); }}>
           {buttonLabel}
         </Button>
       </Group>

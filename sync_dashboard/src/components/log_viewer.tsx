@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function LogViewer({ toggleCollapse }: Props) {
-  const { logs, setLogs } = useWorkerLogs(100);
+  // const { logs, setLogs } = useWorkerLogs(100);
 
   const viewport = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
@@ -17,7 +17,7 @@ export default function LogViewer({ toggleCollapse }: Props) {
     { top: viewport.current.scrollHeight, behavior: "smooth" }
   );
 
-  useEffect(() => { if (atBottom) scrollToBottom(); }, [logs, atBottom]);
+  // useEffect(() => { if (atBottom) scrollToBottom(); }, [logs, atBottom]);
 
   return <Stack h="100%" w="100%">
     <Group align="baseline" gap="xs">
@@ -33,11 +33,11 @@ export default function LogViewer({ toggleCollapse }: Props) {
         </ActionIcon>
       </Tooltip>
 
-      <Tooltip label="Clear Logs">
+      {/* <Tooltip label="Clear Logs">
         <ActionIcon color="red" onClick={() => setLogs([])} variant="subtle">
           <IconTrash size={18} />
         </ActionIcon>
-      </Tooltip>
+      </Tooltip> */}
 
       <Text size="md">Worker Logs</Text>
     </Group>
@@ -52,11 +52,11 @@ export default function LogViewer({ toggleCollapse }: Props) {
         if (vp.scrollHeight - y - vp.clientHeight > 10) setAtBottom(false);
       }}
     >
-      <Code block p="sm" w="100%">
+      {/* <Code block p="sm" w="100%">
         {logs.map((log, i) => 
           <Text w="100%" pt="xs" textWrap="wrap" key={i} ff="monospace" fz="sm">{log}</Text>
         )}
-      </Code>
+      </Code> */}
     </ScrollArea>
   </Stack>
 }

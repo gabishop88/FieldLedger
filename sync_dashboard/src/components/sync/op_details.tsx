@@ -1,13 +1,11 @@
 import { Card, DataList, Group, Loader, ScrollArea, Stack, Text } from "@mantine/core";
-import { usePrepareOperation as usePrepareOp } from "../../hooks/use_sync_tree";
+import { usePrepareOperation as usePrepareOp, useSyncTree } from "../../hooks/use_sync_tree";
 import type { AnySyncLink, SyncLink } from "../../types/fl";
 import type { JDMeas, JDProduct, JDRing } from "../../types/jd";
 import { IconArchive, IconArchiveOff, IconDroplet, IconDropletOff, IconLock, IconLockOff, IconMap2, IconMapOff } from "@tabler/icons-react";
 import { useMemo } from "react";
 import L from "leaflet";
 import { MapContainer, GeoJSON, TileLayer } from "react-leaflet";
-
-const notNull = (v: any) => v != null;
 
 function formatMeasurement(val: JDMeas | null, precision: number = 2) {
   return val ? `${val.value.toFixed(precision)} ${val.unit}` : null;
@@ -106,7 +104,8 @@ interface BoundaryCardProps {
 }
 
 export function BoundaryCard({ link, mapH = 150 }: BoundaryCardProps) {
-  const baseMapUrl = "https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}";
+  // const baseMapUrl = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}";
+  const baseMapUrl = "https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg";
 
   const exteriorFirst = (a: JDRing, b: JDRing) => Number(b.type === "exterior") - Number(a.type === "exterior");
   const geometry = useMemo(() =>
@@ -209,6 +208,13 @@ export default function OperationDetails({ selectedOp, title }: OpCardProps) {
   const { data, isPending } = usePrepareOp(selectedOp?.uri);
   // TODO: Get the other products from the parent org's actual children.
   const nameMap = new Map(data?.new_org_children.map(p => [p.data.id, p.data.name]));
+  const tree = useSyncTree(true);
+  const org = tree.data?.find(org => selectedOp?.uri.startsWith(org.uri));
+
+  const inputs = selectedOp?.children.filter(c => c.table_name === "op_input");
+  const outputs = selectedOp?.children.filter(c => c.table_name === "op_output");
+  const productIds = [...inputs?.map(i => i.data.guid) ?? [], ...outputs?.map(o => o.data.guid) ?? []];
+  const usedProducts = org?.children.filter(c => c.table_name === "product").filter(p => productIds.includes(p.data.id));
 
   function selectChildCard(item: AnySyncLink): React.ReactElement | null {
     switch (item.table_name) {
@@ -233,6 +239,12 @@ export default function OperationDetails({ selectedOp, title }: OpCardProps) {
           <Text size="lg" fw={600}>These will become available for sync upon syncing Operation:</Text>
           <Group align="flex-end">{data?.new_op_children.map(selectChildCard)}</Group>
         </>}
+
+        <Text>{selectedOp.children.map(c => c.table_name)}</Text>
+
+        {inputs?.map(i => <Card key={i.data.guid}>INPUT {i.data.guid}</Card>)}
+
+        {usedProducts?.map(p => <Card key={p.data.id}>PRODUCT {p.data.name}</Card>)}
 
         {!!data?.new_org_children.length && <>
           <Text size="lg" fw={600}>These will become available under the parent Organization upon syncing Operation:</Text>
