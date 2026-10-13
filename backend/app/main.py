@@ -2,7 +2,7 @@ import re
 from contextlib import asynccontextmanager
 
 from arq import create_pool
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
