@@ -15,6 +15,9 @@ SNAKIFIER = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 def custom_route_id(route: APIRoute) -> str:
+    """### Provide each endpoint with a unique route id.
+    Take the first tag (or 'default'), put it in snake_case and append the route name.
+    """
     tag = route.tags[0] if route.tags else "default"
     tag = str(tag).strip().replace(" ", "_")
     tag = SNAKIFIER.sub("_", tag).lower()
@@ -23,6 +26,7 @@ def custom_route_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app):
+    """Set up a job pool whose life span is tied to the API."""
     app.state.job_pool = await create_pool(settings.REDIS_SETTINGS)
     yield
     await app.state.job_pool.close()
@@ -58,13 +62,9 @@ app.include_router(api_router, prefix=settings.API_PREFIX)
 @app.get("/help", include_in_schema=False)
 @app.get("/docs", include_in_schema=False)
 def redirect_to_docs():
-    return RedirectResponse(
-        f"{settings.API_PREFIX}/docs", status.HTTP_301_MOVED_PERMANENTLY
-    )
+    return RedirectResponse(f"{settings.API_PREFIX}/docs")
 
 
 @app.get("/redoc", include_in_schema=False)
 def redirect_to_redoc():
-    return RedirectResponse(
-        f"{settings.API_PREFIX}/redoc", status.HTTP_301_MOVED_PERMANENTLY
-    )
+    return RedirectResponse(f"{settings.API_PREFIX}/redoc")
