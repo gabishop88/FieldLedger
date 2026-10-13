@@ -275,6 +275,7 @@ class JDMeasType(JDBaseModel):
         return super().model_dump(**kwargs)
 
 
+# TODO: Do any of these need `area` outside of the whole JDMeasurement?
 class InputMeasurement(JDBaseModel):
     guid: str
     area: Meas | None = None

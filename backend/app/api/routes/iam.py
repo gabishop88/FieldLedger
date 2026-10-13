@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 from typing import Annotated
 from uuid import UUID
 
@@ -41,6 +42,8 @@ LoginForm = Annotated[OAuth2PasswordRequestForm, Depends()]  # Login Form type
 
 router = APIRouter(prefix="/account")
 
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # ------------------------------------- Auth Token -------------------------------------
 
@@ -95,6 +98,7 @@ def get_your_user_info(user: CurrentUser) -> AppUser:
 
     If using /docs page, log in with the green 'Authorize' button.
     """
+    log.info("User Account Requested")
     return user
 
 

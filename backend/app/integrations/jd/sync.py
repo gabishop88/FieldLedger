@@ -1,4 +1,3 @@
-import json
 import logging
 from asyncio import gather
 from collections.abc import Generator
@@ -63,11 +62,10 @@ from app.integrations.jd.requests import JDClient
 log_handler = RichHandler(show_time=False)
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[log_handler])
 log = logging.getLogger(__name__)
-# print(log)
-# print(type(log))
+
+# region ------------------------------ General Helpers -------------------------------
 
 
-# TODO: probably move to be shared by all integrations, but this is the only one for now
 @contextmanager
 def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
     with Session(engine) as db:
@@ -80,6 +78,7 @@ def user_session(engine: Engine, user_id: UUID) -> Generator[Session]:
             raise
 
 
+# endregion
 # region ------------------------------- Unsync Helpers -------------------------------
 
 
@@ -403,6 +402,9 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
                     changes["local_persistent"] = True
 
             if fl_farm is None:
+                # TODO: Do I need to put similar checks anywhere else?
+                if jd_farm.name is None:
+                    raise ValueError("Cannot create a farm without a valid name.")
                 fl_farm = crud.farm.create(db, FarmCreate(name=jd_farm.name))
                 own = OrgFarm(type=OrgFarmType.Own, org_id=org_id, farm_id=fl_farm.id)
                 crud.org_farm.create(db, own)
@@ -591,6 +593,7 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
             """
             new_links = await links_from_op(client, link, jd_op)
             new_op_children, new_org_children = new_links if new_links else ([], [])
+            log.info(f"Creating {len(new_op_children)=} and {len(new_org_children)=}")
             crud.jd_link.create_multiple(db, new_op_children + new_org_children)
 
             # TODO: update webhooks
