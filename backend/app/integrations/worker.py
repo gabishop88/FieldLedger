@@ -17,11 +17,6 @@ log = logging.getLogger(__name__)
 # NOTE: https://arq-docs.helpmanual.io/
 
 
-# TODO: Add file in ./jd/ for job functions that can be used by worker and/or startup
-# NOTE: I can use _job_id in enqueue_job to make sure syncs are run once?
-# TODO: Use dep function or something else to make the pool that I can enqueue to
-
-
 async def health_check(ctx) -> bool:
     log.info("Worker Healthy!")
     return "engine" in ctx
@@ -45,11 +40,11 @@ class RedisLogHandler(logging.Handler):
             asyncio.get_running_loop().create_task(self._publish(self.format(record)))
 
 
-# TODO: remove keep_result=10 and find another way to allow retries but not conflicts.
+# TODO: remove `keep_result` and find another way to allow retries but not conflicts.
+# NOTE: restart sync-worker service after a function is added or modified.
 class WorkerSettings:
     redis_settings = settings.REDIS_SETTINGS
     keep_result = 5
-    # NOTE: restart sync-worker service after a function is added or modified.
     functions = [
         health_check,
         jd.discover_orgs,
