@@ -126,7 +126,7 @@ async def delete_connection(db: UserSession, user: CurrentUser):
             ErrMsg.NF.format("Connection for User", user.email),
         )
 
-    org_links = crud.jd_link.get_trees_paginated(db, user.id).data
+    org_links = crud.jd_link.get_trees_paginated(db, user.id).values
     for org in org_links:
         await change_status(db, org, SyncStatus.Unsynced)
     crud.jd_connection.delete(db, conn)
@@ -180,7 +180,7 @@ async def get_sync_trees(db: UserSession, skip=0, limit: int | None = LIM):
     trees = crud.jd_link.get_trees_paginated(db, client.conn.user_id, skip, limit)
     log.info("Returning Trees")
     return Paginated[SyncTreeNode](
-        count=trees.count, data=[SyncTreeNode.model_validate(t) for t in trees.data]
+        count=trees.count, values=[SyncTreeNode.model_validate(t) for t in trees.values]
     )
 
 

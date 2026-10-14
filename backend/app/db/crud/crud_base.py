@@ -25,6 +25,7 @@ from app.core.enums import ErrMsg
 #             raise HTTPException(status.HTTP_409_CONFLICT, msg)
 #         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, msg)
 
+
 class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     """### Superclass for CRUD Operations on tables.
     For now, there are no READ operations defined since Session.get and Session.exec are
@@ -89,7 +90,8 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
     def create(self, db: Session, new_record: CreateType) -> ModelType:
         return self.create_multiple(db, [new_record])[0]
 
-    def create_multiple(self, db: Session, new_records: Sequence[CreateType]
+    def create_multiple(
+        self, db: Session, new_records: Sequence[CreateType]
     ) -> Sequence[ModelType]:
         model_objs = [self._validate(obj) for obj in new_records]
         self._safe_add(db, model_objs)
@@ -117,16 +119,11 @@ class CRUDBase[ModelType: SQLModel, CreateType: SQLModel, UpdateType: SQLModel]:
         self, db: Session, skip: int, limit: int | None, *filters, order_by=None
     ) -> Paginated[ModelType]:
         self.model = self._ensure_model_exists()
-        query = select(self.model).where(*filters).offset(skip).limit(limit)
+        sel_count = select(func.count()).select_from(self.model).where(*filters)
+        sel_vals = select(self.model).where(*filters).offset(skip).limit(limit)
         if order_by is not None:
-            query = query.order_by(order_by)
-
-        return Paginated(
-            count=db.exec(
-                select(func.count()).select_from(self.model).where(*filters)
-            ).one(),
-            data=db.exec(query).all(),
-        )
+            sel_vals = sel_vals.order_by(order_by)
+        return Paginated(count=db.exec(sel_count).one(), values=db.exec(sel_vals).all())
 
     # ---------------- UPDATE ----------------
 

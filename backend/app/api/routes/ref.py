@@ -34,12 +34,12 @@ def list_reference_values(
 ):
     if table in ("Crop", "Unit"):
         sel_count = select(func.count()).select_from(getattr(models, table))
-        sel_data = select(getattr(models, table)).offset(skip).limit(limit)
-        return Paginated(count=db.exec(sel_count).one(), data=db.exec(sel_data).all())
+        sel_vals = select(getattr(models, table)).offset(skip).limit(limit)
+        return Paginated(count=db.exec(sel_count).one(), values=db.exec(sel_vals).all())
 
-    data = getattr(enums, table).asdict()
+    vals = getattr(enums, table).asdict()
     return Paginated(
-        count=len(data), data=data[skip : skip + limit if limit is not None else None]
+        count=len(vals), values=vals[skip : skip + limit if limit is not None else None]
     )
 
 

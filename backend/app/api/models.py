@@ -43,7 +43,7 @@ T = TypeVar("T")
 
 class Paginated[T](SQLModel):
     count: int
-    data: Sequence[T]
+    values: Sequence[T]
 
 
 class Token(SQLModel):

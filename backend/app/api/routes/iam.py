@@ -150,7 +150,7 @@ def search_for_users(
     To prevent a huge dump of all users, provide at least one of these search options.
 
     Use `skip` and `limit` to paginate.
-    The `count` is the total number of results found. If there are fewer users in `data`
+    `count` is the total number of results found. If there are fewer users in `values`
     than the `count` would suggest, then there are additional pages of results.
     """
     if not any((email, id, name)):
