@@ -3,18 +3,17 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.deps import ReadSession, UserSession
-from app.core.config import settings
-from app.core.enums import DocTag
-from app.db import crud
-from app.db.models import (
-    Equipment,
+from app.api.models import (
     EquipmentCreate,
     EquipmentUpdate,
     Paginated,
-    Product,
     ProductCreate,
     ProductUpdate,
 )
+from app.core.config import settings
+from app.core.enums import DocTag
+from app.db import crud
+from app.db.models import Equipment, Product
 
 LIM = settings.DEFAULT_PAGE_LIMIT
 

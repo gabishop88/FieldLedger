@@ -20,6 +20,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, String, col, select, text
 from sqlmodel import cast as sqlcast
 
+from app.api.models import FarmCreate, JDLinkUpdate, OrgCreate, SyncLinkUpdate
 from app.core.enums import (
     SYNC_ACTIVE,
     SYNC_ORG_ERR,
@@ -33,17 +34,13 @@ from app.db import crud
 from app.db.crud.crud_base import CRUDBase
 from app.db.models import (
     Farm,
-    FarmCreate,
     Field,
     FieldBoundary,
     FieldOp,
-    JDLinkUpdate,
     JDRecordLink,
     JDShapefile,
     Org,
-    OrgCreate,
     OrgFarm,
-    SyncLinkUpdate,
 )
 from app.integrations.jd.models import (
     JDBoundary,
@@ -467,7 +464,7 @@ async def try_sync(db: Session, link: JDRecordLink) -> bool:
                 jd_field.get_link("boundaries").uri, JDMulti[JDBoundary]
             )
             # TODO: This could be a good place to use a gather() to start requesting shp
-            # TODO: Max itemLimit for fieldOps is 100. I need to get more data through multiple requests.
+            # TODO: Max itemLimit for fieldOps is 100. More data takes multiple requests
             ops = await client.get(
                 jd_field.get_link("fieldOperation").uri,
                 JDMulti[JDFieldOp],

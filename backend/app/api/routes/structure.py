@@ -4,27 +4,23 @@ from fastapi import APIRouter
 from sqlmodel import select
 
 from app.api.deps import ReadSession, UserSession
-from app.core.config import settings
-from app.core.enums import DocTag, OrgFarmType
-from app.db import crud
-from app.db.models import (
+from app.api.models import (
     BoundaryCreate,
     BoundaryUpdate,
-    Farm,
     FarmCreate,
     FarmUpdate,
-    Field,
-    FieldBoundary,
     FieldCreate,
     FieldUpdate,
-    Org,
     OrgCreate,
-    OrgFarm,
     OrgFarmPublic,
     OrgFarmUpsert,
     OrgUpdate,
     Paginated,
 )
+from app.core.config import settings
+from app.core.enums import DocTag, OrgFarmType
+from app.db import crud
+from app.db.models import Farm, Field, FieldBoundary, Org, OrgFarm
 
 LIM = settings.DEFAULT_PAGE_LIMIT
 

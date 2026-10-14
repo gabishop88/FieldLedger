@@ -5,19 +5,13 @@ from fastapi import APIRouter, HTTPException, status
 from sqlmodel import func, select
 
 from app.api.deps import ReadSession, SuperuserSession
+from app.api.models import AnyReferencePublic, CropUpdate, Paginated, UnitUpdate
 from app.core import enums
 from app.core.config import settings
 from app.core.enums import DynamicEnumMeta, ErrMsg, list_col_enums
 from app.db import crud, models
 from app.db.connection import list_tables
-from app.db.models import (
-    AnyReferencePublic,
-    Crop,
-    CropUpdate,
-    Paginated,
-    Unit,
-    UnitUpdate,
-)
+from app.db.models import Crop, Unit
 
 LIM = settings.DEFAULT_PAGE_LIMIT
 

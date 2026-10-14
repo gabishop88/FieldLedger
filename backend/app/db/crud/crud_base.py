@@ -7,8 +7,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, InternalError
 from sqlmodel import Session, SQLModel, func, select
 
+from app.api.models import Paginated
 from app.core.enums import ErrMsg
-from app.db.models import Paginated
 
 # TODO: improved/standalone create/delete functions that take 1+ objs:
 # def create(self, db: Session, *objs: CreateType) -> tuple[ModelType, ...]:

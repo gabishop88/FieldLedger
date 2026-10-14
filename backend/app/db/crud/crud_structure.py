@@ -1,18 +1,14 @@
-from app.db.crud.crud_base import CRUDBase
-from app.db.models import (
+from app.api.models import (
     BoundaryUpdate,
-    Farm,
     FarmCreate,
     FarmUpdate,
-    Field,
-    FieldBoundary,
     FieldUpdate,
-    Org,
     OrgCreate,
-    OrgFarm,
     OrgFarmUpsert,
     OrgUpdate,
 )
+from app.db.crud.crud_base import CRUDBase
+from app.db.models import Farm, Field, FieldBoundary, Org, OrgFarm
 
 
 class CRUDOrg(CRUDBase[Org, OrgCreate, OrgUpdate]):

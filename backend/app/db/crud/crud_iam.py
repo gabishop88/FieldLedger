@@ -1,16 +1,16 @@
 from pydantic import EmailStr
 from sqlmodel import Session, select
 
-from app.core.security import decode_token, get_password_hash, verify_password
-from app.db.crud.crud_base import CRUDBase
-from app.db.models import (
-    AppUser,
+from app.api.models import (
     PasswordReset,
     UserCreate,
     UserRegister,
     UserUpdate,
     UserUpdateSelf,
 )
+from app.core.security import decode_token, get_password_hash, verify_password
+from app.db.crud.crud_base import CRUDBase
+from app.db.models import AppUser
 
 CreateType = UserCreate | UserRegister
 UpdateType = UserUpdate | UserUpdateSelf

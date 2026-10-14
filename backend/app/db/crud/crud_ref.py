@@ -1,7 +1,8 @@
 from sqlmodel import Session, func
 
+from app.api.models import CropUpdate, UnitUpdate
 from app.db.crud.crud_base import CRUDBase
-from app.db.models import Crop, CropUpdate, Unit, UnitUpdate
+from app.db.models import Crop, Unit
 
 
 class CRUDCrop(CRUDBase[Crop, Crop, CropUpdate]):

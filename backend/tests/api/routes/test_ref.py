@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.db import crud, models
+from app.db import crud
+from app.db import models as db_models
 from tests.utils.rng import generate_str
 
 PFIX = settings.API_PREFIX + "/ref"
@@ -42,7 +43,7 @@ def test_list_crop_refs(cli: TestClient, db: Session, seed: int) -> None:
     crops = [
         crud.crop.create(
             db,
-            models.Crop(
+            db_models.Crop(
                 common_name=generate_str(seed + i),
                 latin_name=generate_str(seed + i),
                 family=generate_str(seed + i),
@@ -73,7 +74,7 @@ def test_add_crop(cli: TestClient, seed: int, su_head: dict[str, str]) -> None:
 def test_edit_crop(cli: TestClient, db: Session, seed: int, su_head) -> None:
     crop = crud.crop.create(
         db,
-        models.Crop(
+        db_models.Crop(
             common_name=generate_str(seed),
             latin_name=generate_str(seed),
             family=generate_str(seed),
@@ -92,7 +93,7 @@ def test_edit_crop(cli: TestClient, db: Session, seed: int, su_head) -> None:
 def test_delete_crop(cli: TestClient, db: Session, seed: int, su_head) -> None:
     crop = crud.crop.create(
         db,
-        models.Crop(
+        db_models.Crop(
             common_name=generate_str(seed),
             latin_name=generate_str(seed),
             family=generate_str(seed),
@@ -115,7 +116,7 @@ def test_list_unit_refs(cli: TestClient, db: Session, seed: int) -> None:
     units = [
         crud.unit.create(
             db,
-            models.Unit(
+            db_models.Unit(
                 name=generate_str(seed + i),
                 si_unit_name=generate_str(seed + i),
                 si_conv=1.0,
@@ -135,7 +136,7 @@ def test_list_unit_refs(cli: TestClient, db: Session, seed: int) -> None:
 def test_edit_unit(cli: TestClient, db: Session, seed: int, su_head) -> None:
     unit = crud.unit.create(
         db,
-        models.Unit(
+        db_models.Unit(
             name=generate_str(seed),
             si_unit_name=generate_str(seed),
             si_conv=1.0,

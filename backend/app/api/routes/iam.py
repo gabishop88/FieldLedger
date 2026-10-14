@@ -1,5 +1,5 @@
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -15,12 +15,7 @@ from app.api.deps import (
     UserSession,
     WriteSession,
 )
-from app.core.config import settings
-from app.core.enums import ErrMsg
-from app.core.security import create_access_token
-from app.db import crud
-from app.db.models import (
-    AppUser,
+from app.api.models import (
     LoginBody,
     Paginated,
     Token,
@@ -29,6 +24,11 @@ from app.db.models import (
     UserUpdate,
     UserUpdateSelf,
 )
+from app.core.config import settings
+from app.core.enums import ErrMsg
+from app.core.security import create_access_token
+from app.db import crud
+from app.db.models import AppUser
 
 NAME_THRESHOLD = 0.4  # Similarity threshold for matching name when searching.
 

@@ -3,18 +3,17 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.core.config import settings
-from app.core.enums import EquipmentType, ErrMsg, ProductType
-from app.db import crud
-from app.db.models import (
-    Equipment,
+from app.api.models import (
     EquipmentCreate,
     EquipmentUpdate,
     OrgCreate,
-    Product,
     ProductCreate,
     ProductUpdate,
 )
+from app.core.config import settings
+from app.core.enums import EquipmentType, ErrMsg, ProductType
+from app.db import crud
+from app.db.models import Equipment, Product
 from tests.utils.rng import generate_str
 
 PFIX = settings.API_PREFIX

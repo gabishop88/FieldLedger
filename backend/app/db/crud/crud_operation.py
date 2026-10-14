@@ -1,14 +1,11 @@
-from app.db.crud.crud_base import CRUDBase
-from app.db.models import (
-    FieldOp,
+from app.api.models import (
     FieldOpUpdate,
-    OpEquipment,
     OpEquipmentUpdate,
-    OpInput,
     OpInputUpdate,
-    OpOutput,
     OpOutputUpdate,
 )
+from app.db.crud.crud_base import CRUDBase
+from app.db.models import FieldOp, OpEquipment, OpInput, OpOutput
 
 
 class CRUDFieldOp(CRUDBase[FieldOp, FieldOp, FieldOpUpdate]):

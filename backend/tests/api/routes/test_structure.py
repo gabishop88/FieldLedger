@@ -1,19 +1,10 @@
 from uuid import UUID, uuid4
 
+from app.api.models import BoundaryCreate, FarmCreate, FieldCreate, OrgCreate
 from app.core.config import settings
 from app.core.enums import BoundaryType, FieldType, OrgFarmType
 from app.db import crud
-from app.db.models import (
-    BoundaryCreate,
-    Farm,
-    FarmCreate,
-    Field,
-    FieldBoundary,
-    FieldCreate,
-    Org,
-    OrgCreate,
-    OrgFarm,
-)
+from app.db.models import Farm, Field, FieldBoundary, Org, OrgFarm
 from tests.utils.rng import generate_geom, generate_str
 
 PFIX = settings.API_PREFIX

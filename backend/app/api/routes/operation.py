@@ -3,13 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.deps import ReadSession, UserSession
-from app.core.config import settings
-from app.core.enums import DocTag
-from app.db import crud
-from app.db.crud.crud_operation import CRUDOpEquipment, CRUDOpInput, CRUDOpOutput
-from app.db.models import (
+from app.api.models import (
     BulkResource,
-    FieldOp,
     FieldOpCreate,
     FieldOpUpdate,
     OpEquipmentPublic,
@@ -17,6 +12,11 @@ from app.db.models import (
     OpOutputPublic,
     Paginated,
 )
+from app.core.config import settings
+from app.core.enums import DocTag
+from app.db import crud
+from app.db.crud.crud_operation import CRUDOpEquipment, CRUDOpInput, CRUDOpOutput
+from app.db.models import FieldOp
 
 LIM = settings.DEFAULT_PAGE_LIMIT
 
@@ -35,6 +35,8 @@ def list_operations(
     skip: int = 0,
     limit: int | None = LIM,
 ):
+    if not resources:
+        raise NotImplementedError("Resources must remain embedded until implemented.")
     field = crud.field.get_or_raise(db, id)
     return crud.field_op.get_paginated(db, skip, limit, FieldOp.field_id == field.id)
 

@@ -3,11 +3,12 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from app.api.models import UserCreate, UserUpdate
 from app.core import security
 from app.core.config import settings
 from app.core.enums import ErrMsg
 from app.db import crud
-from app.db.models import AppUser, UserCreate, UserUpdate
+from app.db.models import AppUser
 from tests.utils.auth import get_auth_headers
 from tests.utils.rng import generate_email, generate_str
 

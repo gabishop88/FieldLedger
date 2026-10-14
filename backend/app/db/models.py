@@ -1,11 +1,10 @@
 import json
-from collections.abc import Sequence
 from datetime import datetime
 from functools import cached_property
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Annotated, Any, ClassVar, Optional, TypeVar
+from typing import Annotated, Any, ClassVar, Optional
 from uuid import UUID
 from zipfile import ZipFile
 
@@ -28,7 +27,7 @@ from sqlmodel import (
     func,
     text,
 )
-from sqlmodel import Field as ColInfo  # NOTE: `Field as ColInfo` bc of `Field` model.
+from sqlmodel import Field as ColInfo
 from sqlmodel._compat import SQLModelConfig
 from uuid6 import uuid7
 
@@ -43,36 +42,10 @@ from app.core.enums import (
     SyncStatus,
 )
 
-# TODO: For the crop tables: Make a CropCreate and CropPublic? Remove density_unit?
-# TODO: Make alt xPublic classes w/ Relationships, requested via query param or smth?
 # TODO: Replace all x/x_unit values with a string and use the postgresql-unit extension?
 # TODO: If using postgresql-unit, define an enum with the available units maybe per col
-# TODO: Clean up inconsistency on whether parent ids can be upated in Update schemas.
 # TODO: Add changelog hooks here so they are more visible/explicit?
 
-# region ------------------------------- Miscellaneous ---------------------------------
-
-
-T = TypeVar("T")
-
-
-class Paginated[T](SQLModel):
-    count: int
-    data: Sequence[T]
-
-
-class Token(SQLModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_min: int
-
-
-class TypeEnumPublic(SQLModel):
-    name: str
-    description: str | None
-
-
-# endregion
 # region ------------------------------------ IAM -------------------------------------
 
 
@@ -80,43 +53,6 @@ class UserBase(SQLModel):
     email: EmailStr = ColInfo(unique=True, index=True, max_length=255)
     is_superuser: bool = False
     full_name: str | None = None
-
-
-class UserPublic(UserBase):
-    id: UUID
-
-
-class UserCreate(UserBase):
-    password: str = ColInfo(min_length=8, max_length=255)
-
-
-class UserRegister(SQLModel):
-    email: EmailStr = ColInfo(max_length=255)
-    password: str = ColInfo(min_length=8, max_length=255)
-    full_name: str | None = None
-
-
-class UserUpdate(SQLModel):
-    email: EmailStr | None = ColInfo(default=None, max_length=255)
-    password: str | None = ColInfo(default=None, min_length=8, max_length=255)
-    is_superuser: bool = False
-    full_name: str | None = None
-
-
-class UserUpdateSelf(SQLModel):
-    full_name: str | None = ColInfo(default=None, max_length=255)
-    email: EmailStr | None = ColInfo(default=None, max_length=255)
-    password: str | None = ColInfo(default=None, min_length=8, max_length=255)
-
-
-class LoginBody(SQLModel):
-    username: EmailStr
-    password: str
-
-
-class PasswordReset(SQLModel):
-    token: str
-    new_password: str = ColInfo(min_length=8, max_length=255)
 
 
 class AppUser(UserBase, table=True):
@@ -136,15 +72,6 @@ class OrgBase(SQLModel):
     description: str | None = None
 
 
-class OrgCreate(OrgBase):
-    pass
-
-
-class OrgUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-
-
 class Org(OrgBase, table=True):
     __tablename__: ClassVar[str] = "org"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
@@ -158,31 +85,11 @@ class FarmBase(SQLModel):
     description: str | None = None
 
 
-class FarmCreate(FarmBase):
-    pass
-
-
-class FarmUpdate(SQLModel):
-    name: str | None = ColInfo(default=None, max_length=255)
-    private: bool | None = None
-    description: str | None = None
-
-
 class Farm(FarmBase, table=True):
     __tablename__: ClassVar[str] = "farm"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
 
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
-
-
-class OrgFarmUpsert(SQLModel):
-    type: OrgFarmType
-
-
-class OrgFarmPublic(SQLModel):
-    org_id: UUID
-    farm_id: UUID
-    type: OrgFarmType | None = None
 
 
 class OrgFarm(SQLModel, table=True):
@@ -202,17 +109,6 @@ class FieldBase(SQLModel):
     name: str = ColInfo(nullable=False, max_length=255)
     type: FieldType = ColInfo(sa_column=Column("type", String(32), nullable=False))
     description: str | None = None
-
-
-class FieldCreate(FieldBase):
-    pass
-
-
-class FieldUpdate(SQLModel):
-    name: str | None = ColInfo(default=None, max_length=255)
-    type: FieldType | None = None
-    description: str | None = None
-    # farm_id: UUID | None = None  # TODO: Allow field transfer?
 
 
 class Field(FieldBase, table=True):
@@ -258,19 +154,6 @@ class BoundaryBase(SQLModel, arbitrary_types_allowed=True):
         return value
 
 
-class BoundaryCreate(BoundaryBase):
-    pass
-
-
-class BoundaryUpdate(SQLModel):
-    type: BoundaryType | None = None
-    active: bool | None = None
-    covered: bool | None = None
-    description: str | None = None
-    geom: Annotated[str, WKTElement] | None = None
-    field_id: UUID | None = None
-
-
 class FieldBoundary(BoundaryBase, table=True):
     __tablename__: ClassVar[str] = "field_boundary"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "structure"}
@@ -283,7 +166,7 @@ class FieldBoundary(BoundaryBase, table=True):
 # region ------------------------------------ Ref -------------------------------------
 
 
-# NOTE: This gets reused a LOT, so I thought it would be easier to just make a helper
+# NOTE: This gets reused a LOT, hence the helper
 def unit_fk(nullable=True):
     return ColInfo(
         default=None if nullable else ...,
@@ -292,14 +175,6 @@ def unit_fk(nullable=True):
             nullable=nullable,
         ),
     )
-
-
-class UnitUpdate(SQLModel):
-    name: str | None = None
-    description: str | None = None
-    category: str | None = None
-    si_unit_name: str | None = None
-    si_conv: float | None = None
 
 
 class Unit(SQLModel, table=True):
@@ -322,15 +197,6 @@ class CropBase(SQLModel):
     density_unit_name: str | None = unit_fk()
 
 
-class CropUpdate(SQLModel):
-    common_name: str | None = None
-    latin_name: str | None = None
-    family: str | None = None
-    description: str | None = None
-    density: float | None = None
-    density_unit_name: str | None = None
-
-
 class Crop(CropBase, table=True):
     __tablename__: ClassVar[str] = "crop"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "ref"}
@@ -338,8 +204,6 @@ class Crop(CropBase, table=True):
     id: UUID = ColInfo(default_factory=uuid7, primary_key=True)
     density_unit: Unit = Relationship()
 
-
-AnyReferencePublic = TypeEnumPublic | Crop | Unit
 
 # endregion
 # region ---------------------------------- Resource ----------------------------------
@@ -353,19 +217,6 @@ class ProductBase(SQLModel):
     crop_id: UUID | None = ColInfo(
         default=None, foreign_key="ref.crop.id", ondelete="RESTRICT"
     )
-
-
-class ProductCreate(ProductBase):
-    pass
-
-
-class ProductUpdate(SQLModel):
-    name: str | None = None
-    brand: str | None = None
-    type: ProductType | None = None
-    notes: str | None = None
-    org_id: UUID | None = None
-    crop_id: UUID | None = None
 
 
 class Product(ProductBase, table=True):
@@ -390,20 +241,6 @@ class EquipmentBase(SQLModel):
     notes: str | None = None
 
 
-class EquipmentCreate(EquipmentBase):
-    pass
-
-
-class EquipmentUpdate(SQLModel):
-    name: str | None = None
-    type: EquipmentType | None = None
-    make: str | None = None
-    model: str | None = None
-    active: bool | None = None
-    notes: str | None = None
-    # org_id: UUID | None = None
-
-
 class Equipment(EquipmentBase, table=True):
     __tablename__: ClassVar[str] = "equipment"  # type: ignore
     __table_args__ = (
@@ -417,8 +254,6 @@ class Equipment(EquipmentBase, table=True):
 
 # endregion
 # region --------------------------------- Operation ----------------------------------
-
-# TODO: add Product/Equipment Relationships to i/o/e?
 
 
 class FieldOpBase(SQLModel):
@@ -438,21 +273,6 @@ class FieldOpBase(SQLModel):
     )
 
 
-class FieldOpUpdate(SQLModel):
-    type: str | None = None
-    season: int | None = None
-    start: datetime | None = None
-    end: datetime | None = None
-    crop_id: UUID | None = None
-    area: float | None = None
-    area_unit: str | None = None
-    boundary_id: UUID | None = None
-
-
-class FieldOpCreate(FieldOpBase):
-    pass
-
-
 class FieldOp(FieldOpBase, table=True):
     __tablename__: ClassVar[str] = "field_op"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "operation"}
@@ -464,10 +284,6 @@ class FieldOp(FieldOpBase, table=True):
     equipment: list["OpEquipment"] = Relationship(back_populates="op")
 
 
-# TODO: Could I merge inputs and outputs into op_product or something since I only ever
-# have either inputs OR outptus in an operation? Is there a case I would have both?
-
-
 class OpInputBase(SQLModel):
     area: float | None = None
     area_unit: str | None = unit_fk()
@@ -475,19 +291,6 @@ class OpInputBase(SQLModel):
     quantity_unit: str | None = unit_fk()
     rate: float | None = None
     rate_unit: str | None = unit_fk()
-
-
-class OpInputCreate(OpInputBase):
-    pass
-
-
-class OpInputUpdate(OpInputBase):
-    pass
-
-
-class OpInputPublic(OpInputBase):
-    op_id: UUID
-    product_id: UUID
 
 
 class OpInput(OpInputBase, table=True):
@@ -517,19 +320,6 @@ class OpOutputBase(SQLModel):
     moisture_pct: float | None = None
 
 
-class OpOutputCreate(OpOutputBase):
-    pass
-
-
-class OpOutputUpdate(OpOutputBase):
-    pass
-
-
-class OpOutputPublic(OpOutputBase):
-    op_id: UUID
-    product_id: UUID
-
-
 class OpOutput(OpOutputBase, table=True):
     __tablename__: ClassVar[str] = "op_output"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "operation"}
@@ -552,19 +342,6 @@ class OpEquipmentBase(SQLModel):
     depth_unit: str | None = unit_fk()
 
 
-class OpEquipmentCreate(OpEquipmentBase):
-    pass
-
-
-class OpEquipmentUpdate(OpEquipmentBase):
-    pass
-
-
-class OpEquipmentPublic(OpEquipmentBase):
-    op_id: UUID
-    equipment_id: UUID
-
-
 class OpEquipment(OpEquipmentBase, table=True):
     __tablename__: ClassVar[str] = "op_equipment"  # type: ignore
     __table_args__: ClassVar[dict] = {"schema": "operation"}
@@ -578,26 +355,8 @@ class OpEquipment(OpEquipmentBase, table=True):
     op: FieldOp = Relationship(back_populates="equipment")
 
 
-class BulkResource(SQLModel):
-    inputs: list[OpInputPublic]
-    outputs: list[OpOutputPublic]
-    equipment: list[OpEquipmentPublic]
-
-
 # endregion
 # region -------------------------------- Integration ---------------------------------
-
-
-class AuthPublic(SQLModel):
-    authorized: bool
-    auth_uri: str | None = None
-
-
-class JDConnectionUpdate(SQLModel):
-    access_token: str
-    refresh_token: str
-    access_expires_at: datetime
-    first_established: datetime | None = None
 
 
 # TODO: Add a column that let's me track the current reason that it is not connected?
@@ -627,36 +386,6 @@ class JDConnection(SQLModel, table=True):
         back_populates="connection",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-
-
-# TODO: Reduce this down to just what the frontend needs?
-class SyncTreeNode(SQLModel):
-    uri: str
-    data: dict[str, Any]
-    status: SyncStatus
-    local_persistent: bool
-    table_name: str
-    table_key: dict | None
-    id: UUID
-
-    children: list["SyncTreeNode"]
-
-
-class JDLinkUpdate(SQLModel):
-    """Since this is not a simple update, every field is handled in
-    `integrations.jd.sync.modify_sync separately.
-    """
-
-    status: SyncStatus | None = None
-    local_persistent: bool | None = None
-
-
-class SyncLinkUpdate(SQLModel):
-    """This is an update model designed to be used internally when syncing."""
-
-    data: dict[str, Any] | None = None
-    table_key: dict[str, Any] | None = None
-    local_persistent: bool | None = None
 
 
 # TODO: Is is possible to add a type parameter like JDRecordLink[Org] but still only

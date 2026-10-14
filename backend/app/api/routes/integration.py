@@ -23,6 +23,7 @@ from app.api.deps import (
     UserSession,
     WriteSession,
 )
+from app.api.models import AuthPublic, JDLinkUpdate, Paginated, SyncTreeNode
 from app.core.config import settings
 from app.core.enums import (
     SYNC_ACTIVE,
@@ -34,13 +35,7 @@ from app.core.enums import (
 )
 from app.db import crud
 from app.db.connection import list_tables
-from app.db.models import (
-    AuthPublic,
-    JDConnection,
-    JDLinkUpdate,
-    Paginated,
-    SyncTreeNode,
-)
+from app.db.models import JDConnection
 from app.integrations.jd.requests import JDClient
 from app.integrations.jd.sync import change_status
 

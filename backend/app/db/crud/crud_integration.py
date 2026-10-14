@@ -6,15 +6,9 @@ from fastapi import HTTPException, status
 from pydantic_core import to_jsonable_python
 from sqlmodel import Session, func, select
 
+from app.api.models import JDConnectionUpdate, JDLinkUpdate, SyncLinkUpdate
 from app.db.crud.crud_base import CRUDBase
-from app.db.models import (
-    JDConnection,
-    JDConnectionUpdate,
-    JDLinkUpdate,
-    JDRecordLink,
-    JDShapefile,
-    SyncLinkUpdate,
-)
+from app.db.models import JDConnection, JDRecordLink, JDShapefile
 
 LinkUpdate = JDLinkUpdate | SyncLinkUpdate
 

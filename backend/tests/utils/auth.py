@@ -2,9 +2,9 @@ from fastapi.testclient import TestClient
 from pydantic import EmailStr
 from sqlmodel import Session
 
+from app.api.models import UserCreate
 from app.core.config import settings
 from app.db import crud
-from app.db.models import UserCreate
 from tests.utils.rng import generate_email, generate_str
 
 

@@ -1,5 +1,6 @@
+from app.api.models import EquipmentUpdate, ProductUpdate
 from app.db.crud.crud_base import CRUDBase
-from app.db.models import Equipment, EquipmentUpdate, Product, ProductUpdate
+from app.db.models import Equipment, Product
 
 
 class CRUDEquipment(CRUDBase[Equipment, Equipment, EquipmentUpdate]):

@@ -7,11 +7,12 @@ import alembic.config
 from sqlmodel import Session, select
 
 # NOTE: Avoided `from app.db import crud` because crud.ref relies on db being set up.
+from app.api.models import UserCreate
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.backup import get_revision
 from app.db.connection import get_engine, test_connection
-from app.db.models import AppUser, UserCreate
+from app.db.models import AppUser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app.db.prestart")

@@ -21,10 +21,11 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.api.models import JDConnectionUpdate
 from app.core.config import settings
 from app.core.enums import ErrMsg
 from app.db import crud
-from app.db.models import AppUser, JDConnection, JDConnectionUpdate
+from app.db.models import AppUser, JDConnection
 from app.integrations.jd.models import (
     JDChemical,
     JDFertilizer,

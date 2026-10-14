@@ -11,7 +11,6 @@ from shapely import MultiPolygon, Point, Polygon
 from app.core.config import settings
 
 # TODO: Go through and remove all fields that I don't need/use?
-# TODO: Go through and remove "---" placeholder values (often in companyName, name, etc)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
